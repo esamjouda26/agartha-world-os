@@ -1,0 +1,36 @@
+# Normalize all text files to LF on commit
+* text=auto eol=lf
+
+# Force LF for source + config
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.sh text eol=lf
+
+# Husky hooks must be LF even on Windows
+.husky/* text eol=lf
+
+# Binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Generated — diff/merge noise reduction
+pnpm-lock.yaml -diff
+src/types/database.ts -diff linguist-generated=true
