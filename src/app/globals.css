@@ -1,26 +1,476 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================================
+ * Phase 2A — Design Tokens
+ * Single source of truth. Components consume these via Tailwind utilities or
+ * var(--token). Raw hex outside this file is forbidden (CLAUDE.md §5,
+ * prompt.md §A.0). Token groups follow prompt.md §A.1–§A.13.
+ * ========================================================================== */
+
 :root {
+  color-scheme: light;
+
+  /* §A.1 Brand — Indigo (primary), Violet (accent) */
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-300: #a5b4fc;
+  --brand-400: #818cf8;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-800: #3730a3;
+  --brand-900: #312e81;
+
+  --brand-accent-50: #f5f3ff;
+  --brand-accent-100: #ede9fe;
+  --brand-accent-200: #ddd6fe;
+  --brand-accent-300: #c4b5fd;
+  --brand-accent-400: #a78bfa;
+  --brand-accent-500: #8b5cf6;
+  --brand-accent-600: #7c3aed;
+  --brand-accent-700: #6d28d9;
+  --brand-accent-800: #5b21b6;
+  --brand-accent-900: #4c1d95;
+
+  --brand-primary: var(--brand-600);
+  --brand-primary-foreground: #ffffff;
+  --brand-accent: var(--brand-accent-700);
+  --brand-accent-foreground: #ffffff;
+
+  /* §A.2 Status — matches frontend_spec.md §12s StatusBadge color map */
+  --status-success-solid: #10b981;
+  --status-success-soft: #ecfdf5;
+  --status-success-foreground: #047857;
+  --status-success-border: #a7f3d0;
+
+  --status-warning-solid: #f59e0b;
+  --status-warning-soft: #fffbeb;
+  --status-warning-foreground: #b45309;
+  --status-warning-border: #fde68a;
+
+  --status-danger-solid: #ef4444;
+  --status-danger-soft: #fef2f2;
+  --status-danger-foreground: #b91c1c;
+  --status-danger-border: #fecaca;
+  /* Button-grade destructive: red-600 so white text reaches AA (5.07:1).
+   * --status-danger-solid (red-500) stays for status dots/icons. */
+  --destructive-bg: #dc2626;
+
+  --status-info-solid: #3b82f6;
+  --status-info-soft: #eff6ff;
+  --status-info-foreground: #1d4ed8;
+  --status-info-border: #bfdbfe;
+
+  --status-neutral-solid: #71717a;
+  --status-neutral-soft: #f4f4f5;
+  --status-neutral-foreground: #3f3f46;
+  --status-neutral-border: #e4e4e7;
+
+  --status-accent-solid: #8b5cf6;
+  --status-accent-soft: #f5f3ff;
+  --status-accent-foreground: #6d28d9;
+  --status-accent-border: #ddd6fe;
+
+  /* §A.3 Surface tiers */
   --background: #ffffff;
-  --foreground: #171717;
+  --surface: #fafafa;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --overlay: rgba(9, 9, 11, 0.6);
+
+  /* §A.4 Text tiers */
+  --foreground: #09090b;
+  --foreground-muted: #3f3f46;
+  --foreground-subtle: #52525b;
+  --foreground-disabled: #a1a1aa;
+
+  /* §A.5 Borders
+   * --border-subtle / --border are decorative (card outlines, dividers) and
+   * are intentionally low-contrast — WCAG 1.4.11 exempts non-component
+   * graphics. --border-strong is reserved for INTERACTIVE UI boundaries
+   * (form input borders) and meets ≥ 3:1 against background per 1.4.11. */
+  --border: #e4e4e7;
+  --border-strong: #71717a;
+  --border-subtle: #f4f4f5;
+
+  /* §A.6 Radii */
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+  /* shadcn alias */
+  --radius: var(--radius-md);
+
+  /* §A.7 Spacing — 4px base unit (--space-* mirrors Tailwind p-1 = 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* §A.9 Elevation (light) */
+  --elevation-xs: 0 1px 1px 0 rgba(9, 9, 11, 0.04);
+  --elevation-sm: 0 1px 2px 0 rgba(9, 9, 11, 0.06);
+  --elevation-md: 0 4px 8px -2px rgba(9, 9, 11, 0.08), 0 2px 4px -2px rgba(9, 9, 11, 0.04);
+  --elevation-lg: 0 12px 24px -6px rgba(9, 9, 11, 0.1), 0 4px 8px -4px rgba(9, 9, 11, 0.06);
+  --elevation-xl: 0 24px 48px -12px rgba(9, 9, 11, 0.16), 0 8px 16px -8px rgba(9, 9, 11, 0.08);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* §A.13 Dark-mode overrides.
+ *
+ * Two selectors apply the dark token set:
+ *   1. `.dark` on <html> — explicit user override (cookie === "dark")
+ *   2. `@media (prefers-color-scheme: dark) :root:not(.light)` — OS preference,
+ *      respected when the user has not explicitly chosen "light".
+ *
+ * Selector (2) below mirrors this block. Keep them in sync. The duplication is
+ * the cost of avoiding an inline pre-paint script (which React 19 forbids
+ * inside the layout component tree). */
+.dark {
+  color-scheme: dark;
+
+  --brand-primary: var(--brand-400);
+  --brand-primary-foreground: #1e1b4b;
+  --brand-accent: var(--brand-accent-400);
+  --brand-accent-foreground: #2e1065;
+
+  --status-success-solid: #10b981;
+  --status-success-soft: rgba(16, 185, 129, 0.15);
+  --status-success-foreground: #6ee7b7;
+  --status-success-border: rgba(16, 185, 129, 0.4);
+
+  --status-warning-solid: #f59e0b;
+  --status-warning-soft: rgba(245, 158, 11, 0.15);
+  --status-warning-foreground: #fcd34d;
+  --status-warning-border: rgba(245, 158, 11, 0.4);
+
+  --status-danger-solid: #ef4444;
+  --status-danger-soft: rgba(239, 68, 68, 0.15);
+  --status-danger-foreground: #fca5a5;
+  --status-danger-border: rgba(239, 68, 68, 0.4);
+  /* Dark-mode destructive button: shadcn applies dark:bg-destructive/60 so
+   * the rendered fill is red-500 composited over surface, which yields ≥ AA. */
+  --destructive-bg: #ef4444;
+
+  --status-info-solid: #3b82f6;
+  --status-info-soft: rgba(59, 130, 246, 0.15);
+  --status-info-foreground: #93c5fd;
+  --status-info-border: rgba(59, 130, 246, 0.4);
+
+  --status-neutral-solid: #a1a1aa;
+  --status-neutral-soft: rgba(113, 113, 122, 0.2);
+  --status-neutral-foreground: #d4d4d8;
+  --status-neutral-border: rgba(113, 113, 122, 0.45);
+
+  --status-accent-solid: #a78bfa;
+  --status-accent-soft: rgba(167, 139, 250, 0.15);
+  --status-accent-foreground: #ddd6fe;
+  --status-accent-border: rgba(167, 139, 250, 0.4);
+
+  --background: #09090b;
+  --surface: #18181b;
+  --card: #18181b;
+  --elevated: #27272a;
+  --overlay: rgba(0, 0, 0, 0.8);
+
+  --foreground: #fafafa;
+  --foreground-muted: #d4d4d8;
+  --foreground-subtle: #a1a1aa;
+  --foreground-disabled: #52525b;
+
+  --border: #27272a;
+  --border-strong: #a1a1aa;
+  --border-subtle: #18181b;
+
+  --elevation-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.3);
+  --elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
+  --elevation-md: 0 4px 8px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --elevation-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.6), 0 4px 8px -4px rgba(0, 0, 0, 0.4);
+  --elevation-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.7), 0 8px 16px -8px rgba(0, 0, 0, 0.5);
 }
 
+/* OS-preference-driven dark mode (mirror of `.dark` above).
+ * `:not(.light)` lets the cookie's "light" value beat OS preference. */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not(.light) {
+    color-scheme: dark;
+
+    --brand-primary: var(--brand-400);
+    --brand-primary-foreground: #1e1b4b;
+    --brand-accent: var(--brand-accent-400);
+    --brand-accent-foreground: #2e1065;
+
+    --status-success-solid: #10b981;
+    --status-success-soft: rgba(16, 185, 129, 0.15);
+    --status-success-foreground: #6ee7b7;
+    --status-success-border: rgba(16, 185, 129, 0.4);
+
+    --status-warning-solid: #f59e0b;
+    --status-warning-soft: rgba(245, 158, 11, 0.15);
+    --status-warning-foreground: #fcd34d;
+    --status-warning-border: rgba(245, 158, 11, 0.4);
+
+    --status-danger-solid: #ef4444;
+    --status-danger-soft: rgba(239, 68, 68, 0.15);
+    --status-danger-foreground: #fca5a5;
+    --status-danger-border: rgba(239, 68, 68, 0.4);
+    --destructive-bg: #ef4444;
+
+    --status-info-solid: #3b82f6;
+    --status-info-soft: rgba(59, 130, 246, 0.15);
+    --status-info-foreground: #93c5fd;
+    --status-info-border: rgba(59, 130, 246, 0.4);
+
+    --status-neutral-solid: #a1a1aa;
+    --status-neutral-soft: rgba(113, 113, 122, 0.2);
+    --status-neutral-foreground: #d4d4d8;
+    --status-neutral-border: rgba(113, 113, 122, 0.45);
+
+    --status-accent-solid: #a78bfa;
+    --status-accent-soft: rgba(167, 139, 250, 0.15);
+    --status-accent-foreground: #ddd6fe;
+    --status-accent-border: rgba(167, 139, 250, 0.4);
+
+    --background: #09090b;
+    --surface: #18181b;
+    --card: #18181b;
+    --elevated: #27272a;
+    --overlay: rgba(0, 0, 0, 0.8);
+
+    --foreground: #fafafa;
+    --foreground-muted: #d4d4d8;
+    --foreground-subtle: #a1a1aa;
+    --foreground-disabled: #52525b;
+
+    --border: #27272a;
+    --border-strong: #a1a1aa;
+    --border-subtle: #18181b;
+
+    --elevation-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.3);
+    --elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
+    --elevation-md: 0 4px 8px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    --elevation-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.6), 0 4px 8px -4px rgba(0, 0, 0, 0.4);
+    --elevation-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.7), 0 8px 16px -8px rgba(0, 0, 0, 0.5);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ============================================================================
+ * Tailwind v4 theme bindings.
+ * @theme inline = "register utility, but emit var() reference, not literal"
+ * so the .dark class swap propagates through every utility at runtime.
+ * ========================================================================== */
+
+@theme inline {
+  /* Surfaces & text */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-foreground-disabled: var(--foreground-disabled);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-elevated: var(--elevated);
+  --color-overlay: var(--overlay);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+
+  /* Borders + form bits */
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-subtle: var(--border-subtle);
+  --color-input: var(--border);
+  --color-ring: var(--brand-primary);
+
+  /* Brand */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-foreground: var(--brand-primary-foreground);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-foreground: var(--brand-accent-foreground);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  /* shadcn semantic aliases (so default shadcn classes resolve) */
+  --color-primary: var(--brand-primary);
+  --color-primary-foreground: var(--brand-primary-foreground);
+  --color-secondary: var(--surface);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--foreground-muted);
+  --color-accent: var(--brand-accent);
+  --color-accent-foreground: var(--brand-accent-foreground);
+  --color-destructive: var(--destructive-bg);
+  --color-destructive-foreground: #ffffff;
+
+  /* Status */
+  --color-status-success-solid: var(--status-success-solid);
+  --color-status-success-soft: var(--status-success-soft);
+  --color-status-success-foreground: var(--status-success-foreground);
+  --color-status-success-border: var(--status-success-border);
+
+  --color-status-warning-solid: var(--status-warning-solid);
+  --color-status-warning-soft: var(--status-warning-soft);
+  --color-status-warning-foreground: var(--status-warning-foreground);
+  --color-status-warning-border: var(--status-warning-border);
+
+  --color-status-danger-solid: var(--status-danger-solid);
+  --color-status-danger-soft: var(--status-danger-soft);
+  --color-status-danger-foreground: var(--status-danger-foreground);
+  --color-status-danger-border: var(--status-danger-border);
+
+  --color-status-info-solid: var(--status-info-solid);
+  --color-status-info-soft: var(--status-info-soft);
+  --color-status-info-foreground: var(--status-info-foreground);
+  --color-status-info-border: var(--status-info-border);
+
+  --color-status-neutral-solid: var(--status-neutral-solid);
+  --color-status-neutral-soft: var(--status-neutral-soft);
+  --color-status-neutral-foreground: var(--status-neutral-foreground);
+  --color-status-neutral-border: var(--status-neutral-border);
+
+  --color-status-accent-solid: var(--status-accent-solid);
+  --color-status-accent-soft: var(--status-accent-soft);
+  --color-status-accent-foreground: var(--status-accent-foreground);
+  --color-status-accent-border: var(--status-accent-border);
+
+  /* §A.6 Radii — both raw values and shadcn aliases */
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* §A.7 Spacing base — Tailwind p-1=4px through p-24=96px */
+  --spacing: 4px;
+
+  /* §A.8 Typography (8 sizes per spec; heading text says "7 tiers" but lists 8) */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-xl: 18px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 32px;
+  --text-3xl: 28px;
+  --text-3xl--line-height: 36px;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 44px;
+
+  --font-sans:
+    var(--font-inter), "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+
+  /* §A.9 Elevation — bound to switchable --elevation-* */
+  --shadow-xs: var(--elevation-xs);
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+  --shadow-xl: var(--elevation-xl);
+
+  /* §A.10 Motion */
+  --duration-micro: 100ms;
+  --duration-small: 200ms;
+  --duration-layout: 300ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+
+  /* §A.11 Breakpoints — explicit pixel values per spec */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* §A.12 Z-index scale */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-modal: 1040;
+  --z-popover: 1060;
+  --z-toast: 1080;
+}
+
+/* Aliases so var(--easing-*) (per prompt §A.10 wording) resolves alongside
+ * Tailwind's --ease-* utility namespace. */
+:root,
+.dark {
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --easing-exit: cubic-bezier(0.3, 0, 1, 1);
+}
+
+/* ============================================================================
+ * Base layer — body, focus ring, motion preference.
+ * ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* §19 Accessibility — visible focus ring on all keyboard targets */
+  :focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+  }
+
+  /* CLAUDE.md §5 + §19 — respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
