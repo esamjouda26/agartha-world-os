@@ -126,7 +126,7 @@ export const TOKENS_DARK: TokenSnapshot = {
   foreground: "#fafafa",
   foregroundMuted: "#d4d4d8",
   foregroundSubtle: "#a1a1aa",
-  foregroundDisabled: "#52525b",
+  foregroundDisabled: "#71717a",
 
   border: "#27272a",
   borderStrong: "#a1a1aa",

@@ -1,6 +1,21 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+/* Tailwind v4 `dark:` utility variant.
+ * Fires when EITHER:
+ *   1. an ancestor has `.dark` (explicit cookie override), OR
+ *   2. OS prefers dark AND no ancestor has `.light` (system preference)
+ * Mirrors the two selectors that apply dark-mode CSS variables below, so
+ * Tailwind's dark: utilities stay in lockstep with the token swap. */
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not(.light *)) {
+      @slot;
+    }
+  }
+}
 
 /* ============================================================================
  * Phase 2A — Design Tokens
@@ -193,7 +208,7 @@
   --foreground: #fafafa;
   --foreground-muted: #d4d4d8;
   --foreground-subtle: #a1a1aa;
-  --foreground-disabled: #52525b;
+  --foreground-disabled: #71717a;
 
   --border: #27272a;
   --border-strong: #a1a1aa;
@@ -257,7 +272,7 @@
     --foreground: #fafafa;
     --foreground-muted: #d4d4d8;
     --foreground-subtle: #a1a1aa;
-    --foreground-disabled: #52525b;
+    --foreground-disabled: #71717a;
 
     --border: #27272a;
     --border-strong: #a1a1aa;
