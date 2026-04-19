@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -46,7 +47,9 @@ export default async function RootLayout({
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
         <ThemeProvider defaultTheme={theme}>
-          <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+          <NuqsAdapter>
+            <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+          </NuqsAdapter>
           <Toaster />
         </ThemeProvider>
       </body>

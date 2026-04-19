@@ -1,0 +1,107 @@
+import * as React from "react";
+import { CircleHelp, FilterX, OctagonX } from "lucide-react";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import { cn } from "@/lib/utils";
+
+/**
+ * EmptyState — prompt.md §2B-D.7 + CLAUDE.md §5.
+ *
+ * Every route that can render an empty result set composes one of the three
+ * variants. Inline "No data found" strings are forbidden (prompt.md rule 8
+ * error taxonomy). Callers place CTAs / reset-filter buttons in the `action`
+ * slot; copy goes in `description`.
+ */
+
+const emptyStateVariants = cva(
+  "flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed px-6 py-12 text-center",
+  {
+    variants: {
+      variant: {
+        "first-use": "border-border bg-card",
+        "filtered-out": "border-border bg-surface",
+        error: "border-status-danger-border bg-status-danger-soft/30",
+      },
+      density: {
+        default: "",
+        compact: "gap-2 py-8",
+      },
+    },
+    defaultVariants: {
+      variant: "first-use",
+      density: "default",
+    },
+  },
+);
+
+const ICONS: Record<EmptyStateVariant, React.ComponentType<{ className?: string }>> = {
+  "first-use": CircleHelp,
+  "filtered-out": FilterX,
+  error: OctagonX,
+};
+
+const ICON_TONE: Record<EmptyStateVariant, string> = {
+  "first-use": "text-foreground-subtle",
+  "filtered-out": "text-foreground-muted",
+  error: "text-status-danger-foreground",
+};
+
+type EmptyStateVariant = NonNullable<VariantProps<typeof emptyStateVariants>["variant"]>;
+
+type EmptyStateOwnProps = Readonly<{
+  title: string;
+  description?: React.ReactNode;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+  secondaryAction?: React.ReactNode;
+  "data-testid"?: string;
+}>;
+
+export type EmptyStateProps = EmptyStateOwnProps &
+  VariantProps<typeof emptyStateVariants> &
+  Omit<React.ComponentProps<"div">, keyof EmptyStateOwnProps>;
+
+export function EmptyState({
+  title,
+  description,
+  icon,
+  action,
+  secondaryAction,
+  variant = "first-use",
+  density,
+  className,
+  "data-testid": testId,
+  ...props
+}: EmptyStateProps) {
+  const resolvedVariant = (variant ?? "first-use") as EmptyStateVariant;
+  const Icon = ICONS[resolvedVariant];
+  return (
+    <div
+      role={resolvedVariant === "error" ? "alert" : "status"}
+      aria-live={resolvedVariant === "error" ? "assertive" : "polite"}
+      data-slot="empty-state"
+      data-variant={resolvedVariant}
+      data-testid={testId}
+      className={cn(emptyStateVariants({ variant, density }), className)}
+      {...props}
+    >
+      <span aria-hidden className={cn("text-2xl", ICON_TONE[resolvedVariant])}>
+        {icon ?? <Icon className="size-8" />}
+      </span>
+      <div className="flex flex-col gap-1">
+        <h3 className="text-foreground text-base font-semibold">{title}</h3>
+        {description ? (
+          <p className="text-foreground-muted max-w-prose text-sm">{description}</p>
+        ) : null}
+      </div>
+      {action || secondaryAction ? (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {action}
+          {secondaryAction}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export { emptyStateVariants };

@@ -1,13 +1,38 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Sparkles, TrendingUp, Users, Wallet } from "lucide-react";
+import type { Route } from "next";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { KpiCard, KpiCardRow } from "@/components/ui/kpi-card";
+import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
+import { PageHeader } from "@/components/ui/page-header";
+import {
+  CardSkeleton,
+  DetailSkeleton,
+  FormSkeleton,
+  StatsSkeleton,
+  TableSkeleton,
+} from "@/components/ui/skeleton-kit";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { StatusTabBar } from "@/components/ui/status-tab-bar";
 import { classifyText, classifyUi, contrastRatio } from "@/lib/color-contrast";
 import { TOKENS_DARK, TOKENS_LIGHT, type ThemeMode } from "@/lib/design-tokens";
 
+import { CommandPaletteDemo } from "./_command-palette-demo";
+import { DataTableDemo } from "./_data-table-demo";
+import {
+  BottomTabBarDemo,
+  FormSubmitButtonDemo,
+  PrintPreviewDemo,
+  SidebarDemo,
+} from "./_shell-demo";
 import { FormsDemo, OverlaysDemo, ToastsDemo } from "./_interactive";
+import { MotionDemo } from "./_motion-demo";
+import { ErrorStateDemo } from "./_error-state-demo";
 
 // Must stay dynamic so the root layout's cookies() read picks up NEXT_THEME on
 // every request. force-static would freeze the layout HTML at build time and
@@ -15,10 +40,33 @@ import { FormsDemo, OverlaysDemo, ToastsDemo } from "./_interactive";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Kitchen Sink — Phase 2A",
-  description: "Design-token + shadcn primitive surface for design review.",
+  title: "Kitchen Sink — Phase 2B",
+  description: "Full primitive catalog, motion, print, and kitchen-sink demos.",
   robots: { index: false, follow: false },
 };
+
+const STATUS_EXAMPLES = [
+  { enum: "booking_status", status: "confirmed" },
+  { enum: "booking_status", status: "pending_payment" },
+  { enum: "order_status", status: "preparing" },
+  { enum: "order_status", status: "completed" },
+  { enum: "payment_status", status: "failed" },
+  { enum: "incident_status", status: "resolved" },
+  { enum: "mo_status", status: "active" },
+  { enum: "po_status", status: "sent" },
+  { enum: "po_status", status: "partially_received" },
+  { enum: "leave_request_status", status: "approved" },
+  { enum: "exception_status", status: "justified" },
+  { enum: "exception_type", status: "late_arrival" },
+  { enum: "exception_type", status: "missing_clock_in" },
+  { enum: "exception_type", status: "absent" },
+  { enum: "employment_status", status: "on_leave" },
+  { enum: "employment_status", status: "pending" },
+  { enum: "device_status", status: "online" },
+  { enum: "device_status", status: "maintenance" },
+  { enum: "vehicle_status", status: "decommissioned" },
+  { enum: "lifecycle_status", status: "retired" },
+] as const;
 
 const TYPE_SCALE = [
   { token: "--text-4xl", name: "Display", className: "text-4xl" },
@@ -232,6 +280,229 @@ export default function KitchenSinkPage() {
               </p>
             </div>
           </div>
+        </Section>
+
+        <Section
+          number="9"
+          title="Data table"
+          description="Density toggle, column visibility, row selection + bulk bar, virtualization auto-triggers above 100 rows, mobile collapse to card list at < md."
+        >
+          <DataTableDemo />
+        </Section>
+
+        <Section
+          number="10"
+          title="Empty / error / loading states"
+          description="Three empty-state variants + ErrorState (Sentry-reporting) + the skeleton kit below in §13."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <EmptyState
+              variant="first-use"
+              title="Nothing here yet"
+              description="Create your first record to populate this view."
+              action={
+                <Button size="sm" data-testid="kitchen-sink-empty-first-use">
+                  Create record
+                </Button>
+              }
+            />
+            <EmptyState
+              variant="filtered-out"
+              title="No matching rows"
+              description="Every row was filtered out. Adjust or clear your filters to continue."
+              action={
+                <Button size="sm" variant="outline" data-testid="kitchen-sink-empty-filtered">
+                  Clear filters
+                </Button>
+              }
+            />
+            <ErrorStateDemo />
+          </div>
+        </Section>
+
+        <Section
+          number="11"
+          title="Command palette"
+          description="cmdk ⌘K dialog with a static nav group and dynamic action group (actions register via a React effect)."
+        >
+          <CommandPaletteDemo />
+        </Section>
+
+        <Section
+          number="12"
+          title="Motion primitives"
+          description="fadeIn / slideUp / stagger. Every helper respects prefers-reduced-motion and the override toggle below."
+        >
+          <MotionDemo />
+        </Section>
+
+        <Section
+          number="13"
+          title="Skeleton kit"
+          description="All five skeletons. Every loading.tsx in feature routes composes these; bespoke per-route skeletons are forbidden (prompt.md rule 11)."
+        >
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <p className="text-foreground-subtle text-xs tracking-wider uppercase">
+                TableSkeleton
+              </p>
+              <TableSkeleton rows={4} cols={4} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-foreground-subtle text-xs tracking-wider uppercase">
+                FormSkeleton
+              </p>
+              <FormSkeleton fields={4} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-foreground-subtle text-xs tracking-wider uppercase">
+                CardSkeleton
+              </p>
+              <CardSkeleton />
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-foreground-subtle text-xs tracking-wider uppercase">
+                DetailSkeleton
+              </p>
+              <DetailSkeleton sections={2} />
+            </div>
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <p className="text-foreground-subtle text-xs tracking-wider uppercase">
+                StatsSkeleton
+              </p>
+              <StatsSkeleton />
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          number="14"
+          title="Page header + breadcrumb"
+          description="Every slot filled — breadcrumbs, description, secondary + primary actions, meta slot with KPI summary and status tabs."
+        >
+          <PageHeader
+            title="Daily operations"
+            description="Live summary of bookings, POS orders, and crew activity for the current operating day."
+            headingLevel={2}
+            breadcrumbs={
+              <PageBreadcrumb
+                items={[
+                  { label: "Admin", href: "/kitchen-sink" as Route },
+                  { label: "Business", href: "/kitchen-sink" as Route },
+                  { label: "Daily operations", current: true },
+                ]}
+              />
+            }
+            primaryAction={
+              <Button size="sm" data-testid="kitchen-sink-page-header-primary">
+                Export CSV
+              </Button>
+            }
+            secondaryActions={
+              <Button size="sm" variant="outline">
+                Refresh
+              </Button>
+            }
+            metaSlot={
+              <>
+                <StatusTabBar
+                  ariaLabel="Status filter"
+                  paramKey="ks-tab"
+                  tabs={[
+                    { value: "all", label: "All", count: 128 },
+                    { value: "active", label: "Active", count: 42, tone: "success" },
+                    { value: "exceptions", label: "Exceptions", count: 5, tone: "warning" },
+                    { value: "completed", label: "Completed", count: 81, tone: "info" },
+                  ]}
+                  data-testid="kitchen-sink-status-tabs"
+                />
+                <span className="text-foreground-subtle text-xs">Last updated 2 min ago</span>
+              </>
+            }
+          />
+          <div className="mt-6">
+            <KpiCardRow>
+              <KpiCard
+                label="Bookings today"
+                value="142"
+                caption="9 awaiting check-in"
+                icon={<Users className="size-4" />}
+                trend={{ direction: "up", label: "+12.4% vs yesterday", goodWhen: "up" }}
+                data-testid="kitchen-sink-kpi-bookings"
+              />
+              <KpiCard
+                label="Revenue"
+                value="MYR 48,620"
+                caption="Gross — pre-tax"
+                icon={<Wallet className="size-4" />}
+                trend={{ direction: "up", label: "+6.1%", goodWhen: "up" }}
+              />
+              <KpiCard
+                label="Incidents"
+                value="3"
+                caption="2 resolved · 1 open"
+                icon={<Sparkles className="size-4" />}
+                trend={{ direction: "up", label: "+1", goodWhen: "down" }}
+              />
+              <KpiCard
+                label="Avg. dwell time"
+                value="2h 18m"
+                caption="Rolling 24h"
+                icon={<TrendingUp className="size-4" />}
+                trend={{ direction: "flat", label: "No change", goodWhen: "up" }}
+              />
+            </KpiCardRow>
+          </div>
+          <div className="mt-6">
+            <h3 className="text-foreground-subtle mb-2 text-xs tracking-wider uppercase">
+              StatusBadge — enum spread (frontend_spec.md §12s)
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {STATUS_EXAMPLES.map((example) => (
+                <StatusBadge
+                  key={`${example.enum}-${example.status}`}
+                  status={example.status}
+                  enum={example.enum}
+                  data-testid={`kitchen-sink-badge-${example.enum}-${example.status}`}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-foreground-subtle mb-2 text-xs tracking-wider uppercase">
+              StatusBadge — variants
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status="active" />
+              <StatusBadge status="pending" variant="outline" />
+              <StatusBadge status="failed" variant="dot" />
+              <FormSubmitButtonDemo />
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          number="15"
+          title="Print preview"
+          description="Sample receipt layout with .no-print + .print-only rules. Uses src/styles/print.css for A4 default + Letter fallback (@supports)."
+        >
+          <PrintPreviewDemo />
+        </Section>
+
+        <Section
+          number="16"
+          title="Sidebar"
+          description="Three states: expanded / collapsed / hover-expanded. Cookie-persisted preference; hidden below lg viewport."
+        >
+          <SidebarDemo />
+        </Section>
+
+        <Section
+          number="17"
+          title="Bottom tab bar"
+          description="Mobile crew shell primitive — ≥ 44×44 touch targets, respects safe-area-inset-bottom. Hidden on ≥ md."
+        >
+          <BottomTabBarDemo />
         </Section>
       </div>
     </main>

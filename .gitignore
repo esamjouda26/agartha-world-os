@@ -52,6 +52,7 @@ supabase/.branches/
 
 # verification artifacts
 /lighthouse-report.json
+/lighthouse-a11y.json
 
 # session-only working notes (not for the public repo)
 /prompt.md

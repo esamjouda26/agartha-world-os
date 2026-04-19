@@ -1,0 +1,95 @@
+/* ============================================================================
+ * Phase 2B §F — Print stylesheet framework.
+ *
+ * Imported from src/app/globals.css. Provides the baseline `@media print` reset
+ * plus the four utility classes every printed surface consumes. Route-scoped
+ * rules (booking confirmation, POS receipts, domain reports) append to this
+ * file in their respective phases.
+ * ========================================================================== */
+
+@media print {
+  :root {
+    /* Force print to use light-mode tokens regardless of viewer preference.
+     * Thermal + laser printers assume white paper; dark-mode backgrounds turn
+     * into solid black blocks and waste toner. */
+    color-scheme: light;
+    --background: #ffffff;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --elevated: #ffffff;
+    --foreground: #000000;
+    --foreground-muted: #222222;
+    --foreground-subtle: #444444;
+    --border: #cccccc;
+    --border-strong: #777777;
+    --border-subtle: #dddddd;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  /* Anything non-essential: navs, toggles, floating action bars, toasts. */
+  .no-print,
+  [data-slot="toaster"],
+  [data-no-print] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: revert !important;
+  }
+
+  .page-break-before {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 10pt;
+    color: #555555;
+  }
+
+  img,
+  svg {
+    max-width: 100%;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}
+
+/* Screen default: hide `.print-only` blocks; they reappear inside @media print. */
+.print-only {
+  display: none;
+}
+
+/* A4 is the global default; `@supports` feature-detects the `size: letter`
+ * value for markets that default to Letter paper. Route-specific stylesheets
+ * may override @page within their own scope. */
+@page {
+  size: A4;
+  margin: 16mm;
+}
+
+@supports (size: letter) {
+  @page letter {
+    size: letter;
+    margin: 0.75in;
+  }
+}
