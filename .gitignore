@@ -57,3 +57,4 @@ supabase/.branches/
 # session-only working notes (not for the public repo)
 /prompt.md
 /sessions.md
+/lighthouse-phase3.json

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 
+import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,7 +23,10 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AgarthaOS",
+  title: {
+    default: "AgarthaOS",
+    template: "%s · AgarthaOS",
+  },
   description: "Operations platform for AgarthaOS",
 };
 
@@ -36,8 +40,6 @@ export default async function RootLayout({
   //   "light" → renders class="light" (overrides OS preference)
   //   "dark"  → renders class="dark"  (overrides OS preference)
   //   "system" or unset → no class; CSS @media (prefers-color-scheme) takes over
-  // No inline script needed — the @media block in globals.css applies dark
-  // tokens before paint when the OS prefers dark.
   const initialClass = theme === "system" ? "" : theme;
   return (
     <html
@@ -48,7 +50,9 @@ export default async function RootLayout({
       <body className="bg-background text-foreground flex min-h-full flex-col">
         <ThemeProvider defaultTheme={theme}>
           <NuqsAdapter>
-            <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+            <TooltipProvider delayDuration={150}>
+              <Providers>{children}</Providers>
+            </TooltipProvider>
           </NuqsAdapter>
           <Toaster />
         </ThemeProvider>

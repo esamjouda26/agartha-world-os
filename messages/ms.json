@@ -1,0 +1,69 @@
+{
+  "app": {
+    "name": "AgarthaOS"
+  },
+  "auth": {
+    "login": {
+      "title": "Log Masuk Kakitangan",
+      "description": "Log masuk dengan e-mel kerja anda untuk meneruskan.",
+      "emailLabel": "E-mel kerja",
+      "emailPlaceholder": "nama@agartha.test",
+      "passwordLabel": "Kata laluan",
+      "submit": "Log masuk",
+      "submitting": "Sedang log masuk…",
+      "errorInvalid": "E-mel atau kata laluan tidak sah.",
+      "errorLocked": "Akaun ini dikunci. Hubungi pentadbir anda.",
+      "errorRateLimited": "Terlalu banyak percubaan. Sila cuba lagi dalam beberapa minit."
+    },
+    "setPassword": {
+      "title": "Tetapkan kata laluan anda",
+      "description": "Sebelum masuk portal, pilih kata laluan untuk akaun anda.",
+      "newPasswordLabel": "Kata laluan baharu",
+      "confirmPasswordLabel": "Sahkan kata laluan",
+      "submit": "Simpan kata laluan",
+      "submitting": "Menyimpan…",
+      "errorMismatch": "Kata laluan tidak sepadan.",
+      "errorWeak": "Kata laluan mesti sekurang-kurangnya 12 aksara.",
+      "errorUnknown": "Kami tidak dapat mengemas kini kata laluan anda. Cuba lagi."
+    },
+    "notStarted": {
+      "title": "Penggajian belum bermula",
+      "description": "Akaun anda akan diaktifkan pada tarikh mula kontrak. Hubungi HR untuk pertanyaan.",
+      "action": "Kembali ke log masuk"
+    },
+    "accessRevoked": {
+      "title": "Akses dibatalkan",
+      "description": "Akaun ini telah dikunci. Hubungi pentadbir anda untuk memulihkan akses.",
+      "action": "Kembali ke log masuk"
+    },
+    "onLeave": {
+      "title": "Sedang bercuti — mod pandang sahaja",
+      "description": "Anda boleh menyemak papan pemuka dan pengumuman semasa cuti. Tindakan perubahan dinyahaktifkan.",
+      "action": "Teruskan"
+    }
+  },
+  "portal": {
+    "admin": {
+      "welcome": "Selamat datang, {name}",
+      "description": "Gambaran keseluruhan admin anda akan dipaparkan di sini.",
+      "commandHint": "Tekan ⌘K untuk mencari laluan dan tindakan."
+    },
+    "management": {
+      "welcome": "Selamat datang, {name}",
+      "description": "Pilih domain daripada bar sisi untuk bermula.",
+      "noDomain": "Akaun anda belum mempunyai domain pengurusan yang diberikan."
+    },
+    "crew": {
+      "welcome": "Selamat datang, {name}",
+      "attendancePlaceholder": "Halaman kehadiran akan tersedia dalam fasa yang akan datang.",
+      "readOnlyNotice": "Anda sedang bercuti — tindakan perubahan dinyahaktifkan."
+    }
+  },
+  "nav": {
+    "logout": "Log keluar",
+    "settings": "Tetapan",
+    "toggleSidebar": "Togol bar sisi",
+    "openMenu": "Buka menu",
+    "closeMenu": "Tutup menu"
+  }
+}

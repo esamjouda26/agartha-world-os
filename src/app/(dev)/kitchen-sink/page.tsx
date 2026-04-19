@@ -142,7 +142,11 @@ const BUTTON_VARIANTS = [
 const BUTTON_SIZES = ["xs", "sm", "default", "lg"] as const;
 
 export default function KitchenSinkPage() {
-  if (process.env.NODE_ENV === "production") {
+  // Phase 3 superseded this inline gate with middleware.ts (prompt.md
+  // §Phase 3). It's kept as a belt-and-suspenders so the page 404s even
+  // if the middleware ever regresses. The `ALLOW_KITCHEN_SINK` escape
+  // hatch unblocks the deferred Phase 2A Lighthouse perf measurement.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_KITCHEN_SINK !== "1") {
     notFound();
   }
 

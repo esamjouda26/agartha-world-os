@@ -1,5 +1,9 @@
 "use client";
 
+// TODO(phase-4): drop the `as Route` casts below. They pre-date
+// `typedRoutes: true` (Phase 3). `/kitchen-sink` is a real route in the
+// dev segment, so plain string hrefs validate; the casts are now noise.
+
 import * as React from "react";
 import {
   Activity,

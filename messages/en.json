@@ -1,0 +1,69 @@
+{
+  "app": {
+    "name": "AgarthaOS"
+  },
+  "auth": {
+    "login": {
+      "title": "Staff Login",
+      "description": "Sign in with your work email to continue.",
+      "emailLabel": "Work email",
+      "emailPlaceholder": "name@agartha.test",
+      "passwordLabel": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "errorInvalid": "Invalid email or password.",
+      "errorLocked": "This account is locked. Contact your administrator.",
+      "errorRateLimited": "Too many attempts. Please try again in a few minutes."
+    },
+    "setPassword": {
+      "title": "Set your password",
+      "description": "Before entering the portal, choose a password for your account.",
+      "newPasswordLabel": "New password",
+      "confirmPasswordLabel": "Confirm password",
+      "submit": "Save password",
+      "submitting": "Saving…",
+      "errorMismatch": "Passwords do not match.",
+      "errorWeak": "Password must be at least 12 characters.",
+      "errorUnknown": "We could not update your password. Try again."
+    },
+    "notStarted": {
+      "title": "Employment not yet started",
+      "description": "Your account will activate on your contract start date. Contact HR for questions.",
+      "action": "Back to login"
+    },
+    "accessRevoked": {
+      "title": "Access revoked",
+      "description": "This account has been locked. Contact your administrator to restore access.",
+      "action": "Back to login"
+    },
+    "onLeave": {
+      "title": "On leave — view only",
+      "description": "You can browse dashboards and announcements while on leave. Mutations are disabled.",
+      "action": "Continue"
+    }
+  },
+  "portal": {
+    "admin": {
+      "welcome": "Welcome, {name}",
+      "description": "Your admin overview will appear here.",
+      "commandHint": "Press ⌘K to search routes and actions."
+    },
+    "management": {
+      "welcome": "Welcome, {name}",
+      "description": "Pick a domain from the sidebar to get started.",
+      "noDomain": "Your account has no assigned management domains yet."
+    },
+    "crew": {
+      "welcome": "Welcome, {name}",
+      "attendancePlaceholder": "Attendance page will be available in a later phase.",
+      "readOnlyNotice": "You are on leave — mutations are disabled."
+    }
+  },
+  "nav": {
+    "logout": "Sign out",
+    "settings": "Settings",
+    "toggleSidebar": "Toggle sidebar",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  }
+}

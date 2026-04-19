@@ -1,5 +1,8 @@
 "use client";
 
+// TODO(phase-4): drop the `as Route` cast on the `/kitchen-sink` href
+// below once Phase 3's `typedRoutes: true` regenerates valid-route types.
+
 import * as React from "react";
 import type { Route } from "next";
 
