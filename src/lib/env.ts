@@ -1,8 +1,15 @@
 import "server-only";
 import { z } from "zod";
 
+// Coerces empty string ("") to undefined before Zod validation runs.
+// Rationale: dotenv-style parsers (pnpm, Next.js) read `FOO=` as "", not
+// absent. Without this, .optional() fields with URL validation throw when
+// the key exists but is blank — breaking the dev-bypass pattern.
+const emptyToUndefined = (val: unknown): unknown => (val === "" ? undefined : val);
+
 const envSchema = z.object({
-  // Required in all environments
+  // Required in all environments — NEXT_PUBLIC_ keys are exposed to the
+  // browser bundle; SUPABASE_SERVICE_ROLE_KEY is server-only.
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
@@ -13,10 +20,10 @@ const envSchema = z.object({
   //   PAYMENT_WEBHOOK_SECRET  → required before wiring any payment webhook
   //   SENTRY_DSN              → required for staging + prod
   //   NEXT_PUBLIC_POSTHOG_KEY → required before any feature-flagged release
-  PAYMENT_WEBHOOK_SECRET: z.string().optional(),
-  SENTRY_DSN: z.string().url().optional(),
-  NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
-  NEXT_PUBLIC_POSTHOG_HOST: z.string().url().optional(),
+  PAYMENT_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  SENTRY_DSN: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  NEXT_PUBLIC_POSTHOG_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  NEXT_PUBLIC_POSTHOG_HOST: z.preprocess(emptyToUndefined, z.string().url().optional()),
 
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
