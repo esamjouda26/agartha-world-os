@@ -5,12 +5,14 @@ import { AlertCircle, ArrowRight, BarChart3, Clock } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { format } from "date-fns";
 
+import { KpiCard } from "@/components/ui/kpi-card";
 import { StatusTabBar } from "@/components/ui/status-tab-bar";
-import { parseIsoDateLocal } from "@/lib/date";
+import { monthStartIsoLocal, parseIsoDateLocal } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { AttendanceStatsPanel } from "@/features/attendance/components/attendance-stats-panel";
 import { ClockInOutPanel } from "@/features/attendance/components/clock-in-out-panel";
 import { ExceptionList } from "@/features/attendance/components/exception-list";
+import { MonthlyAttendanceCalendar } from "@/features/attendance/components/monthly-attendance-calendar";
 import {
   displayShiftName,
   displayShiftWindow,
@@ -122,10 +124,54 @@ export function AttendanceDashboard({
           id={`attendance-tab-${current}`}
           aria-labelledby={`tab-tab-${current}`}
           data-testid={`attendance-panel-${current}`}
-          className="min-w-0 lg:col-span-7 xl:col-span-8"
+          className="flex min-w-0 flex-col gap-6 lg:col-span-7 xl:col-span-8"
         >
           {current === "clock" ? (
-            <ClockInOutPanel shift={shift} todayIso={todayIso} selectedDateIso={selectedDateIso} />
+            <>
+              <ClockInOutPanel
+                shift={shift}
+                todayIso={todayIso}
+                selectedDateIso={selectedDateIso}
+              />
+              {/* Mobile-only at-a-glance KPI strip. The desktop aside
+                  covers the same awareness at lg+ with richer preview
+                  cards + the mini-calendar. */}
+              <section
+                className="grid grid-cols-2 gap-3 lg:hidden"
+                data-testid="attendance-mobile-kpi-strip"
+                aria-label="Attendance at a glance"
+              >
+                <KpiCard
+                  label="Status"
+                  value={resolveClockMetric(shift, canWrite)}
+                  density="compact"
+                  data-testid="attendance-mobile-kpi-status"
+                />
+                <KpiCard
+                  label="Late min"
+                  value={stats.late_minutes}
+                  caption="this month"
+                  density="compact"
+                  emphasis={stats.late_minutes > 0 ? "accent" : "default"}
+                  data-testid="attendance-mobile-kpi-late"
+                />
+                <KpiCard
+                  label="Unjustified"
+                  value={unjustifiedCount}
+                  caption={unjustifiedCount > 0 ? "needs action" : "all clear"}
+                  density="compact"
+                  emphasis={unjustifiedCount > 0 ? "accent" : "default"}
+                  data-testid="attendance-mobile-kpi-unjustified"
+                />
+                <KpiCard
+                  label="Days worked"
+                  value={stats.days_worked}
+                  caption="this month"
+                  density="compact"
+                  data-testid="attendance-mobile-kpi-days"
+                />
+              </section>
+            </>
           ) : null}
           {current === "exceptions" ? <ExceptionList rows={exceptions} /> : null}
           {current === "stats" ? <AttendanceStatsPanel stats={stats} punches={punches} /> : null}
@@ -181,6 +227,16 @@ export function AttendanceDashboard({
               testId="attendance-preview-stats"
             />
           ) : null}
+
+          {/* Monthly attendance calendar. Always visible in the aside so
+              the at-a-glance view is available regardless of the active
+              tab. Clicking a day navigates via `?date=`. */}
+          <MonthlyAttendanceCalendar
+            monthIso={monthStartIsoLocal(stats.month_start)}
+            todayIso={todayIso}
+            selectedDateIso={selectedDateIso}
+            punches={punches}
+          />
         </aside>
       </div>
     </div>
