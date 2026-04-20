@@ -61,35 +61,39 @@ export type TokenSnapshot = Readonly<{
   statusAccentBorder: string;
 }>;
 
+// Light-mode token snapshot — mirrors `:root {}` in globals.css.
 export const TOKENS_LIGHT: TokenSnapshot = {
-  brandPrimary: "#4f46e5",
+  // Gold brand + teal accent.
+  brandPrimary: "#8a5e13", // gold-700
   brandPrimaryForeground: "#ffffff",
-  brandAccent: "#6d28d9",
+  brandAccent: "#086b54", // teal-700
   brandAccentForeground: "#ffffff",
 
-  background: "#ffffff",
-  surface: "#fafafa",
+  // Warm-cool canvas; cards pop to true white.
+  background: "#fcfbf8",
+  surface: "#f6f4ef",
   card: "#ffffff",
   elevated: "#ffffff",
 
-  foreground: "#09090b",
-  foregroundMuted: "#3f3f46",
-  foregroundSubtle: "#52525b",
-  foregroundDisabled: "#a1a1aa",
+  foreground: "#0f0f14",
+  foregroundMuted: "#3f3f47",
+  foregroundSubtle: "#5a5a62",
+  foregroundDisabled: "#a8a8b0",
 
-  border: "#e4e4e7",
-  borderStrong: "#71717a",
-  borderSubtle: "#f4f4f5",
+  border: "#e7e5df",
+  borderStrong: "#6b6b72",
+  borderSubtle: "#f2efe9",
 
   statusSuccessSolid: "#10b981",
   statusSuccessSoft: "#ecfdf5",
   statusSuccessForeground: "#047857",
   statusSuccessBorder: "#a7f3d0",
 
-  statusWarningSolid: "#f59e0b",
-  statusWarningSoft: "#fffbeb",
-  statusWarningForeground: "#b45309",
-  statusWarningBorder: "#fde68a",
+  // Warning shifted off amber → orange to avoid visual collision with gold.
+  statusWarningSolid: "#f97316",
+  statusWarningSoft: "#fff7ed",
+  statusWarningForeground: "#9a3412",
+  statusWarningBorder: "#fed7aa",
 
   statusDangerSolid: "#ef4444",
   statusDangerSoft: "#fef2f2",
@@ -106,41 +110,45 @@ export const TOKENS_LIGHT: TokenSnapshot = {
   statusNeutralForeground: "#3f3f46",
   statusNeutralBorder: "#e4e4e7",
 
-  statusAccentSolid: "#8b5cf6",
-  statusAccentSoft: "#f5f3ff",
-  statusAccentForeground: "#6d28d9",
-  statusAccentBorder: "#ddd6fe",
+  // Accent-status repurposed from violet → teal to match brand accent.
+  statusAccentSolid: "#1ba87e",
+  statusAccentSoft: "#ecfbf6",
+  statusAccentForeground: "#086b54",
+  statusAccentBorder: "#a0e9d0",
 };
 
+// Dark-mode token snapshot — mirrors `.dark {}` in globals.css.
 export const TOKENS_DARK: TokenSnapshot = {
-  brandPrimary: "#818cf8",
-  brandPrimaryForeground: "#1e1b4b",
-  brandAccent: "#a78bfa",
-  brandAccentForeground: "#2e1065",
+  brandPrimary: "#d4a53d", // gold-400
+  brandPrimaryForeground: "#1a1004", // deep warm near-black
+  brandAccent: "#3cc499", // teal-400
+  brandAccentForeground: "#052e27",
 
-  background: "#09090b",
-  surface: "#18181b",
-  card: "#18181b",
-  elevated: "#27272a",
+  // Atmospheric canvas with layered card tints.
+  background: "#08080a",
+  surface: "#0f0f12",
+  card: "#14141a",
+  elevated: "#1c1c24",
 
-  foreground: "#fafafa",
-  foregroundMuted: "#d4d4d8",
-  foregroundSubtle: "#a1a1aa",
-  foregroundDisabled: "#71717a",
+  foreground: "#f5f5f7",
+  foregroundMuted: "#c8c8cc",
+  foregroundSubtle: "#8a8a92",
+  foregroundDisabled: "#4a4a52",
 
-  border: "#27272a",
-  borderStrong: "#a1a1aa",
-  borderSubtle: "#18181b",
+  // Decorative hairline borders at low alpha; form-input border is solid.
+  border: "rgba(255, 255, 255, 0.08)",
+  borderStrong: "#7a7a82",
+  borderSubtle: "rgba(255, 255, 255, 0.04)",
 
   statusSuccessSolid: "#10b981",
   statusSuccessSoft: "rgba(16, 185, 129, 0.15)",
   statusSuccessForeground: "#6ee7b7",
   statusSuccessBorder: "rgba(16, 185, 129, 0.4)",
 
-  statusWarningSolid: "#f59e0b",
-  statusWarningSoft: "rgba(245, 158, 11, 0.15)",
-  statusWarningForeground: "#fcd34d",
-  statusWarningBorder: "rgba(245, 158, 11, 0.4)",
+  statusWarningSolid: "#f97316",
+  statusWarningSoft: "rgba(249, 115, 22, 0.15)",
+  statusWarningForeground: "#fdba74", // orange-300
+  statusWarningBorder: "rgba(249, 115, 22, 0.4)",
 
   statusDangerSolid: "#ef4444",
   statusDangerSoft: "rgba(239, 68, 68, 0.15)",
@@ -157,10 +165,10 @@ export const TOKENS_DARK: TokenSnapshot = {
   statusNeutralForeground: "#d4d4d8",
   statusNeutralBorder: "rgba(113, 113, 122, 0.45)",
 
-  statusAccentSolid: "#a78bfa",
-  statusAccentSoft: "rgba(167, 139, 250, 0.15)",
-  statusAccentForeground: "#ddd6fe",
-  statusAccentBorder: "rgba(167, 139, 250, 0.4)",
+  statusAccentSolid: "#3cc499",
+  statusAccentSoft: "rgba(60, 196, 153, 0.15)",
+  statusAccentForeground: "#6ddab5",
+  statusAccentBorder: "rgba(60, 196, 153, 0.4)",
 };
 
 export function tokensFor(mode: ThemeMode): TokenSnapshot {

@@ -19,60 +19,95 @@
 }
 
 /* ============================================================================
- * Phase 2A — Design Tokens
- * Single source of truth. Components consume these via Tailwind utilities or
- * var(--token). Raw hex outside this file is forbidden (CLAUDE.md §5,
- * prompt.md §A.0). Token groups follow prompt.md §A.1–§A.13.
+ * Design Tokens — Premium Redesign (ADR-0004 + R-Design-1)
+ *
+ * Visual language: antique gold (brand) × deep teal (accent), warm-cool light,
+ * atmospheric dark canvas. Matches hospitality-grade reference palettes
+ * (heritage airlines, fine-dining admin, club management). Single source of
+ * truth; raw hex outside this file is forbidden (CLAUDE.md §5).
+ *
+ * Every theme-switchable token is mirrored in `src/lib/design-tokens.ts` so
+ * `scripts/check-contrast.ts` can prove WCAG 2.2 AA compliance at CI time.
  * ========================================================================== */
 
 :root {
   color-scheme: light;
 
-  /* §A.1 Brand — Indigo (primary), Violet (accent) */
-  --brand-50: #eef2ff;
-  --brand-100: #e0e7ff;
-  --brand-200: #c7d2fe;
-  --brand-300: #a5b4fc;
-  --brand-400: #818cf8;
-  --brand-500: #6366f1;
-  --brand-600: #4f46e5;
-  --brand-700: #4338ca;
-  --brand-800: #3730a3;
-  --brand-900: #312e81;
+  /* ── Gold scale — primary brand. Antique / burnished brass, not trophy gold. */
+  --gold-50: #fdf8ed;
+  --gold-100: #faefd0;
+  --gold-200: #f4dfa3;
+  --gold-300: #e8c46d;
+  --gold-400: #d4a53d;
+  --gold-500: #c9922a;
+  --gold-600: #ad7919;
+  --gold-700: #8a5e13;
+  --gold-800: #694714;
+  --gold-900: #4a3210;
 
-  --brand-accent-50: #f5f3ff;
-  --brand-accent-100: #ede9fe;
-  --brand-accent-200: #ddd6fe;
-  --brand-accent-300: #c4b5fd;
-  --brand-accent-400: #a78bfa;
-  --brand-accent-500: #8b5cf6;
-  --brand-accent-600: #7c3aed;
-  --brand-accent-700: #6d28d9;
-  --brand-accent-800: #5b21b6;
-  --brand-accent-900: #4c1d95;
+  /* ── Teal scale — accent. Deep emerald/teal; cool counterpoint to warm gold. */
+  --teal-50: #ecfbf6;
+  --teal-100: #d0f4e6;
+  --teal-200: #a0e9d0;
+  --teal-300: #6ddab5;
+  --teal-400: #3cc499;
+  --teal-500: #1ba87e;
+  --teal-600: #0b8867;
+  --teal-700: #086b54;
+  --teal-800: #064e3f;
+  --teal-900: #052e27;
 
-  --brand-primary: var(--brand-600);
+  /* ── Legacy `--brand-*` names remain addressable so existing Tailwind
+   *   utilities (`bg-brand-500`, `text-brand-accent-700`) resolve without a
+   *   sweep across components. Aliased to the gold/teal scales above. */
+  --brand-50: var(--gold-50);
+  --brand-100: var(--gold-100);
+  --brand-200: var(--gold-200);
+  --brand-300: var(--gold-300);
+  --brand-400: var(--gold-400);
+  --brand-500: var(--gold-500);
+  --brand-600: var(--gold-600);
+  --brand-700: var(--gold-700);
+  --brand-800: var(--gold-800);
+  --brand-900: var(--gold-900);
+
+  --brand-accent-50: var(--teal-50);
+  --brand-accent-100: var(--teal-100);
+  --brand-accent-200: var(--teal-200);
+  --brand-accent-300: var(--teal-300);
+  --brand-accent-400: var(--teal-400);
+  --brand-accent-500: var(--teal-500);
+  --brand-accent-600: var(--teal-600);
+  --brand-accent-700: var(--teal-700);
+  --brand-accent-800: var(--teal-800);
+  --brand-accent-900: var(--teal-900);
+
+  /* Semantic brand tokens — these are what components actually consume. */
+  --brand-primary: var(--gold-700); /* carries white text at 5.12:1 */
   --brand-primary-foreground: #ffffff;
-  --brand-accent: var(--brand-accent-700);
+  --brand-accent: var(--teal-700); /* carries white text at 6.25:1 */
   --brand-accent-foreground: #ffffff;
 
-  /* §A.2 Status — matches frontend_spec.md §12s StatusBadge color map */
+  /* ── Status tokens.
+   * Warning shifted off amber → orange so it no longer collides visually
+   * with the gold brand. Success stays emerald (harmonizes with teal
+   * accent). Info stays blue. Neutral stays zinc. Accent-status repurposed
+   * to teal. */
   --status-success-solid: #10b981;
   --status-success-soft: #ecfdf5;
   --status-success-foreground: #047857;
   --status-success-border: #a7f3d0;
 
-  --status-warning-solid: #f59e0b;
-  --status-warning-soft: #fffbeb;
-  --status-warning-foreground: #b45309;
-  --status-warning-border: #fde68a;
+  --status-warning-solid: #f97316; /* orange-500 */
+  --status-warning-soft: #fff7ed;
+  --status-warning-foreground: #9a3412; /* orange-800 */
+  --status-warning-border: #fed7aa;
 
   --status-danger-solid: #ef4444;
   --status-danger-soft: #fef2f2;
   --status-danger-foreground: #b91c1c;
   --status-danger-border: #fecaca;
-  /* Button-grade destructive: red-600 so white text reaches AA (5.07:1).
-   * --status-danger-solid (red-500) stays for status dots/icons. */
+  /* Button-grade destructive: red-600 so white text reaches AA (5.07:1). */
   --destructive-bg: #dc2626;
 
   --status-info-solid: #3b82f6;
@@ -85,34 +120,36 @@
   --status-neutral-foreground: #3f3f46;
   --status-neutral-border: #e4e4e7;
 
-  --status-accent-solid: #8b5cf6;
-  --status-accent-soft: #f5f3ff;
-  --status-accent-foreground: #6d28d9;
-  --status-accent-border: #ddd6fe;
+  --status-accent-solid: #1ba87e; /* teal-500 */
+  --status-accent-soft: #ecfbf6;
+  --status-accent-foreground: #086b54;
+  --status-accent-border: #a0e9d0;
 
-  /* §A.3 Surface tiers */
-  --background: #ffffff;
-  --surface: #fafafa;
+  /* ── Surface tiers — warm-cool off-white canvas.
+   * Barely-cream `#fcfbf8` lets the gold brand sit on a surface that
+   * feels intentional rather than clinical. Cards pop to true white. */
+  --background: #fcfbf8;
+  --surface: #f6f4ef;
   --card: #ffffff;
   --elevated: #ffffff;
-  --overlay: rgba(9, 9, 11, 0.6);
+  --overlay: rgba(15, 15, 20, 0.55);
 
-  /* §A.4 Text tiers */
-  --foreground: #09090b;
-  --foreground-muted: #3f3f46;
-  --foreground-subtle: #52525b;
-  --foreground-disabled: #a1a1aa;
+  /* ── Text tiers. */
+  --foreground: #0f0f14;
+  --foreground-muted: #3f3f47;
+  --foreground-subtle: #5a5a62;
+  --foreground-disabled: #a8a8b0;
 
-  /* §A.5 Borders
-   * --border-subtle / --border are decorative (card outlines, dividers) and
+  /* ── Borders.
+   * `--border-subtle` / `--border` are decorative (card outlines, dividers) and
    * are intentionally low-contrast — WCAG 1.4.11 exempts non-component
-   * graphics. --border-strong is reserved for INTERACTIVE UI boundaries
-   * (form input borders) and meets ≥ 3:1 against background per 1.4.11. */
-  --border: #e4e4e7;
-  --border-strong: #71717a;
-  --border-subtle: #f4f4f5;
+   * graphics. `--border-strong` is reserved for INTERACTIVE UI boundaries
+   * (form inputs, focus targets) and meets ≥ 3:1 against background. */
+  --border: #e7e5df;
+  --border-strong: #6b6b72; /* ≈ 5.0:1 on background */
+  --border-subtle: #f2efe9;
 
-  /* §A.6 Radii */
+  /* ── Radii. */
   --radius-none: 0px;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -120,10 +157,9 @@
   --radius-xl: 12px;
   --radius-2xl: 16px;
   --radius-full: 9999px;
-  /* shadcn alias */
   --radius: var(--radius-md);
 
-  /* §A.7 Spacing — 4px base unit (--space-* mirrors Tailwind p-1 = 4px) */
+  /* ── Spacing — 4px base unit (Tailwind p-1 = 4px). */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -141,48 +177,59 @@
   --space-20: 80px;
   --space-24: 96px;
 
-  /* §A.9 Elevation (light) */
-  --elevation-xs: 0 1px 1px 0 rgba(9, 9, 11, 0.04);
-  --elevation-sm: 0 1px 2px 0 rgba(9, 9, 11, 0.06);
-  --elevation-md: 0 4px 8px -2px rgba(9, 9, 11, 0.08), 0 2px 4px -2px rgba(9, 9, 11, 0.04);
-  --elevation-lg: 0 12px 24px -6px rgba(9, 9, 11, 0.1), 0 4px 8px -4px rgba(9, 9, 11, 0.06);
-  --elevation-xl: 0 24px 48px -12px rgba(9, 9, 11, 0.16), 0 8px 16px -8px rgba(9, 9, 11, 0.08);
+  /* ── Elevation (light) — warmed shadow alphas to keep cards feeling solid
+   *   without reading cool/clinical on the warm canvas. */
+  --elevation-xs: 0 1px 1px 0 rgba(15, 15, 20, 0.04);
+  --elevation-sm: 0 1px 2px 0 rgba(15, 15, 20, 0.06);
+  --elevation-md: 0 4px 8px -2px rgba(15, 15, 20, 0.08), 0 2px 4px -2px rgba(15, 15, 20, 0.04);
+  --elevation-lg: 0 12px 24px -6px rgba(15, 15, 20, 0.1), 0 4px 8px -4px rgba(15, 15, 20, 0.06);
+  --elevation-xl: 0 24px 48px -12px rgba(15, 15, 20, 0.16), 0 8px 16px -8px rgba(15, 15, 20, 0.08);
+
+  /* ── Glow (dark-mode hero CTAs / gold-bordered cards).
+   *   Light mode: no glow; tokens still declared so `dark:` overrides swap
+   *   cleanly without null-ref style churn. */
+  --glow-brand: 0 0 0 0 transparent;
+  --glow-accent: 0 0 0 0 transparent;
+
+  /* ── Frost tokens — consolidated backdrop-filter recipes. Only three
+   *   sanctioned use sites: sticky topbar, modal overlay, hero hero-surface.
+   *   Don't blur data rows or dropdowns; GPU cost is non-trivial. */
+  --frost-bg-sm: rgba(252, 251, 248, 0.75);
+  --frost-bg-md: rgba(252, 251, 248, 0.6);
+  --frost-bg-lg: rgba(252, 251, 248, 0.52);
+  --frost-blur-sm: saturate(180%) blur(10px);
+  --frost-blur-md: saturate(180%) blur(20px);
+  --frost-blur-lg: saturate(180%) blur(28px);
 }
 
-/* §A.13 Dark-mode overrides.
- *
- * Two selectors apply the dark token set:
- *   1. `.dark` on <html> — explicit user override (cookie === "dark")
- *   2. `@media (prefers-color-scheme: dark) :root:not(.light)` — OS preference,
- *      respected when the user has not explicitly chosen "light".
- *
- * Selector (2) below mirrors this block. Keep them in sync. The duplication is
- * the cost of avoiding an inline pre-paint script (which React 19 forbids
- * inside the layout component tree). */
+/* ── Dark-mode overrides.
+ * Applied under two selectors so cookie-override AND OS-preference both
+ * flip the token set. Keep both blocks in sync; the duplication is the
+ * cost of avoiding an inline pre-paint script. */
 .dark {
   color-scheme: dark;
 
-  --brand-primary: var(--brand-400);
-  --brand-primary-foreground: #1e1b4b;
-  --brand-accent: var(--brand-accent-400);
-  --brand-accent-foreground: #2e1065;
+  --brand-primary: var(--gold-400); /* carries near-black text at 8.8:1 */
+  --brand-primary-foreground: #1a1004; /* deep warm near-black */
+  --brand-accent: var(--teal-400); /* carries deep-teal text at 8.85:1 */
+  --brand-accent-foreground: #052e27;
 
   --status-success-solid: #10b981;
   --status-success-soft: rgba(16, 185, 129, 0.15);
   --status-success-foreground: #6ee7b7;
   --status-success-border: rgba(16, 185, 129, 0.4);
 
-  --status-warning-solid: #f59e0b;
-  --status-warning-soft: rgba(245, 158, 11, 0.15);
-  --status-warning-foreground: #fcd34d;
-  --status-warning-border: rgba(245, 158, 11, 0.4);
+  --status-warning-solid: #f97316;
+  --status-warning-soft: rgba(249, 115, 22, 0.15);
+  --status-warning-foreground: #fdba74; /* orange-300 */
+  --status-warning-border: rgba(249, 115, 22, 0.4);
 
   --status-danger-solid: #ef4444;
   --status-danger-soft: rgba(239, 68, 68, 0.15);
   --status-danger-foreground: #fca5a5;
   --status-danger-border: rgba(239, 68, 68, 0.4);
-  /* Dark-mode destructive button: shadcn applies dark:bg-destructive/60 so
-   * the rendered fill is red-500 composited over surface, which yields ≥ AA. */
+  /* Dark destructive: shadcn applies dark:bg-destructive/60 — composite
+   * over surface yields ≥ AA. */
   --destructive-bg: #ef4444;
 
   --status-info-solid: #3b82f6;
@@ -195,53 +242,65 @@
   --status-neutral-foreground: #d4d4d8;
   --status-neutral-border: rgba(113, 113, 122, 0.45);
 
-  --status-accent-solid: #a78bfa;
-  --status-accent-soft: rgba(167, 139, 250, 0.15);
-  --status-accent-foreground: #ddd6fe;
-  --status-accent-border: rgba(167, 139, 250, 0.4);
+  --status-accent-solid: #3cc499; /* teal-400 */
+  --status-accent-soft: rgba(60, 196, 153, 0.15);
+  --status-accent-foreground: #6ddab5;
+  --status-accent-border: rgba(60, 196, 153, 0.4);
 
-  --background: #09090b;
-  --surface: #18181b;
-  --card: #18181b;
-  --elevated: #27272a;
-  --overlay: rgba(0, 0, 0, 0.8);
+  /* Atmospheric canvas: deeper-than-Zinc true near-black, card layer floats
+   * via background tint rather than a hard hairline. */
+  --background: #08080a;
+  --surface: #0f0f12;
+  --card: #14141a;
+  --elevated: #1c1c24;
+  --overlay: rgba(0, 0, 0, 0.78);
 
-  --foreground: #fafafa;
-  --foreground-muted: #d4d4d8;
-  --foreground-subtle: #a1a1aa;
-  --foreground-disabled: #71717a;
+  --foreground: #f5f5f7;
+  --foreground-muted: #c8c8cc;
+  --foreground-subtle: #8a8a92;
+  --foreground-disabled: #4a4a52;
 
-  --border: #27272a;
-  --border-strong: #a1a1aa;
-  --border-subtle: #18181b;
+  /* Hairline card outline at low alpha (decorative, exempt from 1.4.11).
+   * Form inputs use `--border-strong` which is a solid mid-gray and does
+   * meet 3:1 against canvas. */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: #7a7a82; /* ≈ 4.67:1 on background */
+  --border-subtle: rgba(255, 255, 255, 0.04);
 
-  --elevation-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.3);
-  --elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-  --elevation-md: 0 4px 8px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --elevation-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.6), 0 4px 8px -4px rgba(0, 0, 0, 0.4);
-  --elevation-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.7), 0 8px 16px -8px rgba(0, 0, 0, 0.5);
+  --elevation-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.35);
+  --elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --elevation-md: 0 4px 8px -2px rgba(0, 0, 0, 0.55), 0 2px 4px -2px rgba(0, 0, 0, 0.35);
+  --elevation-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.65), 0 4px 8px -4px rgba(0, 0, 0, 0.45);
+  --elevation-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.75), 0 8px 16px -8px rgba(0, 0, 0, 0.55);
+
+  /* Warm gold halo for primary CTAs; cool teal halo for accent cards.
+   * Reserve for hero surfaces — shotgun usage kills the feel. */
+  --glow-brand: 0 0 48px -8px rgba(212, 165, 61, 0.35);
+  --glow-accent: 0 0 48px -8px rgba(60, 196, 153, 0.3);
+
+  --frost-bg-sm: rgba(8, 8, 10, 0.75);
+  --frost-bg-md: rgba(8, 8, 10, 0.6);
+  --frost-bg-lg: rgba(8, 8, 10, 0.52);
 }
 
-/* OS-preference-driven dark mode (mirror of `.dark` above).
- * `:not(.light)` lets the cookie's "light" value beat OS preference. */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
 
-    --brand-primary: var(--brand-400);
-    --brand-primary-foreground: #1e1b4b;
-    --brand-accent: var(--brand-accent-400);
-    --brand-accent-foreground: #2e1065;
+    --brand-primary: var(--gold-400);
+    --brand-primary-foreground: #1a1004;
+    --brand-accent: var(--teal-400);
+    --brand-accent-foreground: #052e27;
 
     --status-success-solid: #10b981;
     --status-success-soft: rgba(16, 185, 129, 0.15);
     --status-success-foreground: #6ee7b7;
     --status-success-border: rgba(16, 185, 129, 0.4);
 
-    --status-warning-solid: #f59e0b;
-    --status-warning-soft: rgba(245, 158, 11, 0.15);
-    --status-warning-foreground: #fcd34d;
-    --status-warning-border: rgba(245, 158, 11, 0.4);
+    --status-warning-solid: #f97316;
+    --status-warning-soft: rgba(249, 115, 22, 0.15);
+    --status-warning-foreground: #fdba74;
+    --status-warning-border: rgba(249, 115, 22, 0.4);
 
     --status-danger-solid: #ef4444;
     --status-danger-soft: rgba(239, 68, 68, 0.15);
@@ -259,31 +318,38 @@
     --status-neutral-foreground: #d4d4d8;
     --status-neutral-border: rgba(113, 113, 122, 0.45);
 
-    --status-accent-solid: #a78bfa;
-    --status-accent-soft: rgba(167, 139, 250, 0.15);
-    --status-accent-foreground: #ddd6fe;
-    --status-accent-border: rgba(167, 139, 250, 0.4);
+    --status-accent-solid: #3cc499;
+    --status-accent-soft: rgba(60, 196, 153, 0.15);
+    --status-accent-foreground: #6ddab5;
+    --status-accent-border: rgba(60, 196, 153, 0.4);
 
-    --background: #09090b;
-    --surface: #18181b;
-    --card: #18181b;
-    --elevated: #27272a;
-    --overlay: rgba(0, 0, 0, 0.8);
+    --background: #08080a;
+    --surface: #0f0f12;
+    --card: #14141a;
+    --elevated: #1c1c24;
+    --overlay: rgba(0, 0, 0, 0.78);
 
-    --foreground: #fafafa;
-    --foreground-muted: #d4d4d8;
-    --foreground-subtle: #a1a1aa;
-    --foreground-disabled: #71717a;
+    --foreground: #f5f5f7;
+    --foreground-muted: #c8c8cc;
+    --foreground-subtle: #8a8a92;
+    --foreground-disabled: #4a4a52;
 
-    --border: #27272a;
-    --border-strong: #a1a1aa;
-    --border-subtle: #18181b;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: #7a7a82;
+    --border-subtle: rgba(255, 255, 255, 0.04);
 
-    --elevation-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.3);
-    --elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.45);
-    --elevation-md: 0 4px 8px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-    --elevation-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.6), 0 4px 8px -4px rgba(0, 0, 0, 0.4);
-    --elevation-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.7), 0 8px 16px -8px rgba(0, 0, 0, 0.5);
+    --elevation-xs: 0 1px 1px 0 rgba(0, 0, 0, 0.35);
+    --elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+    --elevation-md: 0 4px 8px -2px rgba(0, 0, 0, 0.55), 0 2px 4px -2px rgba(0, 0, 0, 0.35);
+    --elevation-lg: 0 12px 24px -6px rgba(0, 0, 0, 0.65), 0 4px 8px -4px rgba(0, 0, 0, 0.45);
+    --elevation-xl: 0 24px 48px -12px rgba(0, 0, 0, 0.75), 0 8px 16px -8px rgba(0, 0, 0, 0.55);
+
+    --glow-brand: 0 0 48px -8px rgba(212, 165, 61, 0.35);
+    --glow-accent: 0 0 48px -8px rgba(60, 196, 153, 0.3);
+
+    --frost-bg-sm: rgba(8, 8, 10, 0.75);
+    --frost-bg-md: rgba(8, 8, 10, 0.6);
+    --frost-bg-lg: rgba(8, 8, 10, 0.52);
   }
 }
 
@@ -312,10 +378,10 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-border-subtle: var(--border-subtle);
-  --color-input: var(--border);
+  --color-input: var(--border-strong);
   --color-ring: var(--brand-primary);
 
-  /* Brand */
+  /* Brand (legacy names + gold/teal raw scales both addressable) */
   --color-brand-primary: var(--brand-primary);
   --color-brand-primary-foreground: var(--brand-primary-foreground);
   --color-brand-accent: var(--brand-accent);
@@ -331,15 +397,41 @@
   --color-brand-800: var(--brand-800);
   --color-brand-900: var(--brand-900);
 
-  /* shadcn semantic aliases (so default shadcn classes resolve) */
+  --color-gold-50: var(--gold-50);
+  --color-gold-100: var(--gold-100);
+  --color-gold-200: var(--gold-200);
+  --color-gold-300: var(--gold-300);
+  --color-gold-400: var(--gold-400);
+  --color-gold-500: var(--gold-500);
+  --color-gold-600: var(--gold-600);
+  --color-gold-700: var(--gold-700);
+  --color-gold-800: var(--gold-800);
+  --color-gold-900: var(--gold-900);
+
+  --color-teal-50: var(--teal-50);
+  --color-teal-100: var(--teal-100);
+  --color-teal-200: var(--teal-200);
+  --color-teal-300: var(--teal-300);
+  --color-teal-400: var(--teal-400);
+  --color-teal-500: var(--teal-500);
+  --color-teal-600: var(--teal-600);
+  --color-teal-700: var(--teal-700);
+  --color-teal-800: var(--teal-800);
+  --color-teal-900: var(--teal-900);
+
+  /* shadcn semantic aliases.
+   * NOTE: `accent` here is shadcn's "subtle hover-surface" tint — a muted
+   * surface color — NOT the brand-accent (teal). Use `brand-accent` when
+   * you want the teal brand tone. This rewires a semantic that was
+   * previously mis-pointed at the brand-accent hue. */
   --color-primary: var(--brand-primary);
   --color-primary-foreground: var(--brand-primary-foreground);
   --color-secondary: var(--surface);
   --color-secondary-foreground: var(--foreground);
   --color-muted: var(--surface);
   --color-muted-foreground: var(--foreground-muted);
-  --color-accent: var(--brand-accent);
-  --color-accent-foreground: var(--brand-accent-foreground);
+  --color-accent: var(--surface); /* subtle hover surface, not brand color */
+  --color-accent-foreground: var(--foreground);
   --color-destructive: var(--destructive-bg);
   --color-destructive-foreground: #ffffff;
 
@@ -374,7 +466,7 @@
   --color-status-accent-foreground: var(--status-accent-foreground);
   --color-status-accent-border: var(--status-accent-border);
 
-  /* §A.6 Radii — both raw values and shadcn aliases */
+  /* Radii */
   --radius-none: 0px;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -383,10 +475,13 @@
   --radius-2xl: 16px;
   --radius-full: 9999px;
 
-  /* §A.7 Spacing base — Tailwind p-1=4px through p-24=96px */
+  /* Spacing base */
   --spacing: 4px;
 
-  /* §A.8 Typography (8 sizes per spec; heading text says "7 tiers" but lists 8) */
+  /* Typography — fixed body sizes + fluid heading sizes.
+   * Body tiers (xs/sm/base/lg/xl) stay pixel-locked for tabular alignment.
+   * Heading tiers (2xl/3xl/4xl) use clamp() so desktop gets display-scale
+   * typography without breaking phone layouts. */
   --text-xs: 12px;
   --text-xs--line-height: 16px;
   --text-sm: 13px;
@@ -397,12 +492,19 @@
   --text-lg--line-height: 24px;
   --text-xl: 18px;
   --text-xl--line-height: 28px;
-  --text-2xl: 22px;
-  --text-2xl--line-height: 32px;
-  --text-3xl: 28px;
-  --text-3xl--line-height: 36px;
-  --text-4xl: 36px;
-  --text-4xl--line-height: 44px;
+  --text-2xl: clamp(1.25rem, 1.05rem + 0.7vw, 1.5rem);
+  --text-2xl--line-height: 1.35;
+  --text-3xl: clamp(1.5rem, 1.15rem + 1.2vw, 1.875rem);
+  --text-3xl--line-height: 1.25;
+  --text-4xl: clamp(2rem, 1.4rem + 2vw, 2.75rem);
+  --text-4xl--line-height: 1.15;
+
+  /* Letter spacing — tighter at display scale per type-hygiene conventions. */
+  --tracking-tighter: -0.04em;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.08em;
 
   --font-sans:
     var(--font-inter), "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -411,29 +513,40 @@
     var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, monospace;
 
-  /* §A.9 Elevation — bound to switchable --elevation-* */
+  /* Elevation — bound to switchable --elevation-* so dark mode gets its
+   * own set automatically. `shadow-glow-brand` / `shadow-glow-accent`
+   * expose the warm-gold / cool-teal halo tokens. */
   --shadow-xs: var(--elevation-xs);
   --shadow-sm: var(--elevation-sm);
   --shadow-md: var(--elevation-md);
   --shadow-lg: var(--elevation-lg);
   --shadow-xl: var(--elevation-xl);
+  --shadow-glow-brand: var(--glow-brand);
+  --shadow-glow-accent: var(--glow-accent);
 
-  /* §A.10 Motion */
+  /* Motion.
+   * `tactile` — fast-enough press feedback that users read as "the button
+   *   responded." Used by Button's active-scale.
+   * `flow` — slower layout transition that feels choreographed, not laggy.
+   *   Used by tab indicator slides, sheet enter/exit. */
+  --duration-tactile: 130ms;
   --duration-micro: 100ms;
   --duration-small: 200ms;
   --duration-layout: 300ms;
+  --duration-flow: 450ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
   --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* §A.11 Breakpoints — explicit pixel values per spec */
+  /* Breakpoints. */
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
   --breakpoint-2xl: 1536px;
 
-  /* §A.12 Z-index scale */
+  /* Z-index scale. */
   --z-dropdown: 1000;
   --z-sticky: 1020;
   --z-modal: 1040;
@@ -441,13 +554,14 @@
   --z-toast: 1080;
 }
 
-/* Aliases so var(--easing-*) (per prompt §A.10 wording) resolves alongside
- * Tailwind's --ease-* utility namespace. */
+/* `var(--easing-*)` aliases — prompt.md §A.10 names them with the `easing-`
+ * prefix; Tailwind v4 namespaces `--ease-*`. Both resolve. */
 :root,
 .dark {
   --easing-standard: cubic-bezier(0.2, 0, 0, 1);
   --easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
   --easing-exit: cubic-bezier(0.3, 0, 1, 1);
+  --easing-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ============================================================================
@@ -472,13 +586,13 @@
     font-feature-settings: "cv11", "ss01";
   }
 
-  /* §19 Accessibility — visible focus ring on all keyboard targets */
+  /* Visible focus ring on all keyboard targets — WCAG 2.4.7. */
   :focus-visible {
     outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
   }
 
-  /* CLAUDE.md §5 + §19 — respect prefers-reduced-motion */
+  /* Respect prefers-reduced-motion per CLAUDE.md §5 + §19. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

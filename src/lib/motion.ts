@@ -19,13 +19,20 @@ export type { MotionProps, Variants } from "framer-motion";
  * no-op when set, satisfying WCAG 2.3.3 and CLAUDE.md §19.
  */
 
-export type MotionDuration = "micro" | "small" | "layout";
+export type MotionDuration = "tactile" | "micro" | "small" | "layout" | "flow";
 
 const DURATION_SECONDS: Record<MotionDuration, number> = {
-  // Mirrors CSS tokens --duration-micro / -small / -layout in globals.css §A.10.
+  // Mirrors CSS `--duration-*` tokens in globals.css.
+  //   tactile — button press feedback (130ms)
+  //   micro   — icon tweens, hover tints (100ms)
+  //   small   — modal chrome, toast enter (200ms)
+  //   layout  — section swaps, tab panel change (300ms)
+  //   flow    — choreographed layout transitions (450ms)
+  tactile: 0.13,
   micro: 0.1,
   small: 0.2,
   layout: 0.3,
+  flow: 0.45,
 };
 
 // Typed as `Easing | Easing[]` (non-undefined) so strict
@@ -34,11 +41,15 @@ const DURATION_SECONDS: Record<MotionDuration, number> = {
 const EASING_STANDARD: Easing | Easing[] = [0.2, 0, 0, 1];
 const EASING_EMPHASIZED: Easing | Easing[] = [0.3, 0, 0, 1];
 const EASING_EXIT: Easing | Easing[] = [0.3, 0, 1, 1];
+// Overshoot spring for pill indicators / layoutId slides.
+// Mirrors CSS --ease-spring in globals.css.
+const EASING_SPRING: Easing | Easing[] = [0.34, 1.56, 0.64, 1];
 
 export const MOTION_EASINGS = {
   standard: EASING_STANDARD,
   emphasized: EASING_EMPHASIZED,
   exit: EASING_EXIT,
+  spring: EASING_SPRING,
 } as const;
 
 /** Hook — subscribes to `(prefers-reduced-motion: reduce)` media query. */
