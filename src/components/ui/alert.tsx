@@ -4,13 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const alertVariants = cva(
-  "relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-lg border px-4 py-3 text-sm has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current",
+  "relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-xl border px-4 py-3 text-sm has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current",
   {
     variants: {
       variant: {
-        default: "bg-card text-card-foreground",
+        // Neutral alert — soft surface + hairline border, subtle shadow.
+        default: "bg-card text-card-foreground border-border shadow-xs",
+        // All tonal variants follow the same recipe: status-soft bg +
+        // status-foreground text + status-border ring. Matches StatusBadge
+        // tone semantics so alert + badge read as one system.
         destructive:
-          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current",
+          "bg-status-danger-soft border-status-danger-border text-status-danger-foreground *:data-[slot=alert-description]:text-status-danger-foreground/85",
+        success:
+          "bg-status-success-soft border-status-success-border text-status-success-foreground *:data-[slot=alert-description]:text-status-success-foreground/85",
+        warning:
+          "bg-status-warning-soft border-status-warning-border text-status-warning-foreground *:data-[slot=alert-description]:text-status-warning-foreground/85",
+        info: "bg-status-info-soft border-status-info-border text-status-info-foreground *:data-[slot=alert-description]:text-status-info-foreground/85",
       },
     },
     defaultVariants: {

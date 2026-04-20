@@ -42,8 +42,12 @@ function AvatarFallback({
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
+      // Warm fallback surface + tracking-tight initials. Gold-leaning
+      // neutral; upgrades to `text-[11px]` at small sizes so initials
+      // like "JC" don't push past the circle edge.
       className={cn(
-        "bg-muted text-muted-foreground flex size-full items-center justify-center rounded-full text-sm group-data-[size=sm]/avatar:text-xs",
+        "bg-surface text-foreground-muted flex size-full items-center justify-center rounded-full text-sm font-semibold tracking-tight",
+        "group-data-[size=lg]/avatar:text-base group-data-[size=sm]/avatar:text-[11px]",
         className,
       )}
       {...props}

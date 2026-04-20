@@ -14,17 +14,23 @@ import { cn } from "@/lib/utils";
  */
 
 const emptyStateVariants = cva(
-  "flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed px-6 py-12 text-center",
+  "flex flex-col items-center justify-center gap-5 rounded-xl border px-6 py-12 text-center",
   {
     variants: {
       variant: {
-        "first-use": "border-border bg-card",
-        "filtered-out": "border-border bg-surface",
-        error: "border-status-danger-border bg-status-danger-soft/30",
+        // Solid card surface for "expected" empty states (no history yet).
+        "first-use": "border-border-subtle bg-card shadow-xs",
+        // Filtered-out uses surface tier to signal "you have data, it's
+        // just hidden behind your filters" — dashed border indicates
+        // the temporary nature.
+        "filtered-out": "border-dashed border-border bg-surface/50",
+        // Error uses tonal soft-bg + ring-matched border for at-a-glance
+        // severity.
+        error: "border-status-danger-border bg-status-danger-soft/50",
       },
       density: {
         default: "",
-        compact: "gap-2 py-8",
+        compact: "gap-3 py-8",
       },
     },
     defaultVariants: {
@@ -85,13 +91,19 @@ export function EmptyState({
       className={cn(emptyStateVariants({ variant, density }), className)}
       {...props}
     >
-      <span aria-hidden className={cn("text-2xl", ICON_TONE[resolvedVariant])}>
+      <span
+        aria-hidden
+        className={cn(
+          "bg-background ring-border-subtle animate-in zoom-in-95 flex size-16 items-center justify-center rounded-2xl shadow-xs ring-1 duration-500",
+          ICON_TONE[resolvedVariant],
+        )}
+      >
         {icon ?? <Icon className="size-8" />}
       </span>
-      <div className="flex flex-col gap-1">
-        <h3 className="text-foreground text-base font-semibold">{title}</h3>
+      <div className="flex max-w-md flex-col gap-1.5">
+        <h3 className="text-foreground text-base font-semibold tracking-tight">{title}</h3>
         {description ? (
-          <p className="text-foreground-muted max-w-prose text-sm">{description}</p>
+          <p className="text-foreground-muted text-sm leading-relaxed">{description}</p>
         ) : null}
       </div>
       {action || secondaryAction ? (

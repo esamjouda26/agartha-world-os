@@ -18,7 +18,7 @@ import {
   FormSubmitButton,
 } from "@/components/ui/form-primitives";
 import { toastError } from "@/components/ui/toast-helpers";
-import { cn } from "@/lib/utils";
+import { InputWithIcon } from "@/components/shared/input-with-icon";
 import type { ErrorCode, ServerActionResult } from "@/lib/errors";
 
 import { loginAction } from "@/features/auth/actions/login";
@@ -158,7 +158,26 @@ export function LoginForm({ nextPath }: Readonly<{ nextPath?: string }>) {
             <FormItem>
               <FormLabel>{t("passwordLabel")}</FormLabel>
               <FormControl>
-                <InputWithIcon icon={<Lock aria-hidden className="size-4" />}>
+                <InputWithIcon
+                  icon={<Lock aria-hidden className="size-4" />}
+                  trailing={
+                    <button
+                      type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="text-foreground-subtle hover:text-foreground focus-visible:outline-ring grid size-6 place-items-center rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
+                      data-testid="login-password-toggle"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff aria-hidden className="size-4" />
+                      ) : (
+                        <Eye aria-hidden className="size-4" />
+                      )}
+                    </button>
+                  }
+                >
                   <Input
                     {...field}
                     type={showPassword ? "text" : "password"}
@@ -166,21 +185,6 @@ export function LoginForm({ nextPath }: Readonly<{ nextPath?: string }>) {
                     className="px-9"
                     data-testid="login-password"
                   />
-                  <button
-                    type="button"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    aria-pressed={showPassword}
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="text-foreground-subtle hover:text-foreground focus-visible:outline-ring absolute top-1/2 right-3 grid size-6 -translate-y-1/2 place-items-center rounded outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
-                    data-testid="login-password-toggle"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? (
-                      <EyeOff aria-hidden className="size-4" />
-                    ) : (
-                      <Eye aria-hidden className="size-4" />
-                    )}
-                  </button>
                 </InputWithIcon>
               </FormControl>
               <FormMessage />
@@ -198,31 +202,6 @@ export function LoginForm({ nextPath }: Readonly<{ nextPath?: string }>) {
         </FormSubmitButton>
       </form>
     </FormProvider>
-  );
-}
-
-/** Small wrapper that overlays a leading icon on any Input child. Keeps
- *  the Input primitive itself icon-agnostic while giving forms a
- *  consistent leading-affordance treatment. */
-function InputWithIcon({
-  icon,
-  children,
-  className,
-}: Readonly<{
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-}>) {
-  return (
-    <div className={cn("relative", className)}>
-      <span
-        aria-hidden
-        className="text-foreground-subtle pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
-      >
-        {icon}
-      </span>
-      {children}
-    </div>
   );
 }
 

@@ -604,3 +604,18 @@
     }
   }
 }
+
+/* ============================================================================
+ * Global keyframes shared by primitives.
+ * ========================================================================== */
+
+/* Shimmer sweep used by `<Skeleton>`. The collapse under
+ * prefers-reduced-motion is handled by the base-layer reset above. */
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

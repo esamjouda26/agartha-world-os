@@ -37,14 +37,21 @@ function TooltipContent({
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={sideOffset}
+        // Tooltips keep the high-contrast "inverted bubble" convention
+        // but soften to the elevated tier so they sit on the
+        // atmospheric canvas without feeling like a punch-out. Tracked
+        // separately from the popover-family glass recipe because
+        // tooltips render frequently and need cheap paint.
         className={cn(
-          "animate-in bg-foreground text-background fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance",
+          "bg-elevated text-foreground border-border-subtle z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-lg border px-2.5 py-1.5 text-xs text-balance shadow-md",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
+          "data-[side=top]:slide-in-from-bottom-1 data-[side=right]:slide-in-from-left-1 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1",
           className,
         )}
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="bg-foreground fill-foreground z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
+        <TooltipPrimitive.Arrow className="fill-elevated z-50 size-2" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );

@@ -47,7 +47,10 @@ function ScrollBar({
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="bg-border relative flex-1 rounded-full"
+        // Thumb picks up the strong-border tier so it's visible against
+        // the atmospheric dark canvas + warm light canvas. Hover → gold
+        // accent for an unmistakable scrub affordance.
+        className="bg-border-strong/40 hover:bg-brand-primary/60 relative flex-1 rounded-full transition-colors duration-[var(--duration-micro)]"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   );

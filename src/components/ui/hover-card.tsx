@@ -25,8 +25,14 @@ function HoverCardContent({
         data-slot="hover-card-content"
         align={align}
         sideOffset={sideOffset}
+        // Shares the popover-family glass recipe. HoverCard is the
+        // canonical vehicle for rich-content tooltips (staff previews,
+        // linked-entity snapshots) so the chrome matches Popover /
+        // DropdownMenu exactly.
         className={cn(
-          "bg-popover text-popover-foreground data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 z-50 w-64 origin-(--radix-hover-card-content-transform-origin) rounded-md border p-4 shadow-md outline-hidden",
+          "bg-card/95 text-card-foreground border-border-subtle dark:shadow-glow-brand/30 z-50 w-64 origin-(--radix-hover-card-content-transform-origin) rounded-xl border p-4 shadow-xl outline-hidden saturate-150 backdrop-blur-md",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
+          "data-[side=top]:slide-in-from-bottom-2 data-[side=right]:slide-in-from-left-2 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2",
           className,
         )}
         {...props}

@@ -16,8 +16,11 @@ function Separator({
       data-slot="separator"
       decorative={decorative}
       orientation={orientation}
+      // Hairline tier — matches the borderless/card-tier language. Use
+      // `border-border-strong` via className override when the divider
+      // needs to carry interactive-UI contrast (≥ 3:1 per WCAG 1.4.11).
       className={cn(
-        "bg-border shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px",
+        "bg-border-subtle shrink-0 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-px",
         className,
       )}
       {...props}

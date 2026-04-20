@@ -41,11 +41,16 @@ function PaginationLink({ className, isActive, size = "icon", ...props }: Pagina
       aria-current={isActive ? "page" : undefined}
       data-slot="pagination-link"
       data-active={isActive}
+      // Active page picks up a gold tint + hairline border so it's
+      // unmistakable in a long pager. Non-active pages use the ghost
+      // variant for an ambient-but-tappable feel.
       className={cn(
         buttonVariants({
           variant: isActive ? "outline" : "ghost",
           size,
         }),
+        isActive &&
+          "border-brand-primary/40 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15 hover:text-brand-primary",
         className,
       )}
       {...props}

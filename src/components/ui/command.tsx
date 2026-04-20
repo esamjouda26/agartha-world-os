@@ -18,7 +18,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
     <CommandPrimitive
       data-slot="command"
       className={cn(
-        "bg-popover text-popover-foreground flex h-full w-full flex-col overflow-hidden rounded-md",
+        "bg-card text-card-foreground flex h-full w-full flex-col overflow-hidden rounded-xl",
         className,
       )}
       {...props}
@@ -62,12 +62,15 @@ function CommandInput({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
-    <div data-slot="command-input-wrapper" className="flex h-9 items-center gap-2 border-b px-3">
-      <Search className="size-4 shrink-0 opacity-50" />
+    <div
+      data-slot="command-input-wrapper"
+      className="border-border-subtle flex h-11 items-center gap-2 border-b px-3"
+    >
+      <Search aria-hidden className="text-foreground-subtle size-4 shrink-0" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          "placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+          "placeholder:text-foreground-subtle text-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}
@@ -129,8 +132,17 @@ function CommandItem({ className, ...props }: React.ComponentProps<typeof Comman
   return (
     <CommandPrimitive.Item
       data-slot="command-item"
+      // Selected row gets the warm surface tint + a subtle gold bar on
+      // the left; keyboard navigation + pointer hover both trigger
+      // `data-selected=true`, so one rule covers both.
       className={cn(
-        "data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-sm outline-hidden select-none",
+        "transition-colors duration-[var(--duration-micro)]",
+        "data-[selected=true]:bg-surface/80 data-[selected=true]:text-foreground",
+        "data-[selected=true]:before:bg-brand-primary data-[selected=true]:before:absolute data-[selected=true]:before:top-2 data-[selected=true]:before:bottom-2 data-[selected=true]:before:-left-0.5 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full",
+        "[&_svg:not([class*='text-'])]:text-foreground-subtle",
+        "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
