@@ -3,21 +3,23 @@
 import * as React from "react";
 import { parseAsString, useQueryState } from "nuqs";
 
+import { motion, usePrefersReducedMotion, MOTION_EASINGS } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
- * StatusTabBar — prompt.md §2B-D.3.
+ * StatusTabBar — segmented-pill primary navigation surface.
  *
- * URL-backed tab bar (nuqs) with counts and arrow-key navigation per
- * APG "Tabs" pattern (ARIA 1.2, §3.22). Callers pass:
- *   - `tabs`: list of tab definitions with `value` / `label` / optional
- *     `count` / `tone`.
- *   - `paramKey`: nuqs key (defaults to "tab"). Deep-links hydrate the
- *     initial selection.
+ * Renders a prominent, dashboard-grade tab control:
+ *   - Pill-shaped container with hairline border + frost backdrop.
+ *   - Active tab gets a gold surface that slides between positions via
+ *     framer-motion's `layoutId` (shared layout animation) on a spring
+ *     curve. On reduced-motion the spring collapses to 0 duration.
+ *   - Arrow-key navigation per ARIA APG "Tabs" pattern.
+ *   - URL-backed state via nuqs so deep-links hydrate correctly.
  *
- * The content panels themselves are NOT owned here — this primitive is the
- * bar only. Feature code renders `<StatusTabBar …>` above a conditional panel
- * so the server component stays in charge of data fetching.
+ * The content panels themselves are NOT owned here; callers render
+ * `<StatusTabBar />` above a conditional panel so the RSC stays in
+ * charge of data fetching.
  */
 
 export type StatusTabDefinition = Readonly<{
@@ -36,19 +38,29 @@ export type StatusTabBarProps = Readonly<{
   /** Accessible label for the tablist, required by ARIA 1.2. */
   ariaLabel: string;
   /**
-   * Optional — when the caller renders tabpanel elements keyed by tab value,
-   * pass a prefix so each `<button role="tab">` can wire `aria-controls` to
-   * the matching `<div role="tabpanel" id={`${prefix}-${value}`}>`. Omit the
-   * prop when no tabpanel exists and the primitive is acting as a filter bar
-   * (wiring aria-controls to a nonexistent element is an axe failure).
+   * When the caller renders tabpanel elements keyed by tab value, pass
+   * a prefix so each `<button role="tab">` can wire `aria-controls` to
+   * the matching `<div role="tabpanel">`. Omit when no tabpanel exists
+   * (primitive acting as a filter bar).
    */
   panelIdPrefix?: string;
+  /**
+   * Visual density. Defaults to `comfortable` (h-12 / h-10 buttons).
+   * `compact` shrinks to h-10 / h-8 for admin sub-filters.
+   */
+  size?: "compact" | "comfortable";
+  /**
+   * Controls how the bar fills horizontal space.
+   *   `stretch`  — each tab `flex-1` (mobile default; fills the row)
+   *   `natural`  — tabs size to their content (desktop default)
+   */
+  fill?: "stretch" | "natural";
   className?: string;
   "data-testid"?: string;
   onValueChange?: (value: string) => void;
 }>;
 
-const toneDot: Record<NonNullable<StatusTabDefinition["tone"]>, string> = {
+const TONE_DOT_BG: Record<NonNullable<StatusTabDefinition["tone"]>, string> = {
   success: "bg-status-success-solid",
   warning: "bg-status-warning-solid",
   danger: "bg-status-danger-solid",
@@ -63,6 +75,8 @@ export function StatusTabBar({
   defaultValue,
   ariaLabel,
   panelIdPrefix,
+  size = "comfortable",
+  fill = "stretch",
   className,
   "data-testid": testId,
   onValueChange,
@@ -72,6 +86,7 @@ export function StatusTabBar({
     paramKey,
     parseAsString.withDefault(fallback).withOptions({ clearOnDefault: true, history: "replace" }),
   );
+  const reduced = usePrefersReducedMotion();
 
   const currentValue = tabs.some((tab) => tab.value === active) ? active : fallback;
   const triggersRef = React.useRef<(HTMLButtonElement | null)[]>([]);
@@ -110,6 +125,10 @@ export function StatusTabBar({
     onValueChange?.(nextTab.value);
   };
 
+  const containerHeight = size === "compact" ? "h-10" : "h-12";
+  const buttonHeight = size === "compact" ? "h-8" : "h-10";
+  const indicatorLayoutId = `status-tab-indicator-${paramKey}`;
+
   return (
     <div
       role="tablist"
@@ -117,7 +136,12 @@ export function StatusTabBar({
       data-slot="status-tab-bar"
       data-testid={testId}
       className={cn(
-        "border-border-subtle bg-surface flex h-10 max-w-full items-center gap-1 overflow-x-auto rounded-lg border p-1",
+        // Container: frosted pill with hairline border and subtle shadow. At
+        // light mode a warm surface tint; at dark mode an atmospheric tint.
+        // The relative positioning is required for the layoutId indicator.
+        "border-border bg-surface/80 relative flex items-center gap-1 overflow-x-auto rounded-full border p-1 shadow-xs backdrop-blur-sm",
+        "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        containerHeight,
         className,
       )}
     >
@@ -146,32 +170,75 @@ export function StatusTabBar({
             }}
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={cn(
-              "focus-visible:outline-ring inline-flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              // Position relative so the absolute indicator lives inside the
+              // active button's layout slot. `z-0` on button + `-z-10` on
+              // indicator is unreliable across browsers; instead the text/icon
+              // spans get `relative z-10` and the motion bg sits at the default.
+              "group relative inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-medium",
+              "transition-colors duration-[var(--duration-micro)] [transition-timing-function:var(--ease-standard)]",
+              "focus-visible:outline-ring outline-none focus-visible:outline-2 focus-visible:outline-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              buttonHeight,
+              fill === "stretch" ? "min-w-0 flex-1" : "min-w-max",
               isSelected
-                ? "bg-background text-foreground shadow-xs"
+                ? "text-brand-primary-foreground"
                 : "text-foreground-muted hover:text-foreground",
             )}
           >
-            {tab.tone ? (
-              <span aria-hidden className={cn("size-1.5 rounded-full", toneDot[tab.tone])} />
+            {isSelected ? (
+              <motion.span
+                aria-hidden
+                layoutId={indicatorLayoutId}
+                className="bg-brand-primary absolute inset-0 rounded-full shadow-sm"
+                transition={
+                  reduced
+                    ? { duration: 0 }
+                    : {
+                        type: "spring",
+                        stiffness: 380,
+                        damping: 32,
+                        mass: 0.9,
+                      }
+                }
+              />
             ) : null}
-            <span>{tab.label}</span>
-            {typeof tab.count === "number" ? (
-              <span
-                aria-label={`(${tab.count} items)`}
-                className={cn(
-                  "inline-flex h-5 min-w-[1.5rem] items-center justify-center rounded-full px-1.5 text-xs tabular-nums",
-                  isSelected
-                    ? "bg-brand-primary/10 text-brand-primary"
-                    : "bg-border-subtle text-foreground-subtle",
-                )}
-              >
-                {tab.count}
-              </span>
-            ) : null}
+
+            <span className="relative z-10 inline-flex items-center gap-2">
+              {tab.tone ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full transition-colors",
+                    TONE_DOT_BG[tab.tone],
+                    // When the tab is active, the dot loses visual weight
+                    // because the filled pill already signals state; tint it
+                    // toward the active-fg so it reads as an accent, not noise.
+                    isSelected && "bg-brand-primary-foreground/70",
+                  )}
+                />
+              ) : null}
+              <span className="truncate">{tab.label}</span>
+              {typeof tab.count === "number" ? (
+                <span
+                  aria-label={`(${tab.count} items)`}
+                  className={cn(
+                    "inline-flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums transition-colors",
+                    isSelected
+                      ? "bg-brand-primary-foreground/20 text-brand-primary-foreground"
+                      : "bg-border-subtle text-foreground-subtle",
+                  )}
+                >
+                  {tab.count}
+                </span>
+              ) : null}
+            </span>
           </button>
         );
       })}
     </div>
   );
 }
+
+// Re-export motion easings for callers that want to choreograph a
+// custom transition alongside the indicator spring.
+export { MOTION_EASINGS };

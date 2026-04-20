@@ -1,15 +1,44 @@
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * Card — base container primitive for every surfaced tile in the app.
+ *
+ * Variants (R-Design-2):
+ *   - `hairline`   — default. 1px border, soft shadow. Feels framed.
+ *   - `borderless` — no border, stronger shadow. Floats over surface.
+ *   - `elevated`   — larger radius, deep shadow. Modal / spotlight tier.
+ *   - `glass`      — frosted backdrop-blur panel. Reserve for hero
+ *                    surfaces — GPU-expensive.
+ *
+ * Sub-components (CardHeader / CardTitle / CardDescription / CardAction /
+ * CardContent / CardFooter) keep the shadcn slot API so existing callers
+ * are unaffected.
+ */
+
+const cardVariants = cva("flex flex-col gap-6 py-6 text-card-foreground", {
+  variants: {
+    variant: {
+      hairline: "bg-card rounded-xl border border-border shadow-xs",
+      borderless: "bg-card rounded-xl shadow-sm",
+      elevated: "bg-card rounded-2xl shadow-lg",
+      glass:
+        "bg-[color:var(--frost-bg-md)] [backdrop-filter:var(--frost-blur-md)] rounded-2xl border border-border shadow-md",
+    },
+  },
+  defaultVariants: { variant: "hairline" },
+});
+
+export type CardProps = React.ComponentProps<"div"> & VariantProps<typeof cardVariants>;
+
+function Card({ className, variant, ...props }: CardProps) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
-        className,
-      )}
+      data-variant={variant ?? "hairline"}
+      className={cn(cardVariants({ variant }), className)}
       {...props}
     />
   );
@@ -32,7 +61,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn("leading-none font-semibold", className)}
+      className={cn("leading-none font-semibold tracking-tight", className)}
       {...props}
     />
   );
@@ -72,4 +101,13 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-export { Card, CardHeader, CardFooter, CardTitle, CardAction, CardDescription, CardContent };
+export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardAction,
+  CardDescription,
+  CardContent,
+  cardVariants,
+};

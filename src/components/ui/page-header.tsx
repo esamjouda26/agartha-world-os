@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 export type PageHeaderProps = Readonly<{
   title: React.ReactNode;
   description?: React.ReactNode;
+  /** Small-caps label above the title (e.g. "ATTENDANCE · TODAY"). */
+  eyebrow?: React.ReactNode;
   /** Fully-composed `<Breadcrumb>` tree. */
   breadcrumbs?: React.ReactNode;
   /** Single primary CTA — right-aligned on wide viewports. */
@@ -36,6 +38,7 @@ export type PageHeaderProps = Readonly<{
 export function PageHeader({
   title,
   description,
+  eyebrow,
   breadcrumbs,
   primaryAction,
   secondaryActions,
@@ -52,22 +55,37 @@ export function PageHeader({
       data-testid={testId}
       data-density={density}
       className={cn(
-        "border-border-subtle flex flex-col gap-4 border-b",
+        // Frosted sticky header: warm canvas tint at 80% opacity + 20px
+        // backdrop-blur. Sanctioned frost use site per globals.css.
+        "border-border-subtle sticky top-0 z-10 flex flex-col gap-4 border-b bg-[color:var(--frost-bg-md)] [backdrop-filter:var(--frost-blur-md)]",
         density === "compact" ? "pb-3" : "pb-6",
         className,
       )}
     >
       {breadcrumbs ? <div className="text-foreground-subtle text-xs">{breadcrumbs}</div> : null}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-2">
+          {eyebrow ? (
+            <p
+              className="text-brand-primary text-[11px] font-medium tracking-wider uppercase"
+              data-slot="page-header-eyebrow"
+            >
+              {eyebrow}
+            </p>
+          ) : null}
           <Heading
-            className="text-foreground text-2xl font-semibold tracking-tight md:text-3xl"
+            // Fluid title: scales 32px (375px viewport) → 44px (1920px viewport)
+            // via the clamp-based --text-4xl token in globals.css. Tighter
+            // letter-spacing at display size per type-hygiene conventions.
+            className="text-foreground text-3xl font-semibold tracking-tighter md:text-4xl"
             data-slot="page-header-title"
           >
             {title}
           </Heading>
           {description ? (
-            <p className="text-foreground-muted max-w-prose text-sm">{description}</p>
+            <p className="text-foreground-muted max-w-prose text-sm leading-relaxed">
+              {description}
+            </p>
           ) : null}
         </div>
         {primaryAction || secondaryActions ? (

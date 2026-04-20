@@ -357,9 +357,13 @@ function StandardBody<TData>({
     density === "compact" ? "px-3 py-1.5" : density === "spacious" ? "px-4 py-3" : "px-4 py-2";
 
   return (
-    <div className="border-border bg-card overflow-x-auto rounded-lg border">
+    <div className="border-border-subtle bg-card overflow-x-auto rounded-xl border shadow-xs">
       <table className="w-full border-collapse text-left text-sm">
-        <thead className="bg-surface sticky top-0 z-[1]">
+        {/* Sticky frost header — backdrop-blur variant of the warm canvas.
+            This IS the sanctioned "data-table header" frost use site per
+            globals.css. The composited bg is opaque enough to read clearly
+            even over a scrolled row set. */}
+        <thead className="sticky top-0 z-[1] bg-[color:var(--frost-bg-sm)] [backdrop-filter:var(--frost-blur-sm)]">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id} className="border-border-subtle border-b">
               {headerGroup.headers.map((header) => {
@@ -370,7 +374,7 @@ function StandardBody<TData>({
                     key={header.id}
                     scope="col"
                     className={cn(
-                      "text-foreground-subtle text-xs font-medium tracking-wider whitespace-nowrap uppercase",
+                      "text-foreground-subtle text-[11px] font-medium tracking-wider whitespace-nowrap uppercase",
                       rowPadding,
                     )}
                   >
@@ -413,8 +417,12 @@ function StandardBody<TData>({
               }
               tabIndex={onRowClick ? 0 : undefined}
               role={onRowClick ? "button" : undefined}
+              // Hover tint bumped from 60% to 90% surface with a gold
+              // accent on selected rows — the selected state is the one
+              // the eye must lock onto in a dense dashboard.
               className={cn(
-                "border-border-subtle hover:bg-surface/60 data-[state=selected]:bg-brand-primary/5 border-b last:border-b-0",
+                "border-border-subtle border-b transition-colors duration-[var(--duration-micro)] last:border-b-0",
+                "hover:bg-surface/90 data-[state=selected]:bg-brand-primary/10 data-[state=selected]:ring-brand-primary/20 data-[state=selected]:ring-1 data-[state=selected]:ring-inset",
                 onRowClick
                   ? "focus-visible:outline-ring cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
                   : undefined,

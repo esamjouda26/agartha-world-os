@@ -12,7 +12,10 @@ import { cn } from "@/lib/utils";
  */
 
 const kpiCardVariants = cva(
-  "bg-card text-card-foreground border-border flex flex-col gap-2 rounded-lg border p-4 shadow-xs transition-colors",
+  // Premium tile: soft hairline border + hover lift + gold border-accent
+  // on hover. Radius bumped to xl so it feels softer alongside the rest
+  // of the new design language.
+  "group/kpi bg-card text-card-foreground border-border/80 flex flex-col gap-2 rounded-xl border p-4 shadow-xs transition-[transform,box-shadow,border-color] duration-[var(--duration-layout)] [transition-timing-function:var(--ease-standard)] hover:-translate-y-0.5 hover:shadow-md hover:border-brand-primary/30",
   {
     variants: {
       density: {
@@ -22,7 +25,11 @@ const kpiCardVariants = cva(
       },
       emphasis: {
         default: "",
-        accent: "border-brand-primary/40 bg-brand-primary/5",
+        // Accent emphasis: soft gold tint + gold glow in dark mode.
+        // Gradient overlay gives the tile a subtle "hero" feel without a
+        // second background element.
+        accent:
+          "border-brand-primary/40 bg-gradient-to-br from-brand-primary/[0.07] via-card to-card dark:shadow-glow-brand",
       },
     },
     defaultVariants: {
@@ -112,24 +119,30 @@ export function KpiCard({
       {...props}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-foreground-subtle text-xs font-medium tracking-wider uppercase">
+        <p className="text-foreground-subtle text-[11px] font-medium tracking-wider uppercase">
           {label}
         </p>
         {icon ? (
-          <span aria-hidden className="text-foreground-subtle">
+          <span
+            aria-hidden
+            className="text-foreground-subtle group-hover/kpi:text-brand-primary transition-colors"
+          >
             {icon}
           </span>
         ) : null}
       </div>
       <div className="flex items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <p className="text-foreground text-2xl leading-none font-semibold tabular-nums">
+          {/* Fluid value: scales 24px → 30px across viewports via the
+              clamp-based text-3xl token from globals.css. Tabular numerals
+              keep alignment across cards in a KpiCardRow. */}
+          <p className="text-foreground text-3xl leading-none font-semibold tracking-tight tabular-nums">
             {value}
           </p>
           {caption ? <p className="text-foreground-muted text-xs">{caption}</p> : null}
         </div>
         {sparkline ? (
-          <div data-slot="kpi-sparkline" className="h-8 w-24 shrink-0">
+          <div data-slot="kpi-sparkline" className="h-9 w-24 shrink-0">
             {sparkline}
           </div>
         ) : null}
