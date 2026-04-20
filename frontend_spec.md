@@ -87,14 +87,7 @@
 >     Routes MUST tag with the `:<id>` variant when mutating a single row so that sibling queries remain cached.
 > - **Accessibility (WCAG 2.2 Level AA — non-negotiable):** Every page MUST pass `@axe-core/playwright` with zero `serious` or `critical` violations and score ≥ 95 in `lighthouse-ci` a11y (CI-gated). Every interactive element reachable via keyboard with visible `:focus-visible` ring. Dialogs and Sheets trap focus on open and restore to trigger on close (`focus-trap-react` or equivalent). Semantic HTML first; ARIA only when native semantics are insufficient. Forms use explicit `<label for="...">` (placeholder-as-label FORBIDDEN); field errors announced via `aria-describedby` + `role="alert"`; invalid inputs carry `aria-invalid="true"`. Color contrast ≥ 4.5:1 body, ≥ 3:1 large text and UI components. Respect `prefers-reduced-motion: reduce` — non-essential animations suppressed. Every `<img>` has `alt` (decorative → `alt=""`). Camera/selfie capture UIs announce state changes via `aria-live="polite"`. `sonner` toasts carry `role="status"` (info/success) or `role="alert"` (error). Skip-to-content link required at the top of every portal layout.
 > - **Internationalization (`next-intl`):** Routes MUST be locale-segmented at the top of the tree: `/[locale]/(admin|management|crew|auth|guest)/...`. Default locale `en`; required locales `en`, `ms` (Bahasa Malaysia). Locale resolution order (middleware): explicit URL segment → `NEXT_LOCALE` cookie → `Accept-Language` → default. Bare paths (`/admin`) are middleware-rewritten to the default-locale form (`/en/admin`) so bookmarks stay valid. Every user-visible string MUST live in `messages/<locale>.json` and be consumed via `useTranslations()` (client) or `getTranslations()` (server). Hardcoded user-visible strings are FORBIDDEN; `eslint-plugin-i18next` enforces detection. Numbers, currency, dates formatted via `Intl.NumberFormat`, `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`; currency default MYR, per-tenant overridable. Pluralization and gender via ICU MessageFormat — string concatenation FORBIDDEN. All styling uses logical CSS properties (`margin-inline`, `padding-block`, `text-start`) for RTL-readiness.
-> - **Offline queue (crew mobile routes — `/crew/pos`, `/crew/attendance`, `/crew/zone-scan`, `/crew/disposals`):** Each mutation on these routes MUST route through a unified `offlineQueue` module (`src/lib/offline-queue.ts`) backed by IndexedDB (`idb-keyval` or `dexie`). Contract:
->   1. Every outgoing Server Action is wrapped with a generated UUIDv4 **idempotency key** persisted alongside the serialized payload and a `queued_at` timestamp.
->   2. When `navigator.onLine === false` OR the action returns a network-class failure, the mutation is persisted to the queue and the UI shows a "Queued — will sync" toast with pending count.
->   3. A Service Worker `online` listener drains the queue FIFO on reconnect, replaying each item. Server Actions MUST reject duplicate idempotency keys via the `idempotency_keys` table (per CLAUDE.md §2).
->   4. Items failing 5 retries move to a per-user "failed" bucket and page the user to manually retry or discard with audit note. Discards are logged.
->   5. Pending/failed counts surface in the crew top-bar as a badge; a "Sync Queue" drawer lists queued + failed items with action/payload preview for debugging.
->   6. Required first-pass integrations (mandatory before crew routes ship): `rpc_clock_in`, `rpc_clock_out`, `submit_pos_order`, `crew_zones INSERT`, `write_offs INSERT`.
->      Loss of connectivity MUST NOT lose operational data.
+
 > - **Observability stack:** Client and server MUST initialize the following at app boot:
 >   1. **Sentry** — error capture + Session Replay (prod sampling 10% / 100% on error); PII redaction per data-classification rules (CLAUDE.md §2). Source maps uploaded per build; release health enabled.
 >   2. **OpenTelemetry** — instruments every Server Action and RPC. Span naming: `action.<domain>.<name>`, `rpc.<name>`. Trace context propagated via `traceparent` into Edge Functions and external HTTP calls.
@@ -4229,6 +4222,7 @@ INTERACTIONS:
   - GPS acquisition on mount: `navigator.geolocation.getCurrentPosition()` → JSONB `{lat, lng, accuracy}`
   - Clock-in: front camera selfie capture → confirm → Server Action → `rpc_clock_in(p_gps, p_selfie_url, p_remark, p_source)` (source default `mobile`) → triggers: `trg_validate_punch_window` (rejects if outside allowed window: before `shift_start - max_early_clock_in_minutes` or after `shift_start + max_late_clock_in_minutes`), `trg_detect_discrepancies` (flags `late_arrival` if past grace period) → `revalidatePath`
   - Clock-out: same selfie + GPS → Server Action → `rpc_clock_out(p_gps, p_selfie_url, p_remark, p_source)` → triggers: `trg_validate_punch_window` (rejects if after `shift_end + max_late_clock_out_minutes`), `trg_detect_discrepancies` (flags `early_departure` or `missing_clock_in`) → `revalidatePath`. Does NOT require prior clock-in (standalone allowed)
+  - Undo Punch: Users can void their own punches within a 1-hour grace window to correct accidental captures via the `void-own-punch` action (`rpc_void_own_punch(p_punch_id)`).
   - Button logic: before `(expected_start_time + shift_types.max_late_clock_in_minutes)` → show Clock In. After cutoff or already clocked in → show Clock Out. After both → "Shift Complete"
 
 - **Tab 2 — My Exceptions:**
@@ -4243,10 +4237,10 @@ INTERACTIONS:
     - Days worked (COUNT derived_status = 'completed')
     - Days absent (COUNT derived_status = 'absent')
     - Days on leave (COUNT derived_status = 'on_leave')
-    - Total gross hours (SUM gross_worked_seconds / 3600)
     - Total net hours (SUM net_worked_seconds / 3600)
     - Total late minutes (SUM positive deltas: first_in - expected_start_time)
     - Total early departure minutes (SUM positive deltas: expected_end_time - last_out)
+    - Justified exception count
     - Unjustified exception count
   - Weekly breakdown table below summary KPIs
 

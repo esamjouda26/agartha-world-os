@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { MotionProps, Transition, Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Easing, MotionProps, Variants } from "framer-motion";
+
+/** Re-export `motion` + `AnimatePresence` so feature code routes every
+ * framer-motion usage through this module (prompt.md rule 9). Direct
+ * `import … from "framer-motion"` outside this file is forbidden. */
+export { motion, AnimatePresence };
+export type { MotionProps, Variants } from "framer-motion";
 
 /**
  * Canonical motion helpers — prompt.md §2B-E.
@@ -21,9 +28,12 @@ const DURATION_SECONDS: Record<MotionDuration, number> = {
   layout: 0.3,
 };
 
-const EASING_STANDARD: Transition["ease"] = [0.2, 0, 0, 1];
-const EASING_EMPHASIZED: Transition["ease"] = [0.3, 0, 0, 1];
-const EASING_EXIT: Transition["ease"] = [0.3, 0, 1, 1];
+// Typed as `Easing | Easing[]` (non-undefined) so strict
+// `exactOptionalPropertyTypes` accepts them when spread into a
+// `transition: { ease }` property that does not allow `undefined`.
+const EASING_STANDARD: Easing | Easing[] = [0.2, 0, 0, 1];
+const EASING_EMPHASIZED: Easing | Easing[] = [0.3, 0, 0, 1];
+const EASING_EXIT: Easing | Easing[] = [0.3, 0, 1, 1];
 
 export const MOTION_EASINGS = {
   standard: EASING_STANDARD,

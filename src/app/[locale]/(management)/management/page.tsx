@@ -5,7 +5,8 @@ import { redirect as i18nRedirect } from "@/i18n/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { MANAGEMENT_DOMAIN_SECTION, filterNavItems } from "@/lib/rbac/sidebar-config";
+import { filterNavForUser, firstAccessiblePath } from "@/lib/nav/filter";
+import type { AccessLevel } from "@/lib/rbac/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,11 +31,16 @@ export default async function ManagementIndexPage({
   }
 
   const appMetadata = (user.app_metadata ?? {}) as {
+    access_level?: AccessLevel;
     domains?: Record<string, readonly string[]>;
   };
-  const first = filterNavItems(MANAGEMENT_DOMAIN_SECTION.items, appMetadata.domains)[0];
-  if (first) {
-    i18nRedirect({ href: first.href, locale });
+  const accessLevel = appMetadata.access_level ?? "manager";
+  const manifest = filterNavForUser("management", accessLevel, appMetadata.domains);
+  // Landing picks the first domain section (not the shared fallback) so a
+  // user with domain access actually lands on their primary workflow.
+  const firstDomainRoute = firstAccessiblePath(manifest, { excludeSectionId: "shared" });
+  if (firstDomainRoute) {
+    i18nRedirect({ href: firstDomainRoute, locale });
   }
 
   const { data: profile } = await supabase

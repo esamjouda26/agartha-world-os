@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 
 import { ShellWithPalette } from "@/components/shells/shell-with-palette";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { managementNavManifest } from "@/lib/rbac/navigation";
+import { filterNavForUser } from "@/lib/nav/filter";
+import type { AccessLevel } from "@/lib/rbac/types";
 
 export default async function ManagementLayout({
   children,
@@ -20,9 +21,11 @@ export default async function ManagementLayout({
   if (!user) redirect(`/${locale}/auth/login`);
 
   const appMetadata = (user.app_metadata ?? {}) as {
+    access_level?: AccessLevel;
     domains?: Record<string, readonly string[]>;
   };
-  const navigation = managementNavManifest(appMetadata.domains);
+  const accessLevel = appMetadata.access_level ?? "manager";
+  const navigation = filterNavForUser("management", accessLevel, appMetadata.domains);
 
   const cookieStore = await cookies();
   const initialCollapsed = cookieStore.get("SIDEBAR_COLLAPSED")?.value === "1";

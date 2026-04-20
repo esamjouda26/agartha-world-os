@@ -216,7 +216,7 @@ function check(mode: ThemeMode): { rows: Row[]; failed: number } {
       ratio,
       threshold: pair.exempt ? 3 : 4.5,
       verdict,
-      exempt: pair.exempt,
+      exempt: pair.exempt ?? false,
     });
   }
 
@@ -232,7 +232,7 @@ function check(mode: ThemeMode): { rows: Row[]; failed: number } {
       ratio,
       threshold: 3,
       verdict,
-      decorative: pair.decorative,
+      decorative: pair.decorative ?? false,
     });
   }
 

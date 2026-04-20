@@ -58,3 +58,5 @@ supabase/.branches/
 /prompt.md
 /sessions.md
 /lighthouse-phase3.json
+
+/tests

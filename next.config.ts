@@ -1,7 +1,16 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import bundleAnalyzer from "@next/bundle-analyzer";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+// Bundle analyzer — enabled only when ANALYZE=1 is set. Emits an
+// HTML report at .next/analyze/client.html + server.html so we can
+// verify the per-route crew-mobile budget (200 KB gzipped, CLAUDE.md
+// §14) during Phase 4 follow-up gates.
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "1",
+});
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -23,7 +32,14 @@ const cspDirectives = [
   "upgrade-insecure-requests",
 ].join("; ");
 
-const securityHeaders = [
+// NOTE: Due to Next.js App Router's client-side SPA navigation, route-specific
+// Permissions-Policy headers do not re-evaluate when moving between routes.
+// Therefore, we must opt-in to `self` device permissions globally so features
+// like /crew/attendance (GPS+Camera) do not fail upon client-side routing.
+// Microphone and payment stay denied everywhere.
+const PERMISSIONS_DEFAULT = "camera=(self), geolocation=(self), microphone=(), payment=()";
+
+const baseSecurityHeaders = [
   { key: "Content-Security-Policy", value: cspDirectives },
   {
     key: "Strict-Transport-Security",
@@ -32,10 +48,11 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  {
-    key: "Permissions-Policy",
-    value: "camera=(), geolocation=(), microphone=(), payment=()",
-  },
+] as const;
+
+const headersForPermissionsPolicy = (value: string) => [
+  ...baseSecurityHeaders,
+  { key: "Permissions-Policy", value },
 ];
 
 const nextConfig: NextConfig = {
@@ -45,12 +62,13 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pino", "pino-pretty"],
   async headers() {
     return [
+      // Default baseline applies to every route.
       {
         source: "/:path*",
-        headers: securityHeaders,
+        headers: headersForPermissionsPolicy(PERMISSIONS_DEFAULT),
       },
     ];
   },
 };
 
-export default withNextIntl(nextConfig);
+export default withBundleAnalyzer(withNextIntl(nextConfig));

@@ -23,7 +23,7 @@ export default async function LoginPage({
         <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-foreground-muted text-sm">{t("description")}</p>
       </header>
-      <LoginForm nextPath={next} />
+      <LoginForm {...(next ? { nextPath: next } : {})} />
     </div>
   );
 }

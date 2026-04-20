@@ -1,50 +1,32 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { format } from "date-fns";
 
-import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AttendancePage } from "@/components/shared/attendance-page";
 
+/**
+ * `/crew/attendance` — thin wrapper over the shared `AttendancePage`
+ * (frontend_spec.md §6 Pattern A). The shared component owns all data
+ * fetching and RBAC scoping; this file only declares route-level config.
+ */
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("portal.crew");
-  return { title: "Attendance", description: t("attendancePlaceholder") };
+  const today = format(new Date(), "EEE, MMM d yyyy");
+  return {
+    title: `Attendance — ${today}`,
+    description:
+      "Record your clock-in and clock-out, review attendance exceptions, and check your monthly stats.",
+  };
 }
 
 export default async function CrewAttendancePage({
   params,
-}: Readonly<{ params: Promise<{ locale: string }> }>) {
-  const { locale } = await params;
-  const t = await getTranslations("portal.crew");
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect(`/${locale}/auth/login`);
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .single();
-  const name = profile?.display_name ?? user.email ?? "";
-
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title={t("welcome", { name })}
-        description={t("attendancePlaceholder")}
-        data-testid="crew-attendance-welcome"
-      />
-      <EmptyState
-        variant="first-use"
-        title="Attendance"
-        description={t("attendancePlaceholder")}
-        data-testid="crew-attendance-empty"
-      />
-    </div>
-  );
+  searchParams,
+}: Readonly<{
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ tab?: string; date?: string; month?: string }>;
+}>) {
+  const [{ locale }, sp] = await Promise.all([params, searchParams]);
+  return <AttendancePage locale={locale} searchParams={sp} />;
 }

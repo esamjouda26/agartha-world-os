@@ -70,5 +70,5 @@ export type PortalIconName = keyof typeof MAP;
 export function PortalIcon({ name, className }: Readonly<{ name: string; className?: string }>) {
   const Icon = (MAP as Record<string, React.ComponentType<{ className?: string }>>)[name];
   if (!Icon) return null;
-  return <Icon className={className} aria-hidden />;
+  return <Icon {...(className ? { className } : {})} aria-hidden />;
 }

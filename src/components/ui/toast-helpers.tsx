@@ -30,14 +30,6 @@ export function toastWarning(title: string, options: ToastOptions = {}): void {
   toast.warning(title, { description: options.description, duration: options.duration ?? 5_000 });
 }
 
-/** For offline-queue mutations per CLAUDE.md §3 PWA contract. */
-export function toastQueued(title: string, options: ToastOptions = {}): void {
-  toast.message(title, {
-    description: options.description ?? "Will sync automatically when you reconnect.",
-    duration: options.duration ?? 4_000,
-  });
-}
-
 const ERROR_MESSAGES: Record<ErrorCode, { title: string; description: string }> = {
   VALIDATION_FAILED: {
     title: "Please fix the highlighted fields.",

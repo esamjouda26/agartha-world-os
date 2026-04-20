@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "analyze": "ANALYZE=1 next build",
+    "lighthouse:attendance": "tsx scripts/lighthouse-attendance.ts",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
@@ -20,7 +22,15 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "db:types": "supabase gen types typescript --linked > src/types/database.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "rbac:domains": "tsx scripts/generate-domain-codes.ts",
+    "rbac:verify-urlpattern": "tsx scripts/verify-urlpattern-runtime.ts",
+    "rbac:pattern-uniqueness": "tsx scripts/rbac-pattern-uniqueness.ts",
+    "rbac:orphan-routes": "tsx scripts/rbac-orphan-routes.ts",
+    "rbac:pending-empty": "tsx scripts/rbac-pending-empty.ts",
+    "rbac:rls-parity": "tsx scripts/rbac-rls-parity.ts",
+    "rbac:bundle-budget": "tsx scripts/rbac-bundle-budget.ts",
+    "rbac:verify": "pnpm rbac:domains && pnpm rbac:verify-urlpattern && pnpm rbac:pattern-uniqueness && pnpm rbac:orphan-routes && pnpm rbac:pending-empty && pnpm rbac:rls-parity"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -68,11 +78,13 @@
     "@commitlint/config-conventional": "^19.7.0",
     "@eslint/eslintrc": "^3.3.0",
     "@eslint/js": "^9.18.0",
+    "@next/bundle-analyzer": "^16.2.4",
     "@next/eslint-plugin-next": "^16.2.4",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -83,6 +95,7 @@
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-sonarjs": "^4.0.3",
     "eslint-plugin-tailwindcss": "^3.18.3",
+    "fake-indexeddb": "^6.2.5",
     "husky": "^9.1.7",
     "jsdom": "^25.0.0",
     "lint-staged": "^16.4.0",

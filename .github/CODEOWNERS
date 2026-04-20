@@ -1,0 +1,26 @@
+# CODEOWNERS — review gates per CLAUDE.md §11 and ADR-0004.
+#
+# Ownership determines which reviewers GitHub auto-requests. Every
+# security-critical path in this list requires a security-team review
+# before merge; payment/biometric paths require two approvers per §13.
+#
+# Replace `@security-reviewers` and `@platform` with the real GitHub
+# team slugs when the repo is linked to the org — keep the paths.
+
+# ── RBAC / security-critical paths (ADR-0004) ──
+middleware.ts                               @security-reviewers
+src/lib/rbac/**                             @security-reviewers
+src/features/*/rbac.ts                      @security-reviewers
+src/features/_pending/rbac.ts               @security-reviewers
+supabase/migrations/**                      @security-reviewers
+scripts/rbac-*.ts                           @security-reviewers
+scripts/generate-domain-codes.ts            @security-reviewers
+scripts/verify-urlpattern-runtime.ts        @security-reviewers
+
+# ── Nav UX — feature-team-owned, not security-gated ──
+src/lib/nav/**                              @platform
+src/features/*/nav.ts                       @platform
+
+# ── ADRs and runbooks ──
+docs/adr/**                                 @platform @security-reviewers
+docs/runbooks/**                            @platform @security-reviewers

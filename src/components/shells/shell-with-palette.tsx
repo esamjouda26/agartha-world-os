@@ -41,9 +41,9 @@ export function ShellWithPalette({
   return (
     <ResponsivePortalShell
       navigation={navigation}
-      initialSidebarCollapsed={initialSidebarCollapsed}
-      userMenu={userMenu}
-      notifications={notifications}
+      {...(initialSidebarCollapsed !== undefined ? { initialSidebarCollapsed } : {})}
+      {...(userMenu !== undefined ? { userMenu } : {})}
+      {...(notifications !== undefined ? { notifications } : {})}
     >
       {children}
       <CommandPalette navigation={navCommands} data-testid="portal-command-palette" />

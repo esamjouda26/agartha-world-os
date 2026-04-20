@@ -17,7 +17,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { PortalIcon } from "@/components/shells/portal-icon";
 import { cn } from "@/lib/utils";
 
-import type { NavItem, NavManifest, NavSection } from "@/lib/rbac/navigation";
+import type { NavItem, NavManifest, NavSection } from "@/lib/nav/types";
 
 /**
  * Unified responsive portal shell — matches `frontend_spec.md:14-15`.
@@ -94,8 +94,25 @@ export function ResponsivePortalShell({
     });
   }, []);
 
+  // Publish the bottom-tab-bar height as a CSS variable so feature-level
+  // sticky UI can anchor above the tab bar without guessing. The variable is
+  // scoped to this shell's subtree — everything below consumes it via
+  // `var(--shell-bottom-inset, 0px)`.
+  //
+  //   < md & tab bar rendered: tab min-height (56px) + bottom safe-area inset
+  //   < md & no tab bar:       0px
+  //   >= md (desktop sidebar): 0px (tab bar is hidden)
+  //
+  // Encoded as Tailwind arbitrary-property utilities so the value is
+  // evaluated per breakpoint in pure CSS — no JS measurement, no layout
+  // shift.
+  const hasBottomBar = visibleItems.length > 0;
+  const bottomInsetClasses = hasBottomBar
+    ? "[--shell-bottom-inset:calc(56px+env(safe-area-inset-bottom,0px))] md:[--shell-bottom-inset:0px]"
+    : "[--shell-bottom-inset:0px]";
+
   return (
-    <div className="flex min-h-dvh flex-col md:flex-row">
+    <div className={cn("flex min-h-dvh flex-col md:flex-row", bottomInsetClasses)}>
       {/* Desktop sidebar — frontend_spec.md:14 */}
       <aside
         data-slot="portal-sidebar"
@@ -196,7 +213,7 @@ export function ResponsivePortalShell({
         <main
           data-slot="portal-main"
           data-testid="portal-main"
-          className="flex-1 px-4 pt-6 pb-24 sm:px-6 md:pb-6 lg:px-8"
+          className="flex-1 px-4 pt-6 pb-[calc(var(--shell-bottom-inset,0px)+theme(spacing.6))] sm:px-6 lg:px-8"
         >
           {children}
         </main>

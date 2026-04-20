@@ -2,12 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 
 import { routing } from "@/i18n/routing";
-import {
-  hasDomainAccess,
-  isSharedBypass,
-  resolveRouteRequirement,
-  type DomainAccess,
-} from "@/lib/rbac/route-manifest";
+import { hasDomainAccess, isSharedBypass, resolveRouteRequirement } from "@/lib/rbac/policy";
+import { brandLocaleStripped, type DomainAccess, type LocaleStrippedPath } from "@/lib/rbac/types";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
 
 const intlMiddleware = createIntlMiddleware(routing);
@@ -28,9 +24,15 @@ const ACCESS_REVOKED_PATH = "/auth/access-revoked";
 // at the edge would lock every admin out. See
 // `docs/adr/0002-defer-mfa-gate.md`.
 
-function stripLocale(pathname: string): string {
+/**
+ * Strip the leading locale segment from a pathname and brand the result
+ * as `LocaleStrippedPath`. This is the ONLY legitimate call site that
+ * mints the brand — the ESLint rule bans `as LocaleStrippedPath` casts
+ * anywhere else (ADR-0004).
+ */
+function stripLocale(pathname: string): LocaleStrippedPath {
   const stripped = pathname.replace(LOCALE_PATTERN, "");
-  return stripped === "" ? "/" : stripped;
+  return brandLocaleStripped(stripped === "" ? "/" : stripped);
 }
 
 function currentLocale(pathname: string): string {

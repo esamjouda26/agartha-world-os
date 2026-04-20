@@ -104,6 +104,13 @@ export type DataTableProps<TData> = Readonly<{
    * Defaults to 480px.
    */
   viewportClassName?: string;
+  /**
+   * Optional whole-row click handler. When set, every row (desktop table,
+   * virtualized table, and mobile card) becomes tappable and renders a
+   * pointer cursor. Interactive child elements (buttons, checkboxes,
+   * links) should `stopPropagation()` to avoid double-firing.
+   */
+  onRowClick?: (row: TData) => void;
   className?: string;
   "data-testid"?: string;
 }>;
@@ -129,6 +136,7 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
     pagination,
     rowCount,
     viewportClassName,
+    onRowClick,
     className,
     "data-testid": testId,
   } = props;
@@ -237,6 +245,7 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
               table={table}
               priority={mobileFieldPriority}
               enableSelection={Boolean(bulkActionBar)}
+              {...(onRowClick !== undefined ? { onRowClick } : {})}
             />
           </div>
           <div className="hidden md:block">
@@ -244,10 +253,15 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
               <VirtualizedBody
                 table={table}
                 density={density}
-                viewportClassName={viewportClassName}
+                {...(viewportClassName !== undefined ? { viewportClassName } : {})}
+                {...(onRowClick !== undefined ? { onRowClick } : {})}
               />
             ) : (
-              <StandardBody table={table} density={density} />
+              <StandardBody
+                table={table}
+                density={density}
+                {...(onRowClick !== undefined ? { onRowClick } : {})}
+              />
             )}
           </div>
         </>
@@ -333,7 +347,12 @@ function Toolbar<TData>({
 function StandardBody<TData>({
   table,
   density,
-}: Readonly<{ table: TanstackTable<TData>; density: Density }>) {
+  onRowClick,
+}: Readonly<{
+  table: TanstackTable<TData>;
+  density: Density;
+  onRowClick?: (row: TData) => void;
+}>) {
   const rowPadding =
     density === "compact" ? "px-3 py-1.5" : density === "spacious" ? "px-4 py-3" : "px-4 py-2";
 
@@ -381,7 +400,25 @@ function StandardBody<TData>({
             <tr
               key={row.id}
               data-state={row.getIsSelected() ? "selected" : undefined}
-              className="border-border-subtle hover:bg-surface/60 data-[state=selected]:bg-brand-primary/5 border-b last:border-b-0"
+              onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row.original);
+                      }
+                    }
+                  : undefined
+              }
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? "button" : undefined}
+              className={cn(
+                "border-border-subtle hover:bg-surface/60 data-[state=selected]:bg-brand-primary/5 border-b last:border-b-0",
+                onRowClick
+                  ? "focus-visible:outline-ring cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                  : undefined,
+              )}
             >
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className={cn("text-foreground text-sm", rowPadding)}>
@@ -400,10 +437,12 @@ function VirtualizedBody<TData>({
   table,
   density,
   viewportClassName,
+  onRowClick,
 }: Readonly<{
   table: TanstackTable<TData>;
   density: Density;
   viewportClassName?: string;
+  onRowClick?: (row: TData) => void;
 }>) {
   const rows = table.getRowModel().rows;
   const parentRef = React.useRef<HTMLDivElement | null>(null);
@@ -458,9 +497,24 @@ function VirtualizedBody<TData>({
             return (
               <div
                 key={row.id}
-                role="row"
+                role={onRowClick ? "button" : "row"}
                 data-state={row.getIsSelected() ? "selected" : undefined}
-                className="border-border-subtle hover:bg-surface/60 data-[state=selected]:bg-brand-primary/5 absolute left-0 grid w-full border-b"
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onRowClick(row.original);
+                        }
+                      }
+                    : undefined
+                }
+                tabIndex={onRowClick ? 0 : undefined}
+                className={cn(
+                  "border-border-subtle hover:bg-surface/60 data-[state=selected]:bg-brand-primary/5 absolute left-0 grid w-full border-b",
+                  onRowClick ? "cursor-pointer" : undefined,
+                )}
                 style={{
                   transform: `translateY(${virtualRow.start}px)`,
                   height: `${virtualRow.size}px`,
@@ -489,10 +543,12 @@ function CardListView<TData>({
   table,
   priority,
   enableSelection,
+  onRowClick,
 }: Readonly<{
   table: TanstackTable<TData>;
   priority: readonly string[];
   enableSelection: boolean;
+  onRowClick?: (row: TData) => void;
 }>) {
   return (
     <ul className="flex flex-col gap-2">
@@ -504,7 +560,25 @@ function CardListView<TData>({
             key={row.id}
             data-slot="data-table-card"
             data-state={row.getIsSelected() ? "selected" : undefined}
-            className="border-border bg-card data-[state=selected]:border-brand-primary/60 data-[state=selected]:bg-brand-primary/5 flex flex-col gap-2 rounded-lg border p-3"
+            onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+            onKeyDown={
+              onRowClick
+                ? (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onRowClick(row.original);
+                    }
+                  }
+                : undefined
+            }
+            tabIndex={onRowClick ? 0 : undefined}
+            role={onRowClick ? "button" : undefined}
+            className={cn(
+              "border-border bg-card data-[state=selected]:border-brand-primary/60 data-[state=selected]:bg-brand-primary/5 flex flex-col gap-2 rounded-lg border p-3",
+              onRowClick
+                ? "active:bg-surface/60 focus-visible:outline-ring cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
+                : undefined,
+            )}
           >
             {enableSelection ? (
               <label className="text-foreground-muted flex items-center gap-2 text-xs">
