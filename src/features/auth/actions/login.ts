@@ -69,7 +69,12 @@ export async function loginAction(input: LoginInput): Promise<ServerActionResult
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.session) {
     log.info({ email, err: error?.message }, "login failed");
-    return fail("UNAUTHENTICATED", { email: "Invalid email or password." });
+    // Do NOT attribute the error to a specific field. Marking the email
+    // field red implies the email was the problem, when in reality
+    // either input could be — and leaking which one narrows an
+    // attacker's guessing space. The form renders a top-of-form alert
+    // for credential errors instead.
+    return fail("UNAUTHENTICATED");
   }
 
   const accessLevel =

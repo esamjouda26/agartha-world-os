@@ -14,21 +14,26 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LoginPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<{ next?: string }> }>) {
-  const t = await getTranslations("auth.login");
   const { next } = await searchParams;
 
   return (
     <div className="space-y-7" data-testid="login-page">
       <header className="space-y-2">
-        <p className="text-foreground-subtle text-[11px] font-medium tracking-wider uppercase">
-          Sign in
-        </p>
-        <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-[28px]">
-          {t("title")}
+        <h1 className="text-foreground text-[28px] font-semibold tracking-tight sm:text-3xl">
+          Welcome back
         </h1>
-        <p className="text-foreground-muted text-sm leading-relaxed">{t("description")}</p>
+        <p className="text-foreground-muted text-sm leading-relaxed">
+          Use your staff credentials to continue. Access is limited to registered AgarthaOS
+          workspace members.
+        </p>
       </header>
       <LoginForm {...(next ? { nextPath: next } : {})} />
+      <footer className="border-border-subtle border-t pt-5">
+        <p className="text-foreground-subtle text-xs leading-relaxed">
+          Trouble signing in? Your manager or HR can reset your access — AgarthaOS doesn&apos;t send
+          self-service password emails on purpose.
+        </p>
+      </footer>
     </div>
   );
 }

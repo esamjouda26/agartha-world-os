@@ -33,14 +33,24 @@ export default async function AuthLayout({ children }: Readonly<{ children: Reac
         <ThemeToggle />
       </div>
 
-      {/* Brand wordmark — tracking-widest small-caps reads as a heritage
-          lockup without needing a custom SVG, matches the hospitality
-          palette's antique-brass vibe. */}
+      {/* Brand lockup: gold rounded mark + mixed-case wordmark with the
+          "OS" suffix picked out in the brand tone. Reads as a premium
+          admin product (think Linear / Vercel lockups) rather than a
+          spaced-out all-caps word. */}
       <header className="mb-10 flex flex-col items-center gap-2">
-        <p className="text-brand-primary text-sm font-semibold tracking-[0.3em] uppercase">
-          {t("name")}
-        </p>
-        <p className="text-foreground-subtle text-xs">Staff workspace</p>
+        <div className="flex items-center gap-2.5">
+          <div
+            aria-hidden
+            className="bg-brand-primary text-brand-primary-foreground dark:shadow-glow-brand/50 flex size-9 items-center justify-center rounded-xl shadow-sm"
+          >
+            <span className="text-base font-bold tracking-tighter">A</span>
+          </div>
+          <p className="text-foreground text-2xl font-semibold tracking-tight">
+            {brandSplit(t("name"))[0]}
+            <span className="text-brand-primary">{brandSplit(t("name"))[1]}</span>
+          </p>
+        </div>
+        <p className="text-foreground-subtle text-xs font-medium tracking-wide">Staff workspace</p>
       </header>
 
       {/* Glass auth card. Frosted surface, hairline border, soft shadow
@@ -51,4 +61,16 @@ export default async function AuthLayout({ children }: Readonly<{ children: Reac
       </div>
     </main>
   );
+}
+
+/**
+ * Split the brand string into "primary" + "suffix" so the wordmark can
+ * render the tail ("OS") in the brand tone. Works for "AgarthaOS" →
+ * ["Agartha", "OS"]; falls back to [full, ""] when the pattern doesn't
+ * match so the lockup degrades cleanly for any localized name.
+ */
+function brandSplit(name: string): [string, string] {
+  const m = /^(.*?)(OS|AI|HQ)$/.exec(name);
+  if (!m) return [name, ""];
+  return [m[1] ?? name, m[2] ?? ""];
 }
