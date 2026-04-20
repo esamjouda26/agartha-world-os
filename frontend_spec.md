@@ -3786,18 +3786,41 @@ export default function Page() {
 }
 ```
 
-#### 2. `AttendancePage` — Pattern A (no props)
+#### 2. `AttendancePage` — Pattern C (server-injected context) — **AMENDED BY ADR-0005**
+
+> **Historical note:** originally specified as Pattern A (no props). Overridden by
+> [ADR-0005](docs/adr/0005-attendance-pattern-c-override.md) to enable
+> drill-down, hover previews, shareable deep-links, and future admin
+> "view-as" UX. RLS unchanged — safety-neutral refactor. The shared
+> component is split into a thin self-resolving wrapper (`AttendancePage`)
+> plus a parametrized renderer (`StaffAttendanceView`).
 
 ```tsx
-// Props interface
-interface AttendancePageProps {} // none — all data scoped to own staff_record via Tier 4 RLS
+// Parametrized renderer — feature-local, reused by future admin drill-down.
+// src/features/attendance/components/staff-attendance-view.tsx
+interface StaffAttendanceViewProps {
+  staffRecordId: string;
+  displayName: string;
+  canWrite?: boolean; // defaults true
+  searchParams: Readonly<{ tab?: string; date?: string; month?: string }>;
+  locale: string;
+  density?: "default" | "compact"; // defaults "default"
+}
 
+// Thin wrapper — preserves the import surface for every /*/attendance route.
+// src/components/shared/attendance-page.tsx
+interface AttendancePageProps {
+  locale: string;
+  searchParams?: Readonly<{ tab?: string; date?: string; month?: string }>;
+}
+
+// Route wrappers unchanged:
 // src/app/(portal)/admin/attendance/page.tsx
 // src/app/(portal)/management/attendance/page.tsx
 // src/app/(portal)/crew/attendance/page.tsx
 import { AttendancePage } from "@/components/shared/attendance-page";
-export default function Page() {
-  return <AttendancePage />;
+export default function Page(props) {
+  return <AttendancePage {...props} />;
 }
 ```
 
