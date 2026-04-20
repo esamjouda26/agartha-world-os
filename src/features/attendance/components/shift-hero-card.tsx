@@ -5,6 +5,7 @@ import { parseISO } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { assertNever } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import type { TodayShift } from "@/features/attendance/types";
 import type { deriveButtonState } from "@/features/attendance/components/derive-button-state";
 import {
@@ -13,12 +14,13 @@ import {
 } from "@/features/attendance/components/shift-display";
 
 /**
- * The hero card at the top of the Clock In/Out tab.
+ * ShiftHeroCard — the attention-anchor of the Clock In/Out tab.
  *
- * Surfaces the shift label, the expected window, an optional elapsed-time
- * chip (shown once the user has clocked in), and the state-aware primary
- * action button. Extracted from the parent panel so each concern lives in
- * its own file per feature-module convention.
+ * Premium redesign: deeper radius, warm-gold gradient wash across the
+ * top, an optional radial glow in the corner (dark-mode only), and a
+ * stepped information hierarchy (eyebrow → title → window → elapsed
+ * → action). The primary action sits at the card's bottom edge so on
+ * mobile it falls naturally into the thumb zone.
  */
 
 type ButtonState = ReturnType<typeof deriveButtonState> | { kind: "read-only" };
@@ -41,49 +43,68 @@ export function ShiftHeroCard({
   onClockOut,
 }: ShiftHeroCardProps) {
   const name = displayShiftName(shift.shiftType.name);
-  const window = displayShiftWindow(shift) ?? "—";
+  const shiftWindow = displayShiftWindow(shift) ?? "—";
 
-  // Running timer from the first clock-in punch (if any).
   const clockInPunch = shift.punches.find((p) => p.punch_type === "clock_in");
   const clockOutPunch = shift.punches.find((p) => p.punch_type === "clock_out");
-  const elapsed =
-    isToday && clockInPunch && !clockOutPunch
-      ? elapsedBetween(parseISO(clockInPunch.punch_time), now)
-      : null;
+  const isLive = isToday && Boolean(clockInPunch) && !clockOutPunch;
+  const elapsed = isLive ? elapsedBetween(parseISO(clockInPunch!.punch_time), now) : null;
 
   return (
     <section
       data-testid="attendance-shift-hero"
-      className="border-border bg-card relative overflow-hidden rounded-xl border shadow-xs"
+      className={cn(
+        "border-border bg-card relative isolate overflow-hidden rounded-2xl border shadow-sm",
+        // Atmospheric: warm gold halo in dark mode. Harmless no-op in light.
+        "dark:shadow-glow-brand/40",
+      )}
     >
+      {/* Top wash — soft gold gradient bleeding out of the card's top edge.
+          Restrained alpha so it frames the title without overpowering it. */}
       <div
         aria-hidden
-        className="from-brand-primary/5 absolute inset-x-0 top-0 h-24 bg-gradient-to-b to-transparent"
+        className="from-brand-primary/10 via-brand-primary/[0.04] pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b to-transparent"
       />
 
-      <div className="relative flex flex-col gap-4 p-5 sm:gap-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-foreground-subtle text-xs font-medium tracking-wider uppercase">
-              {isToday ? "Today's shift" : "Shift"}
+      {/* Decorative radial glow — pronounced in dark mode for the
+          "live-on-shift" state. Hidden for non-today / read-only. */}
+      {isLive ? (
+        <div
+          aria-hidden
+          className="bg-brand-primary/10 dark:bg-brand-primary/20 pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full blur-3xl"
+        />
+      ) : null}
+
+      <div className="relative flex flex-col gap-6 p-6 sm:p-8">
+        <header className="flex flex-col gap-2">
+          <p
+            className="text-brand-primary text-[11px] font-medium tracking-wider uppercase"
+            data-testid="attendance-shift-eyebrow"
+          >
+            {isToday ? "Today's shift" : "Shift"}
+          </p>
+          <h2 className="text-foreground text-2xl font-semibold tracking-tight sm:text-3xl">
+            {name}
+          </h2>
+          <p className="text-foreground-muted inline-flex items-center gap-1.5 text-sm tabular-nums">
+            <Clock aria-hidden className="size-4" />
+            {shiftWindow}
+          </p>
+        </header>
+
+        {elapsed ? (
+          <div
+            className="border-border-subtle flex items-baseline justify-between gap-3 border-t pt-5"
+            data-testid="attendance-elapsed"
+          >
+            <p className="text-foreground-subtle text-[11px] font-medium tracking-wider uppercase">
+              On shift
             </p>
-            <h2 className="text-foreground mt-1 text-xl font-semibold tracking-tight">{name}</h2>
-            <p className="text-foreground-muted mt-1 inline-flex items-center gap-1.5 text-sm tabular-nums">
-              <Clock aria-hidden className="size-4" />
-              {window}
+            <p className="text-status-success-foreground text-4xl font-semibold tracking-tighter tabular-nums">
+              {elapsed}
             </p>
           </div>
-
-          {elapsed ? (
-            <div
-              className="bg-status-success-bg-soft text-status-success-foreground border-status-success-border flex flex-col items-end rounded-lg border px-3 py-2 text-right"
-              data-testid="attendance-elapsed"
-            >
-              <span className="text-[11px] font-medium tracking-wide uppercase">On shift</span>
-              <span className="text-base font-semibold tabular-nums">{elapsed}</span>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
 
         <PrimaryAction buttonState={buttonState} onClockIn={onClockIn} onClockOut={onClockOut} />
       </div>
@@ -106,7 +127,7 @@ function PrimaryAction({
         size="lg"
         variant="secondary"
         disabled
-        className="min-h-[52px] w-full"
+        className="min-h-[56px] w-full text-base"
         data-testid="attendance-clock-readonly"
       >
         Viewing history · actions unavailable
@@ -119,7 +140,7 @@ function PrimaryAction({
         size="lg"
         variant="secondary"
         disabled
-        className="min-h-[52px] w-full"
+        className="min-h-[56px] w-full text-base"
         data-testid="attendance-clock-complete"
       >
         Shift complete
@@ -128,7 +149,7 @@ function PrimaryAction({
   }
   if (buttonState.kind === "no-shift") {
     return (
-      <Button size="lg" variant="secondary" disabled className="min-h-[52px] w-full">
+      <Button size="lg" variant="secondary" disabled className="min-h-[56px] w-full text-base">
         No shift to clock into
       </Button>
     );
@@ -139,7 +160,7 @@ function PrimaryAction({
         size="lg"
         variant="secondary"
         disabled
-        className="min-h-[52px] w-full"
+        className="min-h-[56px] w-full text-base"
         data-testid="attendance-clock-outside-window"
       >
         {buttonState.reason === "too-early" ? "Clock-in opens soon" : "Clock window closed"}
@@ -151,7 +172,7 @@ function PrimaryAction({
       <Button
         size="lg"
         onClick={onClockIn}
-        className="min-h-[52px] w-full text-base"
+        className="min-h-[56px] w-full text-base"
         data-testid="attendance-clock-in"
       >
         Clock in
@@ -164,7 +185,7 @@ function PrimaryAction({
         size="lg"
         variant="destructive"
         onClick={onClockOut}
-        className="min-h-[52px] w-full text-base"
+        className="min-h-[56px] w-full text-base"
         data-testid="attendance-clock-out"
       >
         Clock out

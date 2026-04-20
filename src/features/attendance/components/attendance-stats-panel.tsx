@@ -2,6 +2,7 @@
 
 import { format, parseISO } from "date-fns";
 
+import { KpiCard, KpiCardRow } from "@/components/ui/kpi-card";
 import { DailyPunchLog } from "@/features/attendance/components/daily-punch-log";
 import { MonthPicker } from "@/features/attendance/components/month-picker";
 import type { MonthlyPunchesByDay } from "@/features/attendance/queries/get-monthly-punches";
@@ -13,23 +14,20 @@ type Props = Readonly<{
 }>;
 
 /**
- * Tab-3 "My Attendance" surface — redesigned per DingTalk-style personal
- * stats panels. Layout:
- *   - Month picker (segmented prev/next) at the top right.
- *   - One-paragraph natural-language summary at the top, generated from
- *     the numbers. Paragraphs communicate better than KPI grids for
- *     personal stats.
- *   - A compact 4-KPI row with the inputs that justify the paragraph.
- *   - Weekly trend as a CSS horizontal bar chart — hours worked per week,
- *     with a tiny late-minutes marker on the right. No chart library;
- *     the primitive renders from `div` widths so it's CLS-safe and
- *     reduced-motion-friendly.
+ * Tab-3 "My Attendance" surface — monthly KPIs, weekly breakdown, daily
+ * punch log. Layout:
+ *   - Month picker + month title on top.
+ *   - One-paragraph natural-language summary — faster to read than grids.
+ *   - KPI card row (KpiCard primitive) — accent emphasis on the two
+ *     metrics that demand user action when non-zero.
+ *   - Weekly trend as a CSS bar chart (no chart library).
+ *   - Daily punch log on the bottom.
  */
 export function AttendanceStatsPanel({ stats, punches }: Props) {
   return (
-    <div className="flex flex-col gap-5" data-testid="attendance-stats-panel">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-foreground text-lg font-semibold tracking-tight">
+    <div className="flex flex-col gap-6" data-testid="attendance-stats-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-foreground text-xl font-semibold tracking-tight sm:text-2xl">
           {format(parseISO(stats.month_start), "LLLL yyyy")}
         </h2>
         <MonthPicker />
@@ -37,25 +35,24 @@ export function AttendanceStatsPanel({ stats, punches }: Props) {
 
       <SummaryParagraph stats={stats} />
 
-      <section
-        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-        data-testid="attendance-stats-kpis"
-      >
-        <StatCell label="Days worked" value={String(stats.days_worked)} />
-        <StatCell label="Net hours" value={stats.net_hours.toFixed(1)} />
-        <StatCell
+      <KpiCardRow data-testid="attendance-stats-kpis">
+        <KpiCard label="Days worked" value={stats.days_worked} caption="this month" />
+        <KpiCard label="Net hours" value={stats.net_hours.toFixed(1)} caption="payable" />
+        <KpiCard
           label="Late minutes"
-          value={String(stats.late_minutes)}
-          tone={stats.late_minutes > 0 ? "warning" : "neutral"}
+          value={stats.late_minutes}
+          caption={stats.late_minutes > 0 ? "attention" : "on time"}
+          emphasis={stats.late_minutes > 0 ? "accent" : "default"}
           data-testid="attendance-stats-late-minutes"
         />
-        <StatCell
+        <KpiCard
           label="Unjustified"
-          value={String(stats.unjustified_exception_count)}
-          tone={stats.unjustified_exception_count > 0 ? "danger" : "success"}
+          value={stats.unjustified_exception_count}
+          caption={stats.unjustified_exception_count > 0 ? "needs clarification" : "all clarified"}
+          emphasis={stats.unjustified_exception_count > 0 ? "accent" : "default"}
           data-testid="attendance-stats-unjustified"
         />
-      </section>
+      </KpiCardRow>
 
       <WeeklyTrend rows={stats.weekly_breakdown} />
 
@@ -69,7 +66,7 @@ function SummaryParagraph({ stats }: Readonly<{ stats: MonthlyStats }>) {
   if (!hasShifts) {
     return (
       <p
-        className="bg-surface border-border-subtle text-foreground-muted rounded-lg border p-4 text-sm"
+        className="bg-surface border-border-subtle text-foreground-muted rounded-xl border p-4 text-sm"
         data-testid="attendance-stats-summary-empty"
       >
         No shifts recorded for this month yet. Clock-in history will surface here once your shift
@@ -110,45 +107,11 @@ function SummaryParagraph({ stats }: Readonly<{ stats: MonthlyStats }>) {
 
   return (
     <p
-      className="bg-surface border-border-subtle text-foreground rounded-lg border p-4 text-sm leading-relaxed"
+      className="bg-surface border-border-subtle text-foreground rounded-xl border p-4 text-sm leading-relaxed"
       data-testid="attendance-stats-summary"
     >
       {parts.join(" ")}
     </p>
-  );
-}
-
-type Tone = "neutral" | "warning" | "danger" | "success";
-
-function StatCell({
-  label,
-  value,
-  tone = "neutral",
-  "data-testid": testId,
-}: Readonly<{
-  label: string;
-  value: string;
-  tone?: Tone;
-  "data-testid"?: string;
-}>) {
-  const valueClass =
-    tone === "warning"
-      ? "text-status-warning-foreground"
-      : tone === "danger"
-        ? "text-status-danger-foreground"
-        : tone === "success"
-          ? "text-status-success-foreground"
-          : "text-foreground";
-  return (
-    <div
-      className="border-border bg-card flex flex-col gap-1 rounded-md border p-3"
-      data-testid={testId}
-    >
-      <p className="text-foreground-subtle text-[11px] font-medium tracking-wide uppercase">
-        {label}
-      </p>
-      <p className={`text-xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
-    </div>
   );
 }
 
@@ -158,11 +121,11 @@ function WeeklyTrend({ rows }: Readonly<{ rows: ReadonlyArray<WeeklyBreakdownRow
 
   return (
     <section
-      className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4"
+      className="border-border bg-card flex flex-col gap-3 rounded-xl border p-5 shadow-xs"
       data-testid="attendance-stats-weekly"
     >
       <h3 className="text-foreground text-sm font-semibold tracking-tight">Weekly breakdown</h3>
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-2.5">
         {rows.map((row) => {
           const widthPct = Math.round((row.gross_hours / maxHours) * 100);
           return (
@@ -173,7 +136,9 @@ function WeeklyTrend({ rows }: Readonly<{ rows: ReadonlyArray<WeeklyBreakdownRow
                   {format(parseISO(row.week_end), "MMM d")}
                 </span>
                 <span className="text-foreground-muted tabular-nums">
-                  {row.gross_hours.toFixed(1)}h
+                  <span className="text-foreground font-semibold">
+                    {row.gross_hours.toFixed(1)}h
+                  </span>
                   {row.late_minutes > 0 ? (
                     <span className="text-status-warning-foreground ml-2 text-[11px] font-medium">
                       +{row.late_minutes}m late
@@ -181,10 +146,11 @@ function WeeklyTrend({ rows }: Readonly<{ rows: ReadonlyArray<WeeklyBreakdownRow
                   ) : null}
                 </span>
               </div>
-              <div className="bg-surface relative h-2 overflow-hidden rounded-full">
+              {/* Gradient-filled bar so a full week doesn't look flat. */}
+              <div className="bg-surface border-border-subtle relative h-2 overflow-hidden rounded-full border">
                 <div
                   aria-hidden
-                  className="bg-brand-primary absolute inset-y-0 left-0"
+                  className="from-brand-primary to-brand-primary/70 absolute inset-y-0 left-0 rounded-full bg-gradient-to-r"
                   style={{ width: `${widthPct}%` }}
                 />
               </div>
