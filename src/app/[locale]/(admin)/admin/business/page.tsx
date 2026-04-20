@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { LineChart, Megaphone, Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { PageHeader } from "@/components/ui/page-header";
+import { PortalWelcomeHero } from "@/components/shared/portal-welcome-hero";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: "Executive Dashboard", description: t("description") };
 }
 
+/**
+ * `/admin/business` — the Business-persona landing page. Quick actions
+ * point to the Business-side surfaces Phase 6 will flesh out (revenue,
+ * guests, announcements).
+ */
 export default async function AdminBusinessPage({
   params,
 }: Readonly<{ params: Promise<{ locale: string }> }>) {
@@ -32,9 +38,31 @@ export default async function AdminBusinessPage({
   const name = profile?.display_name ?? user.email ?? "";
 
   return (
-    <PageHeader
-      title={t("welcome", { name })}
+    <PortalWelcomeHero
+      eyebrow="Business Portal · Executive dashboard"
+      name={name}
       description={t("description")}
+      statusLabel="Live"
+      quickActions={[
+        {
+          href: "/admin/revenue",
+          label: "Revenue",
+          description: "Track bookings revenue, POS sales, and month-over-month trend.",
+          Icon: LineChart,
+        },
+        {
+          href: "/admin/guests",
+          label: "Guests",
+          description: "Guest-satisfaction, NPS trends, and response-rate surfaces.",
+          Icon: Users,
+        },
+        {
+          href: "/admin/announcements",
+          label: "Announcements",
+          description: "Broadcast updates to staff or guest-facing channels.",
+          Icon: Megaphone,
+        },
+      ]}
       data-testid="admin-business-welcome"
     />
   );

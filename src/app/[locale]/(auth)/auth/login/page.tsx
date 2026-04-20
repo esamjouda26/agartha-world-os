@@ -18,10 +18,15 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   return (
-    <div className="space-y-6" data-testid="login-page">
+    <div className="space-y-7" data-testid="login-page">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="text-foreground-muted text-sm">{t("description")}</p>
+        <p className="text-foreground-subtle text-[11px] font-medium tracking-wider uppercase">
+          Sign in
+        </p>
+        <h1 className="text-foreground text-2xl font-semibold tracking-tight sm:text-[28px]">
+          {t("title")}
+        </h1>
+        <p className="text-foreground-muted text-sm leading-relaxed">{t("description")}</p>
       </header>
       <LoginForm {...(next ? { nextPath: next } : {})} />
     </div>

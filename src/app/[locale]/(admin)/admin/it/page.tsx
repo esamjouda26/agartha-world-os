@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Clock, FileText, Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { PageHeader } from "@/components/ui/page-header";
+import { PortalWelcomeHero } from "@/components/shared/portal-welcome-hero";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: "System Dashboard", description: t("description") };
 }
 
+/**
+ * `/admin/it` — the IT-persona landing page. Until Phase 6 ships real
+ * system-health KPIs (devices online, incidents open, etc.) this is a
+ * welcome hero + quick-action tiles targeting the most-visited
+ * cross-portal surfaces.
+ */
 export default async function AdminITPage({
   params,
 }: Readonly<{ params: Promise<{ locale: string }> }>) {
@@ -32,9 +39,31 @@ export default async function AdminITPage({
   const name = profile?.display_name ?? user.email ?? "";
 
   return (
-    <PageHeader
-      title={t("welcome", { name })}
+    <PortalWelcomeHero
+      eyebrow="IT Portal · System dashboard"
+      name={name}
       description={t("description")}
+      statusLabel="Live"
+      quickActions={[
+        {
+          href: "/admin/attendance",
+          label: "Attendance",
+          description: "Review your punches, exceptions, and monthly pattern.",
+          Icon: Clock,
+        },
+        {
+          href: "/admin/reports",
+          label: "Reports",
+          description: "Generate compliance and operations reports across domains.",
+          Icon: FileText,
+        },
+        {
+          href: "/admin/settings",
+          label: "Settings",
+          description: "Adjust workspace preferences and notification defaults.",
+          Icon: Settings,
+        },
+      ]}
       data-testid="admin-it-welcome"
     />
   );

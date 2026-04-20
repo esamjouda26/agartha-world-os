@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
+import { Building2, Clock, Settings } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { redirect as i18nRedirect } from "@/i18n/navigation";
-import { EmptyState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
+import { PortalWelcomeHero } from "@/components/shared/portal-welcome-hero";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { filterNavForUser, firstAccessiblePath } from "@/lib/nav/filter";
 import type { AccessLevel } from "@/lib/rbac/types";
@@ -50,10 +50,36 @@ export default async function ManagementIndexPage({
     .single();
   const name = profile?.display_name ?? user.email ?? "";
 
+  // Falls through only when the user has no domain section entries —
+  // managers who haven't been assigned a domain yet or whose domains
+  // were revoked. Keep the affordance consistent with the admin
+  // welcome hero so the portal chrome feels like one system.
   return (
-    <div className="space-y-6">
-      <PageHeader title={t("welcome", { name })} description={t("description")} />
-      <EmptyState variant="first-use" title={t("noDomain")} data-testid="management-no-domain" />
-    </div>
+    <PortalWelcomeHero
+      eyebrow={`Management Portal · ${t("noDomain")}`}
+      name={name}
+      description="No management domains assigned yet. HR will enable your domain access once your role is confirmed. In the meantime, these shared surfaces are available:"
+      quickActions={[
+        {
+          href: "/management/attendance",
+          label: "Attendance",
+          description: "Clock in/out, review exceptions, check monthly stats.",
+          Icon: Clock,
+        },
+        {
+          href: "/management/staffing",
+          label: "Today's staffing",
+          description: "Who is on shift right now across your unit.",
+          Icon: Building2,
+        },
+        {
+          href: "/management/settings",
+          label: "Settings",
+          description: "Workspace preferences and notification defaults.",
+          Icon: Settings,
+        },
+      ]}
+      data-testid="management-no-domain"
+    />
   );
 }
