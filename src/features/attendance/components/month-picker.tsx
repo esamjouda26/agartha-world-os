@@ -1,10 +1,20 @@
 "use client";
 
-import { parseAsIsoDate, useQueryState } from "nuqs";
+import { createParser, useQueryState } from "nuqs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addMonths, format, startOfMonth, subMonths } from "date-fns";
 
 import { Button } from "@/components/ui/button";
+import { formatIsoDateLocal, isValidIsoDate, parseIsoDateLocal } from "@/lib/date";
+
+// Same local-tz parser used by the day-level shift-date-picker. nuqs's
+// stock `parseAsIsoDate` round-trips via UTC and drifts the month start
+// by a day in non-UTC server environments.
+const parseAsIsoDateLocal = createParser<Date>({
+  parse: (raw) => (isValidIsoDate(raw) ? parseIsoDateLocal(raw) : null),
+  serialize: (date) => formatIsoDateLocal(date),
+  eq: (a, b) => formatIsoDateLocal(a) === formatIsoDateLocal(b),
+});
 
 /**
  * Month-picker — segmented control `◀ April 2026 ▶`.
@@ -22,7 +32,7 @@ export function MonthPicker() {
   // URL updates but stats stay frozen on the initial month.
   const [selected, setSelected] = useQueryState(
     "month",
-    parseAsIsoDate
+    parseAsIsoDateLocal
       .withDefault(startOfMonth(new Date()))
       .withOptions({ clearOnDefault: true, history: "replace", shallow: false }),
   );

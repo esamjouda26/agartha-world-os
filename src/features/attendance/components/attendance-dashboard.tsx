@@ -3,9 +3,10 @@
 import { useCallback } from "react";
 import { AlertCircle, ArrowRight, BarChart3, Clock } from "lucide-react";
 import { parseAsString, useQueryState } from "nuqs";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 import { StatusTabBar } from "@/components/ui/status-tab-bar";
+import { parseIsoDateLocal } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { AttendanceStatsPanel } from "@/features/attendance/components/attendance-stats-panel";
 import { ClockInOutPanel } from "@/features/attendance/components/clock-in-out-panel";
@@ -171,7 +172,7 @@ export function AttendanceDashboard({
           {current !== "stats" ? (
             <AttendancePreview
               eyebrow="My Attendance"
-              title={format(parseISO(stats.month_start), "LLLL yyyy")}
+              title={format(parseIsoDateLocal(stats.month_start), "LLLL yyyy")}
               metric={`${stats.days_worked} days`}
               detail={`${stats.net_hours.toFixed(1)} net hours · ${stats.late_minutes} late min`}
               tone={stats.unjustified_exception_count > 0 ? "warning" : "neutral"}

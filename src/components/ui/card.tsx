@@ -31,16 +31,45 @@ const cardVariants = cva("flex flex-col gap-6 py-6 text-card-foreground", {
   defaultVariants: { variant: "hairline" },
 });
 
-export type CardProps = React.ComponentProps<"div"> & VariantProps<typeof cardVariants>;
+export type CardProps = React.ComponentProps<"div"> &
+  VariantProps<typeof cardVariants> & {
+    /**
+     * Optional decorative slot rendered behind the card's content. Useful
+     * for hero surfaces that want a gradient wash or radial glow without
+     * the caller having to manage `relative isolate overflow-hidden` on
+     * the card container themselves. The slot MUST be `aria-hidden`
+     * (decorative) and should use `pointer-events-none` so it doesn't
+     * capture clicks.
+     */
+    gradientOverlay?: React.ReactNode;
+  };
 
-function Card({ className, variant, ...props }: CardProps) {
+function Card({ className, variant, gradientOverlay, children, ...props }: CardProps) {
+  // When a gradient overlay is provided, wrap children in a relative
+  // positioning context and render the overlay behind them.
+  if (gradientOverlay) {
+    return (
+      <div
+        data-slot="card"
+        data-variant={variant ?? "hairline"}
+        className={cn(cardVariants({ variant }), "relative isolate overflow-hidden", className)}
+        {...props}
+      >
+        {gradientOverlay}
+        <div className="relative z-10 flex flex-col gap-6">{children}</div>
+      </div>
+    );
+  }
+
   return (
     <div
       data-slot="card"
       data-variant={variant ?? "hairline"}
       className={cn(cardVariants({ variant }), className)}
       {...props}
-    />
+    >
+      {children}
+    </div>
   );
 }
 

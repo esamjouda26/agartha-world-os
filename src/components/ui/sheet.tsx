@@ -29,8 +29,9 @@ function SheetOverlay({
   return (
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
+      // Same frost recipe as Dialog so sheet-over-page reads consistently.
       className={cn(
-        "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-[color:var(--overlay)] saturate-125 backdrop-blur-md",
         className,
       )}
       {...props}
@@ -53,8 +54,11 @@ function SheetContent({
       <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        // Card chrome matches Dialog: card surface, soft hairline border,
+        // xl shadow, dark-mode gold halo. Side-specific edges (border-l/r
+        // /t/b) + slide-in animations preserved.
         className={cn(
-          "bg-background data-[state=closed]:animate-out data-[state=open]:animate-in fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          "bg-card data-[state=closed]:animate-out data-[state=open]:animate-in border-border-subtle dark:shadow-glow-brand/40 fixed z-50 flex flex-col gap-4 shadow-xl transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right" &&
             "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
           side === "left" &&

@@ -1,8 +1,9 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 import { KpiCard, KpiCardRow } from "@/components/ui/kpi-card";
+import { parseIsoDateLocal } from "@/lib/date";
 import { DailyPunchLog } from "@/features/attendance/components/daily-punch-log";
 import { MonthPicker } from "@/features/attendance/components/month-picker";
 import type { MonthlyPunchesByDay } from "@/features/attendance/queries/get-monthly-punches";
@@ -28,7 +29,7 @@ export function AttendanceStatsPanel({ stats, punches }: Props) {
     <div className="flex flex-col gap-6" data-testid="attendance-stats-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-foreground text-xl font-semibold tracking-tight sm:text-2xl">
-          {format(parseISO(stats.month_start), "LLLL yyyy")}
+          {format(parseIsoDateLocal(stats.month_start), "LLLL yyyy")}
         </h2>
         <MonthPicker />
       </div>
@@ -132,8 +133,8 @@ function WeeklyTrend({ rows }: Readonly<{ rows: ReadonlyArray<WeeklyBreakdownRow
             <li key={row.week_start} className="flex flex-col gap-1">
               <div className="flex items-baseline justify-between gap-2 text-xs">
                 <span className="text-foreground-muted tabular-nums">
-                  {format(parseISO(row.week_start), "MMM d")} –{" "}
-                  {format(parseISO(row.week_end), "MMM d")}
+                  {format(parseIsoDateLocal(row.week_start), "MMM d")} –{" "}
+                  {format(parseIsoDateLocal(row.week_end), "MMM d")}
                 </span>
                 <span className="text-foreground-muted tabular-nums">
                   <span className="text-foreground font-semibold">

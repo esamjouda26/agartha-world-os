@@ -1,4 +1,6 @@
-import { addMinutes, isAfter, isBefore, parseISO } from "date-fns";
+import { addMinutes, isAfter, isBefore } from "date-fns";
+
+import { parseIsoDateLocal } from "@/lib/date";
 
 import type { ClockButtonState, TodayShift } from "@/features/attendance/types";
 
@@ -67,7 +69,12 @@ export function deriveButtonState(now: Date, shift: TodayShift | null): ClockBut
 }
 
 function combine(dateIso: string, timeIso: string): Date {
-  const date = parseISO(dateIso);
+  // `parseIsoDateLocal` returns local midnight on the calendar date;
+  // `setHours` then sets local time on that same calendar day. If we
+  // used `parseISO` here it would return UTC midnight, which in a non-UTC
+  // timezone is the PREVIOUS local calendar day — `setHours` would then
+  // land the timestamp on the wrong day.
+  const date = parseIsoDateLocal(dateIso);
   const [h, m, s] = timeIso.split(":").map(Number);
   date.setHours(h ?? 0, m ?? 0, s ?? 0, 0);
   return date;

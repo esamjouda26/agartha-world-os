@@ -1,13 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { parseAsIsoDate, useQueryState } from "nuqs";
+import { createParser, useQueryState } from "nuqs";
 import { CalendarDays, ChevronDown } from "lucide-react";
 import { format, isToday, startOfDay } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { formatIsoDateLocal, isValidIsoDate, parseIsoDateLocal } from "@/lib/date";
+
+// Local-tz date parser. nuqs's stock `parseAsIsoDate` serializes via
+// `Date#toISOString().slice(0,10)` (UTC) and parses via `new Date(str)`
+// (UTC midnight), which disagrees with `format(date, "yyyy-MM-dd")` in
+// local tz and drifts the round-trip by a day whenever the server is in
+// a different tz from the client. This parser keeps everything in local
+// tz so URL ↔ display ↔ server are consistent.
+const parseAsIsoDateLocal = createParser<Date>({
+  parse: (raw) => (isValidIsoDate(raw) ? parseIsoDateLocal(raw) : null),
+  serialize: (date) => formatIsoDateLocal(date),
+  eq: (a, b) => formatIsoDateLocal(a) === formatIsoDateLocal(b),
+});
 
 /**
  * Date picker for Tab-1 (Clock In/Out).
@@ -29,7 +42,7 @@ export function ShiftDatePicker({ onChange }: Readonly<{ onChange?: (iso: string
   // date. Date picker would look like it worked but content wouldn't change.
   const [selected, setSelected] = useQueryState(
     "date",
-    parseAsIsoDate
+    parseAsIsoDateLocal
       .withDefault(startOfDay(new Date()))
       .withOptions({ clearOnDefault: true, history: "replace", shallow: false }),
   );
@@ -59,7 +72,9 @@ export function ShiftDatePicker({ onChange }: Readonly<{ onChange?: (iso: string
           onSelect={(next) => {
             if (!next) return;
             void setSelected(next);
-            onChange?.(format(next, "yyyy-MM-dd"));
+            // Emit the same local-tz ISO string nuqs serializes, so parent
+            // optimistic UIs see the exact value that lands on the URL.
+            onChange?.(formatIsoDateLocal(next));
             setOpen(false);
           }}
           disabled={(date) => date > new Date()}

@@ -33,6 +33,11 @@ const statusBadgeVariants = cva(
         default: "",
         outline: "bg-transparent",
         dot: "border-transparent bg-transparent px-0 py-0 capitalize",
+        // Glass variant: solid-ish translucent chip with a backdrop-blur.
+        // Works beautifully on hero surfaces, gradient overlays, or any
+        // card that already has its own bg. Avoid in plain dense lists
+        // where the blur cost is wasted.
+        glass: "backdrop-blur-md saturate-150",
       },
     },
     compoundVariants: [
@@ -42,6 +47,43 @@ const statusBadgeVariants = cva(
       { variant: "outline", tone: "info", className: "border-status-info-border" },
       { variant: "outline", tone: "neutral", className: "border-status-neutral-border" },
       { variant: "outline", tone: "accent", className: "border-status-accent-border" },
+      // Glass compound variants: translucent solid fill that composites
+      // over whatever sits behind the badge.
+      {
+        variant: "glass",
+        tone: "success",
+        className:
+          "bg-status-success-solid/25 text-status-success-foreground border-status-success-border",
+      },
+      {
+        variant: "glass",
+        tone: "warning",
+        className:
+          "bg-status-warning-solid/25 text-status-warning-foreground border-status-warning-border",
+      },
+      {
+        variant: "glass",
+        tone: "danger",
+        className:
+          "bg-status-danger-solid/25 text-status-danger-foreground border-status-danger-border",
+      },
+      {
+        variant: "glass",
+        tone: "info",
+        className: "bg-status-info-solid/25 text-status-info-foreground border-status-info-border",
+      },
+      {
+        variant: "glass",
+        tone: "neutral",
+        className:
+          "bg-status-neutral-solid/25 text-status-neutral-foreground border-status-neutral-border",
+      },
+      {
+        variant: "glass",
+        tone: "accent",
+        className:
+          "bg-status-accent-solid/25 text-status-accent-foreground border-status-accent-border",
+      },
     ],
     defaultVariants: {
       tone: "neutral",

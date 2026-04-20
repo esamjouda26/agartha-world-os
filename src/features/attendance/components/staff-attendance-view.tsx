@@ -1,9 +1,10 @@
 import "server-only";
 
-import { format, isValid, parseISO, startOfMonth } from "date-fns";
+import { format } from "date-fns";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { isValidIsoDate, monthStartIsoLocal, parseIsoDateLocal, todayIsoLocal } from "@/lib/date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AttendanceDashboard } from "@/features/attendance/components/attendance-dashboard";
 import { getMonthlyPunches } from "@/features/attendance/queries/get-monthly-punches";
@@ -59,9 +60,13 @@ export async function StaffAttendanceView({
 }: StaffAttendanceViewProps) {
   const supabase = await createSupabaseServerClient();
 
-  const todayIso = format(new Date(), "yyyy-MM-dd");
-  const selectedDateIso = resolveIsoDate(searchParams.date, todayIso);
-  const monthIso = resolveMonthIso(searchParams.month, todayIso);
+  // All ISO date-only strings are produced / consumed via `src/lib/date.ts`
+  // helpers so URL → server → client round-trips cannot drift by a day.
+  const todayIso = todayIsoLocal();
+  const selectedDateIso = isValidIsoDate(searchParams.date) ? searchParams.date : todayIso;
+  const monthIso = isValidIsoDate(searchParams.month)
+    ? monthStartIsoLocal(searchParams.month)
+    : monthStartIsoLocal(todayIso);
 
   const [shift, exceptions, stats, punches] = await Promise.all([
     getTodayShift(supabase, staffRecordId, selectedDateIso),
@@ -73,7 +78,7 @@ export async function StaffAttendanceView({
   const eyebrow =
     selectedDateIso === todayIso
       ? "Today · Attendance"
-      : `${format(parseISO(selectedDateIso), "MMM d")} · Attendance`;
+      : `${format(parseIsoDateLocal(selectedDateIso), "MMM d")} · Attendance`;
 
   const description = canWrite
     ? "Clock in, review exceptions, and track your monthly pattern."
@@ -123,18 +128,6 @@ export async function StaffAttendanceView({
 function firstName(full: string): string {
   const token = full.trim().split(/[\s·|-]+/)[0];
   return token || full;
-}
-
-function resolveIsoDate(raw: string | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  const parsed = parseISO(raw);
-  return isValid(parsed) ? format(parsed, "yyyy-MM-dd") : fallback;
-}
-
-function resolveMonthIso(raw: string | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  const parsed = parseISO(raw);
-  return isValid(parsed) ? format(startOfMonth(parsed), "yyyy-MM-dd") : fallback;
 }
 
 // Re-export the EmptyState helper the wrapper uses when a caller has no

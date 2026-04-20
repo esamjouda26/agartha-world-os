@@ -7,6 +7,7 @@ import { ChevronRight, MessageSquareText, StickyNote } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { parseIsoDateLocal } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -65,7 +66,7 @@ export function ExceptionList({ rows }: Props) {
         cell: ({ row }) => (
           <time dateTime={row.original.shift_date} className="tabular-nums">
             {row.original.shift_date
-              ? format(parseISO(row.original.shift_date), "EEE, MMM d")
+              ? format(parseIsoDateLocal(row.original.shift_date), "EEE, MMM d")
               : "—"}
           </time>
         ),
@@ -236,7 +237,7 @@ function ExceptionDetailSheet({
             {row ? (
               <>
                 {row.shift_type_name ?? row.shift_type_code ?? "Shift"} ·{" "}
-                {row.shift_date ? format(parseISO(row.shift_date), "EEE, MMM d yyyy") : ""}
+                {row.shift_date ? format(parseIsoDateLocal(row.shift_date), "EEE, MMM d yyyy") : ""}
               </>
             ) : null}
           </SheetDescription>

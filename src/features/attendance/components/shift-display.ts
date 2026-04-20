@@ -1,5 +1,6 @@
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 
+import { parseIsoDateLocal } from "@/lib/date";
 import type { TodayShift } from "@/features/attendance/types";
 
 /**
@@ -31,7 +32,9 @@ export function displayShiftWindow(shift: TodayShift): string | null {
 }
 
 function combine(dateIso: string, timeIso: string): Date {
-  const date = parseISO(dateIso);
+  // Local midnight + `setHours` → correct calendar day in every tz.
+  // See `src/lib/date.ts` for the UTC-vs-local round-trip rationale.
+  const date = parseIsoDateLocal(dateIso);
   const [h, m, s] = timeIso.split(":").map(Number);
   date.setHours(h ?? 0, m ?? 0, s ?? 0, 0);
   return date;

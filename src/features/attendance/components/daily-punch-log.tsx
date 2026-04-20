@@ -5,6 +5,7 @@ import { CircleCheck, CircleDashed, StickyNote } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { parseIsoDateLocal } from "@/lib/date";
 import { PunchDetailSheet } from "@/features/attendance/components/punch-detail-sheet";
 import { displayShiftName } from "@/features/attendance/components/shift-display";
 import type { MonthlyPunchesByDay } from "@/features/attendance/queries/get-monthly-punches";
@@ -56,7 +57,7 @@ export function DailyPunchLog({ days }: DailyPunchLogProps) {
           <li key={day.day} className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
               <time dateTime={day.day} className="text-foreground text-sm font-medium tabular-nums">
-                {format(parseISO(day.day), "EEE, MMM d")}
+                {format(parseIsoDateLocal(day.day), "EEE, MMM d")}
               </time>
               <span className="text-foreground-muted text-xs">
                 {displayShiftName(day.shift_type_name) || "—"}
