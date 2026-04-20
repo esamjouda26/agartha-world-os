@@ -96,16 +96,35 @@ union — typos fail tsc.
 
 1. `rbac:pattern-uniqueness` — no two features declare the same pattern.
 2. `rbac:orphan-routes` — every staff `page.tsx` is either pattern-matched by some `rbac.ts` OR in `SHARED_BYPASS_PREFIXES`.
-3. `rbac:pending-empty` — `src/features/_pending/` must be empty by the sunset (2026-09-01). Before sunset: WARN; after sunset: FAIL.
-4. `rbac:rls-parity` — for every route with non-empty `primaryTables`, asserts the feature's tables have `CREATE POLICY` clauses whose `USING` references `domains->'<domain>' ? '<access>'` for the corresponding SQL command (c→INSERT, r→SELECT, u→UPDATE, d→DELETE).
-5. `rbac:bundle-budget` — `.next/server/middleware.js` must stay below 800 KB (80% of Vercel's 1 MB Edge-middleware cap).
+3. `rbac:rls-parity` — for every route with non-empty `primaryTables`, asserts the feature's tables have `CREATE POLICY` clauses whose `USING` references `domains->'<domain>' ? '<access>'` for the corresponding SQL command (c→INSERT, r→SELECT, u→UPDATE, d→DELETE).
+4. `rbac:bundle-budget` — `.next/server/middleware.js` must stay below 800 KB (80% of Vercel's 1 MB Edge-middleware cap).
 
-### Transitional `_pending/` folder
+### No holding pen — single source of truth
 
-`src/features/_pending/` holds entries for routes whose feature folders
-don't yet exist (Phases 5–9 will create them). The folder violates the
-§1 "feature=domain" topology rule by design, justified here. Sunset:
-2026-09-01 — CI fails after that date if `_pending/` is non-empty.
+An earlier draft of this ADR proposed a transitional
+`src/features/_pending/` folder to keep middleware Gate-5 coverage
+intact for routes whose feature folders don't exist yet. That holding
+pen was **removed** before the first cleanup commit because it
+reintroduced exactly the drift class this refactor closes: a second
+declarative surface listing routes that don't correspond to real
+features, which ran ahead of the sidebar's true implementation state.
+
+After the removal:
+
+- A route exists in the sidebar **only** when the feature owning it
+  lands a `nav.ts`.
+- A route is Gate-5 gated **only** when the feature owning it lands a
+  `rbac.ts`.
+- An unimplemented staff route that no feature has claimed and no
+  bypass covers is caught by the `rbac:orphan-routes` CI gate — the
+  author must either add it to the feature's rbac.ts or add the prefix
+  to `SHARED_BYPASS_PREFIXES` (for true cross-portal shared routes and
+  portal landings like `/admin/it`, `/admin/business`, `/management`).
+
+Portal landing pages (`/admin/it`, `/admin/business`, `/management`)
+are Gate-4-gated (portal ↔ access_level) and appear in
+`SHARED_BYPASS_PREFIXES`; they are not domain-gated because they render
+only the user's own profile display name with no cross-user data.
 
 ## Status
 
@@ -122,19 +141,18 @@ delete sequence:
 
 ## STRIDE — security threat model
 
-| Threat                     | Vector                                            | Mitigation                                                                                                                                                                                                                                                     |
-| -------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S**poofing               | Forged `domains` claim on JWT                     | Supabase signs JWT; claim is trusted server-side only. Unchanged from pre-refactor.                                                                                                                                                                            |
-| **T**ampering              | Malicious edit to `rbac.ts` to widen access       | CODEOWNERS requires 2 security-team approvers on `src/features/*/rbac.ts` and `src/lib/rbac/**`. Signed commits on `main` (CLAUDE.md §13).                                                                                                                     |
-| **R**epudiation            | User disputes a denied access attempt             | Audit logging on Gate 5 denials is **descoped from this refactor** (see "Known Gap" below). Failed-auth trail currently relies on Sentry + Supabase auth logs until the follow-up lands.                                                                       |
-| **I**nformation Disclosure | Sidebar leaks existence of protected routes       | Nav items filtered server-side in RSC layouts; unauthorized items never serialize to the client wire. `/admin/iam/:id` style detail pages are rbac-only (never in nav.ts).                                                                                     |
-| **D**enial of Service      | ReDoS via crafted URL                             | URLPattern (no backtracking) + ESLint ban on RegExp in `rbac.ts` + Vercel Edge 50 ms CPU timeout.                                                                                                                                                              |
-| **E**levation of Privilege | Drift between `rbac.ts` UI claim and RLS DB claim | `rbac:rls-parity` CI gate asserts the two stay aligned for every route with declared `primaryTables`. Transitional `_pending/` entries carry `primaryTables: []` and surface as INFO lines (non-fatal); each feature populates real tables as it migrates out. |
+| Threat                     | Vector                                            | Mitigation                                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S**poofing               | Forged `domains` claim on JWT                     | Supabase signs JWT; claim is trusted server-side only. Unchanged from pre-refactor.                                                                                                          |
+| **T**ampering              | Malicious edit to `rbac.ts` to widen access       | CODEOWNERS requires 2 security-team approvers on `src/features/*/rbac.ts` and `src/lib/rbac/**`. Signed commits on `main` (CLAUDE.md §13).                                                   |
+| **R**epudiation            | User disputes a denied access attempt             | Audit logging on Gate 5 denials is **descoped from this refactor** (see "Known Gap" below). Failed-auth trail currently relies on Sentry + Supabase auth logs until the follow-up lands.     |
+| **I**nformation Disclosure | Sidebar leaks existence of protected routes       | Nav items filtered server-side in RSC layouts; unauthorized items never serialize to the client wire. `/admin/iam/:id` style detail pages are rbac-only (never in nav.ts).                   |
+| **D**enial of Service      | ReDoS via crafted URL                             | URLPattern (no backtracking) + ESLint ban on RegExp in `rbac.ts` + Vercel Edge 50 ms CPU timeout.                                                                                            |
+| **E**levation of Privilege | Drift between `rbac.ts` UI claim and RLS DB claim | `rbac:rls-parity` CI gate asserts the two stay aligned for every route with declared `primaryTables`. Fully enforcing from Session 5 onwards; Phases 5–9 expand coverage feature by feature. |
 
 ## Known gaps
 
 - **Audit logging on Gate 5 denials is descoped** from this refactor because pino is not Edge-Runtime-safe and CLAUDE.md §8 forbids `console.log` in production paths. The current plan of record: enqueue denial events from middleware to Upstash Redis, drain via pg_cron Edge Function into `system_audit_log` (append-only, 7-year retention per §11). Tracked as a follow-up; spec captured in this repo's post-refactor notes.
-- **`primaryTables` is empty for all `_pending` routes.** The `rbac:rls-parity` gate prints INFO and does not fail. Each feature populates real table names as it migrates out of `_pending/` in Phases 5–9. Gate becomes fully enforcing at sunset.
 - **Offline PWA queue** — an earlier iteration of this ADR proposed hooking the offline queue into denial audit. The offline queue was removed from the project; this gap is closed.
 
 ## Consequences
@@ -151,8 +169,8 @@ delete sequence:
 ### Negative
 
 - Two files per feature instead of one. Justified by §11 (security review CODEOWNERS), §14 (Edge bundle budget), and CLAUDE.md §13 (signed commits / linear history — fewer files = fewer commits to audit, but the firewall is the point).
-- Transitional `_pending/` folder violates the strict §1 DDD rule until Phase-9 sunset. Tracked by CI gate; deadline is explicit.
-- CI adds 5 new scripts + 1 codegen script to the pipeline. Runtime negligible.
+- A new staff route landing without its feature's `rbac.ts` + `nav.ts` will fail the `rbac:orphan-routes` CI gate. Authors must add the rbac entry at PR time (or mark the page as a bypass). This is the intended trade-off.
+- CI adds 4 new scripts + 1 codegen script to the pipeline. Runtime negligible.
 
 ## Alternatives rejected
 
@@ -164,5 +182,4 @@ delete sequence:
 ## Follow-ups
 
 - Build the Upstash-based audit-logging pipeline for Gate 5 denials (see "Known gaps").
-- As each feature lands in Phases 5–9, move its entries out of `_pending/` and populate real `primaryTables`. `rbac:rls-parity` picks up coverage as tables appear.
-- Before 2026-09-01: confirm `_pending/` is empty; sunset turns the WARN into a FAIL automatically.
+- As each feature lands in Phases 5–9, add its `rbac.ts` + `nav.ts` with real `primaryTables`. `rbac:rls-parity` picks up coverage as tables appear; `rbac:orphan-routes` fails any PR that adds a staff `page.tsx` without a matching rbac entry or bypass.

@@ -1,5 +1,4 @@
 import { rbac as attendanceRbac } from "@/features/attendance/rbac";
-import { rbac as pendingRbac } from "@/features/_pending/rbac";
 
 import type { RouteRequirement } from "./types";
 
@@ -10,6 +9,11 @@ import type { RouteRequirement } from "./types";
  * import it under plain Node. The server-only boundary is enforced in
  * `./policy.ts` which IS the module middleware and Server Components
  * import.
+ *
+ * Single source of truth per ADR-0004: every Gate-5-gated route lives in
+ * exactly one feature's `rbac.ts`. There is NO transitional holding pen;
+ * unimplemented routes have no feature folder, no sidebar entry, and no
+ * middleware gate (they 404 naturally if someone deep-links them).
  */
 
 /**
@@ -23,7 +27,7 @@ import type { RouteRequirement } from "./types";
  * CPU budget per CLAUDE.md §14.
  */
 
-const FEATURE_RBAC = [attendanceRbac, pendingRbac] as const;
+const FEATURE_RBAC = [attendanceRbac] as const;
 
 /**
  * Scores patterns by literal-scaffold length minus wildcard penalty plus a
@@ -76,26 +80,26 @@ function compileAll(): readonly CompiledRoute[] {
 export const MIDDLEWARE_ROUTES: readonly CompiledRoute[] = compileAll();
 
 /**
- * Shared staff routes that bypass Gate 5 — matches the legacy
- * `SHARED_BYPASS_PREFIXES` in `src/lib/rbac/route-manifest.ts`. These
- * paths rely on RLS + page-level filtering, not edge domain checks.
- *
- * Prefixes, not patterns — the policy module matches with
- * `path === prefix || path.startsWith(`${prefix}/`)` to preserve the
- * legacy semantics byte-for-byte.
+ * Cross-portal shared routes that bypass Gate 5 — the prefix AND all its
+ * children. These routes render via Phase-5 shared components (Settings,
+ * Announcements, Reports, Audit, Staffing, Attendance). RLS + page-level
+ * query scoping enforce row-level access.
  */
 export const SHARED_BYPASS_PREFIXES: readonly string[] = [
+  // ── Admin ──
   "/admin/reports",
   "/admin/audit",
   "/admin/announcements",
   "/admin/attendance",
   "/admin/settings",
+  // ── Management ──
   "/management/reports",
   "/management/audit",
   "/management/announcements",
   "/management/attendance",
   "/management/staffing",
   "/management/settings",
+  // ── Crew ──
   "/crew/attendance",
   "/crew/schedule",
   "/crew/leave",
@@ -104,4 +108,17 @@ export const SHARED_BYPASS_PREFIXES: readonly string[] = [
   "/crew/incidents",
   "/crew/announcements",
   "/crew/settings",
+] as const;
+
+/**
+ * Portal landing / welcome pages that bypass Gate 5 on EXACT match only.
+ * Deeper paths (e.g. `/admin/business/revenue`) must have their own
+ * feature `rbac.ts` entry or they fail the `rbac:orphan-routes` CI gate.
+ * This prevents a too-loose prefix bypass from shielding future
+ * sub-routes that never got a proper domain gate.
+ */
+export const EXACT_BYPASSES: readonly string[] = [
+  "/admin/it", // IT-persona landing
+  "/admin/business", // Business-persona landing
+  "/management", // root redirect page
 ] as const;

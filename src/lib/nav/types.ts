@@ -39,9 +39,9 @@ export type FeatureNavItem = Readonly<{
   /**
    * Hide the item when the user holds ANY of these domain + access pairs.
    * Inverse of `requires` — used to carve IT-only / Business-only admin
-   * sections. Example: admin-persona items that should be hidden from IT
-   * admins declare both `it:c` and `system:c` here to match the original
-   * `isItAdmin` predicate from `src/lib/rbac/navigation.ts#adminNavManifest`.
+   * sections (an IT-persona item sets `excludeWhenHoldsAnyDomain: []`;
+   * a Business-persona item lists `it:c` and `system:c` to hide from
+   * IT admins).
    */
   excludeWhenHoldsAnyDomain?: ReadonlyArray<Readonly<{ domain: string; access: DomainAccess }>>;
 }>;

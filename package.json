@@ -27,10 +27,9 @@
     "rbac:verify-urlpattern": "tsx scripts/verify-urlpattern-runtime.ts",
     "rbac:pattern-uniqueness": "tsx scripts/rbac-pattern-uniqueness.ts",
     "rbac:orphan-routes": "tsx scripts/rbac-orphan-routes.ts",
-    "rbac:pending-empty": "tsx scripts/rbac-pending-empty.ts",
     "rbac:rls-parity": "tsx scripts/rbac-rls-parity.ts",
     "rbac:bundle-budget": "tsx scripts/rbac-bundle-budget.ts",
-    "rbac:verify": "pnpm rbac:domains && pnpm rbac:verify-urlpattern && pnpm rbac:pattern-uniqueness && pnpm rbac:orphan-routes && pnpm rbac:pending-empty && pnpm rbac:rls-parity"
+    "rbac:verify": "pnpm rbac:domains && pnpm rbac:verify-urlpattern && pnpm rbac:pattern-uniqueness && pnpm rbac:orphan-routes && pnpm rbac:rls-parity"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

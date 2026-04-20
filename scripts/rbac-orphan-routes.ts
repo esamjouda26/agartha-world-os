@@ -12,7 +12,11 @@
 import { readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
-import { MIDDLEWARE_ROUTES, SHARED_BYPASS_PREFIXES } from "../src/lib/rbac/middleware-manifest";
+import {
+  EXACT_BYPASSES,
+  MIDDLEWARE_ROUTES,
+  SHARED_BYPASS_PREFIXES,
+} from "../src/lib/rbac/middleware-manifest";
 
 const REPO_ROOT = resolve(__dirname, "..");
 const ROOT_SEGMENTS = ["(admin)", "(management)", "(crew)"] as const;
@@ -45,6 +49,7 @@ function pageToUrlPath(abs: string): string {
 }
 
 function isBypassed(path: string): boolean {
+  if (EXACT_BYPASSES.includes(path)) return true;
   return SHARED_BYPASS_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 

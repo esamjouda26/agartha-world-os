@@ -1,6 +1,6 @@
 import "server-only";
 
-import { MIDDLEWARE_ROUTES, SHARED_BYPASS_PREFIXES } from "./middleware-manifest";
+import { EXACT_BYPASSES, MIDDLEWARE_ROUTES, SHARED_BYPASS_PREFIXES } from "./middleware-manifest";
 import type { DomainAccess, LocaleStrippedPath, RouteRequirement } from "./types";
 
 /**
@@ -15,12 +15,14 @@ import type { DomainAccess, LocaleStrippedPath, RouteRequirement } from "./types
  */
 
 /**
- * Legacy prefix-bypass test — preserved byte-for-byte from
- * `src/lib/rbac/route-manifest.ts#isSharedBypass`. Shared routes
- * (Attendance, Settings, Announcements, Reports, Audit, etc.) rely on
- * RLS + page-level filtering instead of edge domain checks.
+ * Returns true when the path is a shared staff route or portal landing
+ * page that does not need Gate-5 domain gating. See
+ * `./middleware-manifest.ts#SHARED_BYPASS_PREFIXES` for the full list
+ * and their rationale. RLS + page-level query scoping enforce row-level
+ * access on these paths.
  */
 export function isSharedBypass(path: LocaleStrippedPath): boolean {
+  if (EXACT_BYPASSES.includes(path)) return true;
   return SHARED_BYPASS_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
@@ -47,8 +49,7 @@ export function resolveRouteRequirement(path: LocaleStrippedPath): RouteRequirem
 
 /**
  * Checks whether the JWT `domains` claim carries the required access
- * tier. Semantically identical to the legacy
- * `src/lib/rbac/route-manifest.ts#hasDomainAccess`.
+ * tier on the named domain.
  */
 export function hasDomainAccess(
   domains: Record<string, readonly string[]> | undefined,

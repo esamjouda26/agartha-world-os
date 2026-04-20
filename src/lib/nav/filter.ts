@@ -12,10 +12,11 @@ import type { FeatureNavItem, NavItem, NavManifest, NavSection } from "./types";
  * portal layouts and the command palette — no layout should touch
  * `FEATURE_NAV` directly.
  *
- * Shape compatibility: the returned `NavManifest` is byte-identical to
- * what `adminNavManifest` / `managementNavManifest` / `crewNavManifest`
- * used to emit. The shell and command palette continue to work without
- * changes.
+ * Shape contract: the returned `NavManifest` matches what the
+ * `<ResponsivePortalShell>` and `<CommandPalette>` expect — portalName +
+ * ordered sections with `{id, labelKey, label, items[]}` and items with
+ * `{id, labelKey, label, href, iconName}`. Shell + palette code is
+ * agnostic to how items are aggregated.
  */
 export function filterNavForUser(
   portal: Portal,
@@ -37,8 +38,8 @@ export function filterNavForUser(
 
 /**
  * Picks the first visible nav item whose `path` is a candidate for a
- * landing redirect. Replaces the legacy `filterNavItems(section.items, domains)[0]`
- * usage in `src/app/[locale]/(management)/management/page.tsx`.
+ * landing redirect. Used by `src/app/[locale]/(management)/management/page.tsx`
+ * to pick a domain-specific landing when the user holds one.
  */
 export function firstAccessiblePath(
   manifest: NavManifest,
