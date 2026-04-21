@@ -45,7 +45,7 @@
 >
 > - **Type source of truth:** Types MUST be generated via `supabase gen types typescript`. Zod schemas MUST infer from generated DB types (`Database['public']['Tables'][T]['Row']`). Manual type duplication is forbidden.
 > - **Server-only barrier:** All files under `src/features/*/queries/`, `src/features/*/actions/`, and any module performing server-side DB access or referencing secrets MUST begin with `import "server-only";`.
-> - **Server Action pipeline (mandatory order for every mutation):** (1) `schema.safeParse(input)` — reject on failure. (2) Verify `auth.uid()` and RBAC claims server-side. (3) Execute mutation via Supabase JS or typed RPC. (4) Return a discriminated union `{ success: true, data: T } | { success: false, error: string }` — never leak raw SQL errors to the client. (5) Invalidate cache via `revalidateTag(...)` (preferred) or `revalidatePath(...)`.
+> - **Server Action pipeline (mandatory order for every mutation):** (1) `schema.safeParse(input)` — reject on failure. (2) Verify `auth.uid()` and RBAC claims server-side. (3) Execute mutation via Supabase JS or typed RPC. (4) Return a discriminated union `{ success: true, data: T } | { success: false, error: string }` — never leak raw SQL errors to the client. (5) Invalidate cache per [**ADR-0006**](docs/adr/0006-cache-model.md) — RLS-scoped reads use React `cache()` + surgical `revalidatePath(path, "page")` iteration over per-feature path lists (e.g. `ATTENDANCE_ROUTER_PATHS`); `revalidatePath("/", "layout")` is FORBIDDEN; `revalidateTag` / `updateTag` are RESERVED (only pair with `unstable_cache`-wrapped non-RLS reads).
 > - **Forms:** All forms MUST use `react-hook-form` integrated with `@hookform/resolvers/zod`. A single Zod schema validates both client form state and the Server Action input.
 > - **Database expressions in this spec:** Any SQL-like fragments (`WHERE status = '...'`, `SUM(...)`, `JOIN`, `DISTINCT ON`, `GROUP BY`) are **intent specifications only**. Implementation MUST use the Supabase JS query builder or strictly-typed RPCs. Raw SQL strings in application code are forbidden.
 > - **Test anchors:** Every interactive element (button, link, input, tab trigger, row action, menu item, dialog control, form field) MUST carry a stable `data-testid` attribute. Naming convention: `{domain}-{component}-{action}` (e.g., `iam-request-approve-btn`, `leave-table-row`, `pos-catalog-item`).
@@ -70,7 +70,9 @@
 > - **Sensitive-capture compliance (biometrics, payment, data involving minors):** Capture of biometric templates, payment credentials, or media of minors requires explicit, **timestamped, withdrawable** consent recorded in `consent_records` (`subject_id`, `subject_type`, `consent_type`, `legal_basis`, `purpose`, `retention_policy`, `granted_at`, `withdrawn_at`, `ip_address`, `user_agent`, `policy_version`). The consent UI MUST state: what is captured, why, legal basis, retention window, withdrawal path, and controller contact. Capture does not proceed until the consent row is committed. Withdrawal cascades synchronously to deletion of the captured data.
 > - **Realtime subscription discipline:** Any Supabase Realtime subscription MUST: (1) carry a `filter:` clause scoped to the user's data domain (e.g., `staff_record_id=eq.${uid}`, `location_id=in.(${allowedLocationIds})`) — unscoped whole-table subscriptions are FORBIDDEN; (2) attach on mount and detach on unmount via `useEffect` cleanup returning `supabase.removeChannel(channel)`; (3) be created through a shared `useRealtimeChannel` wrapper hook that enforces **≤ 2 channels per route** and **≤ 8 channels per browser session** — above the ceiling the hook throws at dev time and silently drops in prod; (4) share a single `supabase` client instance — never instantiate a new client per hook; (5) disconnect after 5 min of tab inactivity (Page Visibility API) and reconnect on focus. The wrapper hook is canonical — direct `supabase.channel(...)` usage outside it is FORBIDDEN.
 > - **Aggregate query discipline (N+1 elimination):** Any RSC or query that lists a parent with derived aggregate fields per row (e.g., "today's order count per POS point", "open-PO count per supplier", "exception count per staff") MUST resolve the aggregate via: (a) a single JOIN with `GROUP BY`, (b) a PostgreSQL VIEW (`v_<entity>_<metric>`, e.g., `v_pos_point_today_stats`, `v_supplier_open_po_stats`, `v_staff_exception_stats`) colocated in `supabase/migrations/`, or (c) a JSONB aggregate returned by the parent RPC. Per-row loop queries in application code are FORBIDDEN. PR reviewers MUST reject aggregate-per-row patterns.
-> - **Cache invalidation taxonomy (`revalidateTag` preferred over `revalidatePath`):** Every cached query MUST declare explicit tags drawn from the domain taxonomy below. Server Actions MUST invalidate via `revalidateTag(...)`. `revalidatePath(...)` is reserved for layout/route-tree structural changes (not data mutations). Tag convention: `<domain>:<entity>` for collections, `<domain>:<entity>:<id>` for single items.
+> - **Cache invalidation taxonomy — AMENDED BY [ADR-0006](docs/adr/0006-cache-model.md):** RLS-scoped reads (almost everything the app does today) use React `cache()` — request-scoped dedup — and are invalidated by `revalidatePath(path, "page")` iterating a per-feature `<DOMAIN>_ROUTER_PATHS` array (e.g. `ATTENDANCE_ROUTER_PATHS` in `src/features/attendance/cache-tags.ts`). The Data-Cache tag taxonomy below (`<domain>:<entity>`, `<domain>:<entity>:<id>`) is RESERVED for future `unstable_cache`-wrapped org-wide reads (POS catalog, role directory, location list) that do NOT depend on per-user RLS. `revalidatePath("/", "layout")` is FORBIDDEN in app code. `revalidateTag` / `updateTag` may only be called when the same PR introduces the paired `unstable_cache`-wrapped read; otherwise they are no-ops and pollute the mental model.
+>
+>   The tag convention below remains canonical for when tags DO get used — `<domain>:<entity>` for collections, `<domain>:<entity>:<id>` for single items, `<domain>:<entity>:<userId>[:<scope>]` for per-user scoped caches (avoids thundering-herd invalidation at scale). Tag-builder helpers colocate with the per-feature `cache-tags.ts` file.
 >   Canonical tag taxonomy:
 >   - **iam:** `iam:requests`, `iam:requests:<id>`
 >   - **hr:** `hr:staff`, `hr:staff:<id>`, `hr:shifts`, `hr:roster-templates`, `hr:leaves`, `hr:leaves:<id>`, `hr:leave-policies`, `hr:attendance`, `hr:exceptions`, `hr:staffing`
@@ -85,6 +87,7 @@
 >   - **reports/audit:** `reports:executions`, `reports:scheduled`, `audit:log`
 >   - **system:** `system:devices`, `system:devices:<id>`, `system:zones`, `system:locations`, `system:org-units`, `system:permissions`, `system:roles`, `system:units`, `system:heartbeats`
 >     Routes MUST tag with the `:<id>` variant when mutating a single row so that sibling queries remain cached.
+>
 > - **Accessibility (WCAG 2.2 Level AA — non-negotiable):** Every page MUST pass `@axe-core/playwright` with zero `serious` or `critical` violations and score ≥ 95 in `lighthouse-ci` a11y (CI-gated). Every interactive element reachable via keyboard with visible `:focus-visible` ring. Dialogs and Sheets trap focus on open and restore to trigger on close (`focus-trap-react` or equivalent). Semantic HTML first; ARIA only when native semantics are insufficient. Forms use explicit `<label for="...">` (placeholder-as-label FORBIDDEN); field errors announced via `aria-describedby` + `role="alert"`; invalid inputs carry `aria-invalid="true"`. Color contrast ≥ 4.5:1 body, ≥ 3:1 large text and UI components. Respect `prefers-reduced-motion: reduce` — non-essential animations suppressed. Every `<img>` has `alt` (decorative → `alt=""`). Camera/selfie capture UIs announce state changes via `aria-live="polite"`. `sonner` toasts carry `role="status"` (info/success) or `role="alert"` (error). Skip-to-content link required at the top of every portal layout.
 > - **Internationalization (`next-intl`):** Routes MUST be locale-segmented at the top of the tree: `/[locale]/(admin|management|crew|auth|guest)/...`. Default locale `en`; required locales `en`, `ms` (Bahasa Malaysia). Locale resolution order (middleware): explicit URL segment → `NEXT_LOCALE` cookie → `Accept-Language` → default. Bare paths (`/admin`) are middleware-rewritten to the default-locale form (`/en/admin`) so bookmarks stay valid. Every user-visible string MUST live in `messages/<locale>.json` and be consumed via `useTranslations()` (client) or `getTranslations()` (server). Hardcoded user-visible strings are FORBIDDEN; `eslint-plugin-i18next` enforces detection. Numbers, currency, dates formatted via `Intl.NumberFormat`, `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`; currency default MYR, per-tenant overridable. Pluralization and gender via ICU MessageFormat — string concatenation FORBIDDEN. All styling uses logical CSS properties (`margin-inline`, `padding-block`, `text-start`) for RTL-readiness.
 
@@ -4756,14 +4759,18 @@ Every workflow step must map to a route. Missing mappings are flagged.
 
 ### 12r. Layout Files
 
-| Layout                                     | File Path                         |
-| ------------------------------------------ | --------------------------------- |
-| Root layout                                | `src/app/layout.tsx`              |
-| Auth shell (centered card, no nav)         | `src/app/(auth)/layout.tsx`       |
-| Admin shell (sidebar + topbar)             | `src/app/(admin)/layout.tsx`      |
-| Management shell (sidebar + topbar)        | `src/app/(management)/layout.tsx` |
-| Crew shell (topbar + bottom tab bar)       | `src/app/(crew)/layout.tsx`       |
-| Guest shell (minimal header + back button) | `src/app/(guest)/layout.tsx`      |
+Locale-segmented per i18n contract: actual paths are `src/app/[locale]/(admin)/layout.tsx` etc. The table omits `[locale]` for readability.
+
+| Layout                                     | File Path                         | Providers mounted                                                                                                                                                                                            |
+| ------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Root layout                                | `src/app/layout.tsx`              | `ThemeProvider` + `NuqsAdapter` + `TooltipProvider` + `<Toaster />` + `next-intl` provider. **NO QueryClient at root.** Sentry boots outside the React tree via `sentry.*.config.ts` + `instrumentation.ts`. |
+| Auth shell (centered card, no nav)         | `src/app/(auth)/layout.tsx`       | None beyond root.                                                                                                                                                                                            |
+| Admin shell (sidebar + topbar)             | `src/app/(admin)/layout.tsx`      | `<PortalProviders>` (QueryClient).                                                                                                                                                                           |
+| Management shell (sidebar + topbar)        | `src/app/(management)/layout.tsx` | `<PortalProviders>` (QueryClient).                                                                                                                                                                           |
+| Crew shell (topbar + bottom tab bar)       | `src/app/(crew)/layout.tsx`       | `<PortalProviders>` (QueryClient).                                                                                                                                                                           |
+| Guest shell (minimal header + back button) | `src/app/(guest)/layout.tsx`      | None beyond root.                                                                                                                                                                                            |
+
+`<PortalProviders>` lives at `src/components/shared/portal-providers.tsx`. Its QueryClient has `staleTime: 0, gcTime: 5min` defaults so every `useQuery` call site makes an explicit staleness decision.
 
 ### 12s. Shared Components
 
@@ -4778,14 +4785,28 @@ Every workflow step must map to a route. Missing mappings are flagged.
 | `TodaysCrewGrid`    | `src/components/shared/todays-crew-grid.tsx`    |
 | `LocationSelector`  | `src/components/shared/location-selector.tsx`   |
 
-### Design System Primitives (`src/components/ui/`)
+### Design System Primitives (`src/components/ui/` — FLAT, no subfolders, no `index.ts` barrel)
 
-| Component      | File Path                              | Used By                                                           |
-| -------------- | -------------------------------------- | ----------------------------------------------------------------- |
-| `KPICard`      | `src/components/ui/kpi-card.tsx`       | All admin analytics + all management landing pages (25+ routes)   |
-| `KPICardRow`   | `src/components/ui/kpi-card-row.tsx`   | Wraps `KPICard` children in responsive horizontal strip           |
-| `StatusTabBar` | `src/components/ui/status-tab-bar.tsx` | All routes with status-based filtering (15+ routes)               |
-| `StatusBadge`  | `src/components/ui/status-badge.tsx`   | All status indicators across all enums (40+ statuses, 60+ routes) |
+| Component          | File Path                                  | Used By                                                                                                                                                                    |
+| ------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `KpiCard`          | `src/components/ui/kpi-card.tsx`           | All admin analytics + all management landing pages (25+ routes)                                                                                                            |
+| `KpiCardRow`       | `src/components/ui/kpi-card-row.tsx`       | Wraps `KpiCard` children in responsive horizontal strip                                                                                                                    |
+| `Sparkline`        | `src/components/ui/sparkline.tsx`          | Micro-chart slot inside `KpiCard` (chart-library-agnostic SVG)                                                                                                             |
+| `StatusTabBar`     | `src/components/ui/status-tab-bar.tsx`     | All routes with status-based filtering (15+ routes)                                                                                                                        |
+| `StatusBadge`      | `src/components/ui/status-badge.tsx`       | All status indicators across all enums (40+ statuses, 60+ routes)                                                                                                          |
+| `Form`             | `src/components/ui/form.tsx`               | Canonical RHF primitives (`FormField` / `FormItem` / `FormLabel` / `FormControl` / `FormDescription` / `FormMessage`). App-token styling; `role="alert"` on `FormMessage`. |
+| `FormSubmitButton` | `src/components/ui/form-submit-button.tsx` | Submit button tuned for RHF + server-action flows (auto-disable on `isSubmitting`, spinner).                                                                               |
+| Toasts             | `src/components/ui/toast-helpers.tsx`      | `toastSuccess`, `toastError`, `toastInfo`, `toastWarning`, `toastQueued`. Feature code routes through this — direct `from "sonner"` is forbidden (ESLint).                 |
+
+### Cross-Cutting Hooks (`src/hooks/`)
+
+| Hook               | File Path                         | Purpose                                                                                                                                                           |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useServerErrors`  | `src/hooks/use-server-errors.ts`  | Bridges `ServerActionResult.fields` into RHF's per-field error state.                                                                                             |
+| `useCameraCapture` | `src/hooks/use-camera-capture.ts` | Generic browser camera — options: `{facingMode, width, height, mimeType, quality}`. Used by attendance selfie, POS selfie, zone-scan QR, biometrics face capture. |
+| `useGpsFix`        | `src/hooks/use-gps-fix.ts`        | Generic two-step geolocation with Permissions API subscription. Owns its own `GpsFix` type.                                                                       |
+
+Domain-specific hooks go to `src/features/<domain>/hooks/`, NOT `src/hooks/`.
 
 ### `TodaysCrewGrid` (Reusable Domain Component)
 

@@ -90,7 +90,7 @@ Ad-hoc file placement is FORBIDDEN. Enforce Domain-Driven Design (DDD) colocatio
 - **Image & Font Optimization:** `next/image` mandatory. `next/font` mandatory. Raw `<img>` and `<link rel="preload" as="font">` are FORBIDDEN.
 - **Code Splitting:** Heavy components (charts, rich-text, maps, camera widgets) MUST load via `next/dynamic` with matching skeleton.
 - **Security Headers (`next.config.ts` baseline):** `Content-Security-Policy` (strict, nonce-based), `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (deny by default, explicit opt-in for camera/geolocation per route).
-- **Cache Invalidation:** `revalidateTag` (preferred — surgical). Use `revalidatePath` only when tag taxonomy cannot cover. A tag taxonomy (`tag:<domain>:<entity>`) MUST exist per feature.
+- **Cache Invalidation — per [ADR-0006](docs/adr/0006-cache-model.md):** RLS-scoped reads (almost all feature queries) use React `cache()` — request-scoped dedup only. `unstable_cache` is incompatible with RLS (work fn runs detached from request context → `cookies()` unavailable → would require service-role client that bypasses RLS, violating §2 Zero-Trust). Server Actions invalidate via `revalidatePath(path, "page")` iterating a per-feature `<DOMAIN>_ROUTER_PATHS` array (e.g. `ATTENDANCE_ROUTER_PATHS` in `src/features/attendance/cache-tags.ts`). **`revalidatePath("/", "layout")` is FORBIDDEN in app code.** `revalidateTag` / `updateTag` are RESERVED for future org-wide `unstable_cache`-wrapped reads (POS catalog, role directory, location list); calling them today without a paired cached read is a no-op that must be rejected in review. Per-feature `cache-tags.ts` files host both the path list and reserved tag builders (`<domain>:<entity>:<userId>[:<scope>]`).
 - **Route Handlers vs Server Actions:** `route.ts` only for webhooks, file downloads, SSE/streams, third-party callbacks. All user-initiated mutations MUST be Server Actions.
 - **PWA / Offline:** Crew mobile routes (`/crew/pos`, `/crew/attendance`, `/crew/zone-scan`, `/crew/disposals`) MUST queue mutations in IndexedDB when offline and retry on reconnect with idempotency keys.
 
@@ -104,7 +104,7 @@ Ad-hoc file placement is FORBIDDEN. Enforce Domain-Driven Design (DDD) colocatio
   4. Validate idempotency key for critical mutations.
   5. Execute via Supabase JS query builder or typed RPC.
   6. Return discriminated union `{ success: true, data: T } | { success: false, error: ErrorCode, fields?: Record<string, string> }`. Never leak raw SQL errors.
-  7. Invalidate cache via `revalidateTag` (preferred) or `revalidatePath`.
+  7. Invalidate cache per ADR-0006 (§3 cache invalidation rule) — iterate per-feature `<DOMAIN>_ROUTER_PATHS` calling `revalidatePath(path, "page")`. No layout-scope purges. No `revalidateTag` without paired `unstable_cache`.
   8. Emit structured log + metric + trace span.
 - **Data Protection Parity:** Frontend visual RBAC is UX only. MUST be backed by RLS or Server Action validation.
 - **Error Taxonomy (`src/lib/errors.ts`):** `VALIDATION_FAILED | UNAUTHENTICATED | FORBIDDEN | NOT_FOUND | CONFLICT | STALE_DATA | RATE_LIMITED | DEPENDENCY_FAILED | INTERNAL`. Server Actions MUST return one of these codes.
@@ -187,7 +187,16 @@ Ad-hoc file placement is FORBIDDEN. Enforce Domain-Driven Design (DDD) colocatio
 - **NEVER** use default exports except where framework requires.
 - **NEVER** commit `.env*` files. Only `.env.example` with non-secret placeholders.
 - **NEVER** log values of `restricted` columns (biometrics, payment tokens, passwords, session tokens).
-- **NEVER** use barrel files outside `src/components/ui/`.
+- **NEVER** use barrel files ANYWHERE, including `src/components/ui/`. Deep imports only. ESLint-enforced (`no-restricted-imports` blocks `@/components/ui` bare).
+- **NEVER** organize `src/components/ui/` into subfolders (`data/`, `overlays/`, `forms/`, etc.). shadcn CLI writes flat. ESLint-enforced.
+- **NEVER** import `from "sonner"` outside `@/components/ui/sonner.tsx` + `@/components/ui/toast-helpers.tsx`. Feature code calls `toastSuccess` / `toastError` / etc. ESLint-enforced.
+- **NEVER** import `from "framer-motion"` outside `@/lib/motion.ts`. Feature code calls the motion helpers.
+- **NEVER** call `revalidatePath("/", "layout")` — ADR-0006 bans layout-scope purges in app code. Use per-feature `<DOMAIN>_ROUTER_PATHS` + `revalidatePath(path, "page")`.
+- **NEVER** call `revalidateTag` / `updateTag` unless the same PR introduces a paired `unstable_cache`-wrapped read that bears the tag. Otherwise it's a no-op that pollutes the mental model (ADR-0006).
+- **NEVER** wrap RLS-scoped queries in `unstable_cache`. Work fn runs detached from request context → forces service-role client → bypasses RLS. Use `cache()` + `revalidatePath` (ADR-0006).
+- **NEVER** mount `QueryClientProvider` in the root layout. It lives in `@/components/shared/portal-providers` and wraps staff portals only.
+- **NEVER** `Sentry.init()` inside a React provider or `useEffect`. Sentry boots from `sentry.{client,server,edge}.config.ts` + `instrumentation.ts` — before React hydrates.
+- **NEVER** set `sendDefaultPii: true` in any Sentry config. CLAUDE.md §2 classifies user PII as `restricted`.
 
 ## 9. PROACTIVE ARCHITECTURAL OPTIMIZATION (ANTI-COMPLACENCY PROTOCOL)
 
@@ -232,8 +241,8 @@ Ad-hoc file placement is FORBIDDEN. Enforce Domain-Driven Design (DDD) colocatio
 - **Log Aggregation:** Datadog / Grafana Loki / Axiom. 30-day hot retention, 1-year cold.
 - **Metrics (RED):** Per Server Action and per RPC — Rate (req/s), Error rate, Duration (p50/p95/p99). Business metrics: bookings/hour, POS orders/hour, clock-ins/hour, failed payments/hour.
 - **Distributed Tracing:** OpenTelemetry SDK instruments Server Actions, RPCs, Edge Functions, external HTTP. Trace context propagated via `traceparent` header.
-- **Error Tracking:** Sentry for frontend + server. Source maps per build. User context (redacted). Release health enabled.
-- **Real User Monitoring:** Sentry Replay or Vercel Speed Insights — CWV per route.
+- **Error Tracking:** `@sentry/nextjs` wired via the official SDK pattern — `sentry.{client,server,edge}.config.ts` at repo root + `instrumentation.ts` delegating via `register()` + `onRequestError = Sentry.captureRequestError`. `withSentryConfig(nextConfig, …)` in `next.config.ts` handles source-map upload. `sendDefaultPii: false` everywhere; Replay integration uses `maskAllText` + `blockAllMedia`. **No runtime `Sentry.init()` inside React** — Sentry boots before hydration. `@/lib/telemetry` exports a thin synchronous `captureException(err, ctx)` shim; every `error.tsx` boundary uses it.
+- **Real User Monitoring:** `Sentry.browserTracingIntegration()` captures LCP / CLS / INP / FID / TTFB automatically — no custom `useReportWebVitals` hook. Optionally pair with `@vercel/speed-insights` drop-in for Vercel dashboard visibility.
 - **Synthetic Monitoring:** Checkly / Better Stack — uptime + critical-path checks every 1 min for booking, login, POS checkout, clock-in.
 - **Alerting:** PagerDuty / Opsgenie. Every alert links to runbook. Alert fatigue policy: ≤ 5 pages per on-call shift; above threshold triggers alert-quality review.
 - **SLIs/SLOs (minimum set):**
