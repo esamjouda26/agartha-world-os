@@ -20,6 +20,7 @@ import type { ExceptionRow, MonthlyStats, TodayShift } from "@/features/attendan
 type Props = Readonly<{
   displayName: string;
   canWrite: boolean;
+  staffRecordId: string;
   shift: TodayShift | null;
   todayIso: string;
   selectedDateIso: string;
@@ -49,6 +50,7 @@ type TabValue = (typeof TABS)[number];
  */
 export function AttendanceDashboard({
   canWrite,
+  staffRecordId,
   shift,
   todayIso,
   selectedDateIso,
@@ -170,7 +172,9 @@ export function AttendanceDashboard({
               </section>
             </>
           ) : null}
-          {current === "exceptions" ? <ExceptionList rows={exceptions} /> : null}
+          {current === "exceptions" ? (
+            <ExceptionList rows={exceptions} staffRecordId={staffRecordId} />
+          ) : null}
           {current === "stats" ? <AttendanceStatsPanel stats={stats} punches={punches} /> : null}
         </main>
 

@@ -186,15 +186,57 @@ export type Database = {
         }
         Relationships: []
       }
-      attendance_exceptions: {
+      attendance_clarification_attachments: {
         Row: {
           created_at: string
-          detail: string | null
+          created_by: string | null
+          exception_id: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number
           id: string
-          justification_reason: string | null
-          justified_at: string | null
-          justified_by: string | null
+          mime_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          exception_id: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number
+          id?: string
+          mime_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          exception_id?: string
+          file_name?: string
+          file_path?: string
+          file_size_bytes?: number
+          id?: string
+          mime_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_clarification_attachments_exception_id_fkey"
+            columns: ["exception_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_exceptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_exceptions: {
+        Row: {
+          clarification_submitted_at: string | null
+          created_at: string
+          detail: string | null
+          hr_note: string | null
+          id: string
           org_unit_path: unknown
+          reviewed_at: string | null
+          reviewed_by: string | null
           shift_schedule_id: string
           staff_clarification: string | null
           staff_record_id: string | null
@@ -204,13 +246,14 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          clarification_submitted_at?: string | null
           created_at?: string
           detail?: string | null
+          hr_note?: string | null
           id?: string
-          justification_reason?: string | null
-          justified_at?: string | null
-          justified_by?: string | null
           org_unit_path?: unknown
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           shift_schedule_id: string
           staff_clarification?: string | null
           staff_record_id?: string | null
@@ -220,13 +263,14 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          clarification_submitted_at?: string | null
           created_at?: string
           detail?: string | null
+          hr_note?: string | null
           id?: string
-          justification_reason?: string | null
-          justified_at?: string | null
-          justified_by?: string | null
           org_unit_path?: unknown
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           shift_schedule_id?: string
           staff_clarification?: string | null
           staff_record_id?: string | null
@@ -5315,10 +5359,6 @@ export type Database = {
         }[]
       }
       is_claims_fresh: { Args: never; Returns: boolean }
-      rpc_add_exception_clarification: {
-        Args: { p_exception_id: string; p_text: string }
-        Returns: undefined
-      }
       rpc_apply_pattern_change: {
         Args: {
           p_force_all?: boolean
@@ -5426,6 +5466,10 @@ export type Database = {
         Args: { p_booking_ref: string; p_ip_address?: unknown }
         Returns: Json
       }
+      rpc_justify_exception: {
+        Args: { p_exception_id: string; p_reason: string }
+        Returns: Json
+      }
       rpc_lookup_booking: {
         Args: { p_booking_ref?: string; p_qr_code_ref?: string }
         Returns: Json
@@ -5458,6 +5502,10 @@ export type Database = {
           target_slot_time: string
         }[]
       }
+      rpc_reject_exception_clarification: {
+        Args: { p_exception_id: string; p_reason: string }
+        Returns: Json
+      }
       rpc_reorder_dashboard: {
         Args: never
         Returns: {
@@ -5484,6 +5532,14 @@ export type Database = {
       }
       rpc_run_monthly_accruals: { Args: never; Returns: number }
       rpc_search_bookings_by_email: { Args: { p_email: string }; Returns: Json }
+      rpc_submit_exception_clarification: {
+        Args: {
+          p_attachment_paths?: string[]
+          p_exception_id: string
+          p_text: string
+        }
+        Returns: Json
+      }
       rpc_update_own_avatar: {
         Args: { p_avatar_url: string }
         Returns: undefined
@@ -5503,6 +5559,7 @@ export type Database = {
         Args: { p_booking_ref: string; p_otp_code: string }
         Returns: Json
       }
+      rpc_void_own_punch: { Args: { p_punch_id: string }; Returns: undefined }
       rpc_wipe_biometric_data: {
         Args: { p_booking_ref: string }
         Returns: Json
@@ -5553,7 +5610,11 @@ export type Database = {
         | "on_leave"
         | "suspended"
         | "terminated"
-      exception_status: "unjustified" | "justified"
+      exception_status:
+        | "unjustified"
+        | "pending_review"
+        | "justified"
+        | "rejected"
       exception_type:
         | "late_arrival"
         | "early_departure"
@@ -5806,7 +5867,12 @@ export const Constants = {
         "suspended",
         "terminated",
       ],
-      exception_status: ["unjustified", "justified"],
+      exception_status: [
+        "unjustified",
+        "pending_review",
+        "justified",
+        "rejected",
+      ],
       exception_type: [
         "late_arrival",
         "early_departure",

@@ -22,7 +22,7 @@
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "db:types": "supabase gen types typescript --linked > src/types/database.ts",
+    "db:types": "pnpm dlx supabase gen types typescript --linked > src/types/database.ts",
     "prepare": "husky",
     "rbac:domains": "tsx scripts/generate-domain-codes.ts",
     "rbac:verify-urlpattern": "tsx scripts/verify-urlpattern-runtime.ts",

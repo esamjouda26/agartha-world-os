@@ -52,8 +52,27 @@ export type TodayShift = Readonly<{
 }>;
 
 /**
+ * Attachment record surfaced to the crew tab + HR queue alongside its
+ * parent exception.
+ */
+export type ExceptionAttachment = Readonly<{
+  id: string;
+  file_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size_bytes: number;
+  created_at: string;
+}>;
+
+/**
  * Tab-2 payload — exception joined with shift schedule + shift_type for
  * human-readable context. Read-only from the client's point of view.
+ *
+ * Four-state model per ADR-0007:
+ *   unjustified     — auto-created, awaiting staff action or HR unilateral
+ *   pending_review  — staff submitted clarification; awaiting HR decision
+ *   justified       — HR approved (hr_note holds the justification)
+ *   rejected        — HR rejected (hr_note holds the reason; staff may resubmit)
  */
 export type ExceptionRow = Readonly<{
   id: string;
@@ -65,8 +84,11 @@ export type ExceptionRow = Readonly<{
   detail: string | null;
   punch_remark: string | null;
   staff_clarification: string | null;
-  justification_reason: string | null;
+  hr_note: string | null;
+  clarification_submitted_at: string | null;
+  reviewed_at: string | null;
   created_at: string;
+  attachments: ReadonlyArray<ExceptionAttachment>;
 }>;
 
 /** Tab-3 monthly aggregate — derived from `v_shift_attendance`. */

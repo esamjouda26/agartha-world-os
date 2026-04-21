@@ -61,6 +61,7 @@
 >   - Authorized buckets (exact names + policies defined in `init_schema.sql` §23):
 >     - `avatars` — public read, owner-folder write; user profile pictures; 2 MB; `image/*` only.
 >     - `attendance` — private, owner-folder write, owner or `hr:r` read; clock-in/out selfies; 5 MB; `image/*` only.
+>     - `attendance-clarifications` — private, owner-folder write, owner or `hr:r` read; medical certificates / receipts / photos attached to exception clarifications (ADR-0007); 10 MB; `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `application/pdf`. **No UPDATE or DELETE policies — append-only (PDPA retention).**
 >     - `catalog` — public read, `pos:c|u|d` write; POS menu item imagery; 5 MB; `image/*` + svg.
 >     - `operations` — private, any authenticated write, owner or `ops:r` read, `system:d` delete; incident attachments, write-off photos, maintenance photos, auto-captured guest photos; 10 MB; `image/*`, `video/mp4`, `application/pdf`.
 >     - `documents` — private, `system:c|u|d` write, all authenticated read; contracts, policy PDFs, system documents; 10 MB.
@@ -1628,16 +1629,19 @@ DATA LOADING:
 
 INTERACTIONS:
 
-- "Void Punch" action (inline per punch row, visible with `hr:u`): confirmation modal showing punch details → Server Action → UPDATE `timecard_punches` SET voided_at = NOW(), voided_by = auth.uid() → partial unique index releases the slot → new correcting punch can be inserted → `revalidatePath`
+- "Void Punch" action (inline per punch row, visible with `hr:u`): confirmation modal showing punch details → Server Action → UPDATE `timecard_punches` SET voided_at = NOW(), voided_by = auth.uid() → partial unique index releases the slot → new correcting punch can be inserted → surgical `revalidatePath`
+- **"Approve without request"** (ADR-0007 — ledger row action, available on `unjustified` exceptions only): modal → `hr_note` → Server Action → `rpc_justify_exception(p_exception_id, p_reason)` → status = `justified` → surgical `revalidatePath`. This is the unilateral-approval path for system-outage cases where every staff member is affected and no per-person submission is warranted. The queue surface does NOT expose this path; it lives here.
+- **"Convert to Leave"** (absent / missing_clock_in rows): `rpc_convert_exception_to_leave` — same as on the queue. Accepts both `unjustified` and `pending_review` sources per ADR-0007.
 
 DOMAIN GATING:
 
 - Requires `hr:r` (Tier 4 RLS scopes by org_unit_path on underlying shift_schedules)
+- "Approve without request" + "Convert to Leave" + "Void Punch" require `hr:u`
 
 TABLES TOUCHED:
 
 - SELECT: `v_shift_attendance` (view over `shift_schedules`, `shift_types`, `timecard_punches`, `leave_requests`, `public_holidays`, `attendance_exceptions`)
-- UPDATE: `timecard_punches` (voided_at, voided_by — void action)
+- UPDATE: `timecard_punches` (voided_at, voided_by — void action); `attendance_exceptions` (via RPCs — approve / convert)
 
 ### `/management/hr/attendance/leaves`
 
@@ -1689,39 +1693,45 @@ TABLES TOUCHED:
 
 ### `/management/hr/attendance/queue`
 
+**AMENDED BY [ADR-0007](docs/adr/0007-exception-clarification-workflow.md):** scope narrowed to staff-initiated submissions only.
+
 WHO: `hr` domain with `r` access
-PURPOSE: Review and resolve attendance discrepancies — justify exceptions or convert to leave
+PURPOSE: HR action-required inbox — approve or reject clarifications staff have explicitly submitted for review.
 WORKFLOW: WF-5
 
 LAYOUT:
 
-- KPI bar: total unjustified count, breakdown by type (Late: {n}, Absent: {n}, Missing punch: {n}, Early departure: {n})
-- Status tabs (nuqs `?tab=needs-review`): Needs Review ({n}, default) | Resolved
-- Within each tab: filters by date range, exception_type, search
-- Default sort: shift_date ASC (oldest unresolved first — FIFO work queue)
-- Columns: staff name, shift_date, shift time, exception type, how late/early (duration delta — e.g., "23 min late"), staff's explanation (staff_clarification), punch note (punch_remark), justify/convert actions
+- KPI bar: submissions awaiting review + SLA indicator (oldest submitted at T-{hours})
+- Default sort: `clarification_submitted_at ASC` (FIFO — oldest submission first)
+- Columns: staff name, shift_date, shift time, exception type, duration delta, staff's note (staff_clarification), attachments (count + previews), punch note (punch_remark), prior HR note if this is a resubmission, action buttons
 
 COMPONENTS:
 
 - `DiscrepancyQueueTable` — data table with action buttons
-- `JustifyModal` — text input for justification_reason
+- `ApproveModal` — text input mapped to `hr_note`
+- `RejectModal` — text input mapped to `hr_note` (rejection reason)
 - `ConvertToLeaveModal` — leave_type selector, days input, note
+- `AttachmentViewer` — per-row, resolves signed URLs on demand (TTL ≤ 15min)
 
 DATA LOADING:
 
-- RSC fetches: `attendance_exceptions` JOIN `shift_schedules` JOIN `shift_types` JOIN `profiles` (via staff_record_id)
-- Cursor-based pagination (keyset on `shift_date`, `attendance_exceptions.id`)
-- Real-time: Supabase Realtime subscription on `attendance_exceptions` (INSERT) — new exceptions from clock-in triggers appear live
+- RSC fetches: `attendance_exceptions` WHERE `status = 'pending_review'` JOIN `shift_schedules` JOIN `shift_types` JOIN `profiles` (via staff_record_id) LEFT JOIN `attendance_clarification_attachments`
+- Partial index `idx_attendance_exceptions_queue` supports the sort
+- Cursor-based pagination (keyset on `clarification_submitted_at`, `attendance_exceptions.id`)
+- Real-time: Supabase Realtime filter `status=eq.pending_review` — new submissions + resubmissions appear live
 - Dehydrated React Query
 
-INTERACTIONS:
+INTERACTIONS (per ADR-0007 — RPC-based for audit symmetry):
 
-- "Justify": modal → justification_reason → Server Action → UPDATE `attendance_exceptions` SET status = 'justified', justification_reason, justified_by = auth.uid(), justified_at = NOW() → `revalidatePath`
-- "Convert to Leave": available only for type IN (`absent`, `missing_clock_in`) AND status = `unjustified` → modal → leave_type_id (dropdown from `leave_types`), days (default 1), note → Server Action → `rpc_convert_exception_to_leave(p_exception_id, p_leave_type_id, p_days, p_note)` → atomically: creates approved leave_request + debits leave_ledger via trigger + justifies exception → `revalidatePath`
+- **Approve** → modal → `hr_note` → Server Action → `rpc_justify_exception(p_exception_id, p_reason)` → status = `justified` → surgical `revalidatePath` per `ATTENDANCE_ROUTER_PATHS`
+- **Reject** → modal → `hr_note` (rejection reason) → Server Action → `rpc_reject_exception_clarification(p_exception_id, p_reason)` → status = `rejected` (staff may resubmit, which loops back to `pending_review`)
+- **Convert to Leave** — same RPC as before, now accepts `pending_review` source per ADR-0007
+
+Unilateral HR approval (from `unjustified`, no staff submission) lives on the ledger surface, NOT the queue.
 
 DOMAIN GATING:
 
-- View requires `hr:r`; justify/convert requires `hr:u`
+- View requires `hr:r`; approve/reject/convert requires `hr:u`
 
 TABLES TOUCHED:
 
@@ -4251,11 +4261,17 @@ INTERACTIONS:
   - Undo Punch: Users can void their own punches within a 1-hour grace window to correct accidental captures via the `void-own-punch` action (`rpc_void_own_punch(p_punch_id)`).
   - Button logic: before `(expected_start_time + shift_types.max_late_clock_in_minutes)` → show Clock In. After cutoff or already clocked in → show Clock Out. After both → "Shift Complete"
 
-- **Tab 2 — My Exceptions:**
-  - Columns: shift_date, shift_type name, issue type (Late Arrival | Early Departure | Missing Clock In | Missing Clock Out | Absent), status (Needs Review | Resolved), punch_remark (read-only from `timecard_punches.remark`), staff_clarification, justification_reason (read-only, set by HR)
-  - "Add Clarification": available on own unjustified exceptions only → inline text input → Server Action → `rpc_add_exception_clarification(p_exception_id, p_text)` (SECURITY DEFINER, verifies staff_record_id matches caller) → `revalidatePath`
-  - Banner: "{n} exceptions need your clarification" (count of status = 'unjustified')
-  - Default sort: status = 'unjustified' first, then created_at DESC within each group. No create/delete — system-generated by triggers
+- **Tab 2 — My Exceptions (AMENDED BY [ADR-0007](docs/adr/0007-exception-clarification-workflow.md)):**
+  - Columns: shift_date, shift_type name, issue type, status (Needs Review | Awaiting HR | Approved | Rejected), punch_remark (read-only from `timecard_punches.remark`), staff note + HR note preview
+  - Four-state affordance per row:
+    - `unjustified` → "Request HR review" editor in the detail sheet: `staff_clarification` textarea + attachment uploader (MC, receipts, photos — up to 5 files × 10 MB each; JPEG/PNG/WebP/HEIC/PDF). Submit → Server Action → `rpc_submit_exception_clarification(p_exception_id, p_text, p_attachment_paths)` → status transitions to `pending_review` → surgical `revalidatePath`.
+    - `pending_review` → read-only: submitted note, attachment list, "Awaiting HR review" badge.
+    - `justified` → read-only: HR note (approval reason or "Converted to \<leave_type\>").
+    - `rejected` → read-only HR rejection note + "Edit & resubmit" editor (pre-fills prior text) → resubmit loops back to `pending_review`.
+  - Attachments upload first to the `attendance-clarifications` bucket (path `{staff_record_id}/{exception_id}/{uuid}.{ext}`; RLS pins the first segment to the caller's own staff_record_id), then the RPC links them atomically via `attendance_clarification_attachments` (append-only — no delete).
+  - Banner: "{n} exceptions need your attention" (combined count of `unjustified` + `rejected` — both require the staff member to act).
+  - Punch note (`timecard_punches.remark`) remains a distinct surface — a quick note captured at clock-in/out time, reference-only, never escalates.
+  - Default sort: action-required first (`unjustified`, `rejected`) → `pending_review` → `justified` last. Within each bucket newest-first. No create/delete — rows are system-generated by triggers + cron.
 
 - **Tab 3 — My Attendance:**
   - Month picker (current month default, navigate month by month)

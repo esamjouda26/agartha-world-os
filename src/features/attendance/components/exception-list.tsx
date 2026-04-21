@@ -1,9 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { ChevronRight, MessageSquareText, StickyNote } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Clock4,
+  FileText,
+  MessageSquareText,
+  Paperclip,
+  StickyNote,
+  Upload,
+  X,
+  XCircle,
+} from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -21,25 +32,44 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
-import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
-import { UNJUSTIFIED_BANNER_THRESHOLD } from "@/features/attendance/constants";
-import { addClarificationAction } from "@/features/attendance/actions/add-clarification";
+import { toastError, toastInfo, toastSuccess } from "@/components/ui/toast-helpers";
+import {
+  CLARIFICATION_MAX_LEN,
+  UNJUSTIFIED_BANNER_THRESHOLD,
+} from "@/features/attendance/constants";
+import { submitClarificationAction } from "@/features/attendance/actions/submit-clarification";
+import { uploadClarificationAttachment } from "@/features/attendance/utils/upload-clarification-attachment";
 import type { ExceptionRow, ExceptionType } from "@/features/attendance/types";
 
 /**
  * Tab-2 "My Exceptions" surface.
  *
- * Tabular layout per frontend_spec.md:4235 ("Columns: shift_date,
- * shift_type name, issue type, status, punch_remark, staff_clarification,
- * justification_reason"). Built on the shared `<DataTable>` primitive —
- * desktop renders the table; mobile collapses to cards via
- * `mobileFieldPriority`. The whole row is clickable on both surfaces via
- * `onRowClick` (newly added to the primitive), so mobile users can tap to
- * open the detail sheet without a separate action button.
+ * Tabular layout per frontend_spec.md:4235. Built on the shared
+ * `<DataTable>` primitive — desktop renders the table; mobile collapses
+ * to cards via `mobileFieldPriority`. Row click opens the detail sheet.
+ *
+ * ADR-0007 adds a four-state workflow to the detail sheet:
+ *   unjustified     → "Request HR review" editor (text + attachments)
+ *   pending_review  → read-only "Awaiting HR review" with submitted context
+ *   justified       → read-only "Approved" + HR note
+ *   rejected        → read-only rejection note + "Edit & resubmit" editor
  */
+
+const MAX_ATTACHMENTS = 5;
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB (matches bucket cap)
+const ACCEPTED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "application/pdf",
+]);
 
 type Props = Readonly<{
   rows: ReadonlyArray<ExceptionRow>;
+  /** Caller's staff_record_id — used as the first path segment when
+   * uploading attachment blobs to the attendance-clarifications bucket. */
+  staffRecordId: string;
 }>;
 
 const TYPE_LABEL: Record<ExceptionType, string> = {
@@ -50,10 +80,13 @@ const TYPE_LABEL: Record<ExceptionType, string> = {
   absent: "Absent",
 };
 
-export function ExceptionList({ rows }: Props) {
+export function ExceptionList({ rows, staffRecordId }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const unjustifiedCount = useMemo(
-    () => rows.filter((row) => row.status === "unjustified").length,
+
+  // Rows that need the user's action: either never-submitted
+  // (`unjustified`) or rejected and awaiting resubmission.
+  const actionableCount = useMemo(
+    () => rows.filter((row) => row.status === "unjustified" || row.status === "rejected").length,
     [rows],
   );
 
@@ -87,13 +120,7 @@ export function ExceptionList({ rows }: Props) {
         id: "status",
         accessorKey: "status",
         header: "Status",
-        cell: ({ row }) => (
-          <StatusBadge
-            status={row.original.status}
-            enum="exception_status"
-            label={row.original.status === "unjustified" ? "Needs review" : "Resolved"}
-          />
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.status} enum="exception_status" />,
       },
       {
         id: "note_state",
@@ -102,7 +129,40 @@ export function ExceptionList({ rows }: Props) {
         cell: ({ row }) => {
           const hasClarification = Boolean(row.original.staff_clarification);
           const hasPunchNote = Boolean(row.original.punch_remark);
+          const hasAttachments = row.original.attachments.length > 0;
+          if (row.original.status === "rejected") {
+            return (
+              <span className="text-status-danger-foreground text-xs font-medium">
+                HR rejected — edit & resubmit
+              </span>
+            );
+          }
+          if (row.original.status === "pending_review") {
+            return (
+              <span className="text-status-info-foreground inline-flex items-center gap-1 text-xs font-medium">
+                <Clock4 aria-hidden className="size-3.5" />
+                Awaiting HR review
+                {hasAttachments ? (
+                  <span className="text-foreground-subtle inline-flex items-center gap-0.5">
+                    <Paperclip aria-hidden className="size-3" />
+                    {row.original.attachments.length}
+                  </span>
+                ) : null}
+              </span>
+            );
+          }
+          if (row.original.status === "justified") {
+            return (
+              <span className="text-status-success-foreground inline-flex items-center gap-1 text-xs font-medium">
+                <CheckCircle2 aria-hidden className="size-3.5" />
+                Approved
+              </span>
+            );
+          }
+          // unjustified
           if (hasClarification) {
+            // Shouldn't happen (CHECK constraint ensures unjustified →
+            // staff_clarification NULL) but be defensive.
             return (
               <span className="text-foreground-muted line-clamp-1 text-left">
                 {row.original.staff_clarification}
@@ -113,18 +173,15 @@ export function ExceptionList({ rows }: Props) {
             return (
               <span className="text-status-info-foreground inline-flex items-center gap-1 text-xs font-medium">
                 <StickyNote aria-hidden className="size-3.5" />
-                You left a punch note
+                Punch note left
               </span>
             );
           }
-          if (row.original.status === "unjustified") {
-            return (
-              <span className="text-status-warning-foreground text-xs font-medium">
-                Clarification needed
-              </span>
-            );
-          }
-          return <span className="text-foreground-subtle">—</span>;
+          return (
+            <span className="text-status-warning-foreground text-xs font-medium">
+              Request HR review
+            </span>
+          );
         },
       },
       {
@@ -155,15 +212,15 @@ export function ExceptionList({ rows }: Props) {
 
   return (
     <div className="flex flex-col gap-4" data-testid="attendance-exceptions">
-      {unjustifiedCount >= UNJUSTIFIED_BANNER_THRESHOLD ? (
+      {actionableCount >= UNJUSTIFIED_BANNER_THRESHOLD ? (
         <Alert variant="destructive" data-testid="attendance-exceptions-banner">
           <AlertTitle>
-            {unjustifiedCount === 1
-              ? "1 exception needs your clarification"
-              : `${unjustifiedCount} exceptions need your clarification`}
+            {actionableCount === 1
+              ? "1 exception needs your attention"
+              : `${actionableCount} exceptions need your attention`}
           </AlertTitle>
           <AlertDescription>
-            Tap any row to review the exception and explain what happened.
+            Tap any row to review the exception, add a note, and attach supporting documents for HR.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -180,6 +237,7 @@ export function ExceptionList({ rows }: Props) {
 
       <ExceptionDetailSheet
         row={selectedRow}
+        staffRecordId={staffRecordId}
         open={selectedRow !== null}
         onClose={() => setSelectedId(null)}
       />
@@ -187,42 +245,133 @@ export function ExceptionList({ rows }: Props) {
   );
 }
 
+type PendingAttachment = Readonly<{
+  id: string;
+  name: string;
+  size: number;
+  blob: Blob;
+}>;
+
 function ExceptionDetailSheet({
   row,
+  staffRecordId,
   open,
   onClose,
 }: Readonly<{
   row: ExceptionRow | null;
+  staffRecordId: string;
   open: boolean;
   onClose: () => void;
 }>) {
   const router = useRouter();
   const [text, setText] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [pendingFiles, setPendingFiles] = useState<ReadonlyArray<PendingAttachment>>([]);
+  const [isSubmitting, startTransition] = useTransition();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Reset the textarea when the sheet switches between rows.
+  // Reset the editor when the sheet switches between rows. Prefill the
+  // text with the existing clarification when resubmitting after
+  // rejection — the user is usually revising, not starting over.
   useEffect(() => {
-    setText("");
-  }, [row?.id]);
+    if (!row) {
+      setText("");
+      setPendingFiles([]);
+      return;
+    }
+    setText(row.status === "rejected" ? (row.staff_clarification ?? "") : "");
+    setPendingFiles([]);
+  }, [row?.id, row?.status, row?.staff_clarification]);
+
+  const canEdit = row?.status === "unjustified" || row?.status === "rejected";
+  const submitDisabled =
+    !canEdit ||
+    text.trim().length < 3 ||
+    isSubmitting ||
+    uploading ||
+    pendingFiles.length > MAX_ATTACHMENTS;
+
+  const onFileSelect = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const incoming = Array.from(event.target.files ?? []);
+      if (incoming.length === 0) return;
+
+      const next: PendingAttachment[] = [...pendingFiles];
+      for (const file of incoming) {
+        if (!ACCEPTED_MIME.has(file.type)) {
+          toastError({
+            success: false,
+            error: "VALIDATION_FAILED",
+            fields: { [file.name]: "Only JPEG, PNG, WebP, HEIC, or PDF files are accepted." },
+          });
+          continue;
+        }
+        if (file.size > MAX_BYTES) {
+          toastError({
+            success: false,
+            error: "VALIDATION_FAILED",
+            fields: { [file.name]: "File exceeds 10 MB." },
+          });
+          continue;
+        }
+        if (next.length >= MAX_ATTACHMENTS) {
+          toastInfo(`Maximum ${MAX_ATTACHMENTS} attachments — remove one to add another.`);
+          break;
+        }
+        next.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          blob: file,
+        });
+      }
+      setPendingFiles(next);
+      // Clear the native input so selecting the same file twice re-fires.
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    [pendingFiles],
+  );
+
+  const removePending = useCallback((id: string) => {
+    setPendingFiles((prev) => prev.filter((f) => f.id !== id));
+  }, []);
 
   const onSubmit = useCallback(() => {
     if (!row) return;
     startTransition(async () => {
-      const result = await addClarificationAction({ exceptionId: row.id, text });
+      let attachmentPaths: string[] = [];
+      if (pendingFiles.length > 0) {
+        setUploading(true);
+        try {
+          attachmentPaths = await Promise.all(
+            pendingFiles.map((f) =>
+              uploadClarificationAttachment(f.blob, row.id, staffRecordId, f.name),
+            ),
+          );
+        } catch (err) {
+          toastError({ success: false, error: "DEPENDENCY_FAILED" });
+          if (err instanceof Error) toastInfo(`Upload failed: ${err.message}`);
+          setUploading(false);
+          return;
+        }
+        setUploading(false);
+      }
+
+      const result = await submitClarificationAction({
+        exceptionId: row.id,
+        text: text.trim(),
+        attachmentPaths,
+      });
+
       if (result.success) {
-        toastSuccess("Clarification sent to HR.");
+        toastSuccess(row.status === "rejected" ? "Resubmitted to HR." : "Sent to HR for review.");
         router.refresh();
         onClose();
       } else {
         toastError(result);
       }
     });
-  }, [row, text, router, onClose]);
-
-  const hasPunchNote = Boolean(row?.punch_remark);
-  const hasClarification = Boolean(row?.staff_clarification);
-  const hasJustification = Boolean(row?.justification_reason);
-  const canSubmit = row?.status === "unjustified" && !hasClarification && text.trim().length >= 3;
+  }, [row, text, pendingFiles, staffRecordId, router, onClose]);
 
   return (
     <Sheet open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
@@ -246,99 +395,227 @@ function ExceptionDetailSheet({
         {row ? (
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
             <section className="grid grid-cols-2 gap-4 text-sm">
-              <Meta
-                label="Status"
-                value={row.status === "unjustified" ? "Needs review" : "Resolved"}
-              />
+              <Meta label="Status" value={humanStatus(row.status)} />
               <Meta label="Logged at" value={format(parseISO(row.created_at), "MMM d, p")} />
             </section>
 
             {row.detail ? <ReadBlock label="What the system recorded" body={row.detail} /> : null}
 
-            {/* Punch note — the free-text the user entered AT THE TIME of
-                clocking in/out. Distinct from the later clarification
-                they give to HR. Labeled explicitly so the user doesn't
-                confuse the two. */}
-            {hasPunchNote ? (
+            {row.punch_remark ? (
               <ReadBlock
                 label="Note you left when punching"
                 icon={<StickyNote aria-hidden className="size-3.5" />}
-                body={row.punch_remark ?? ""}
+                body={row.punch_remark}
                 tone="neutral"
                 data-testid={`attendance-exception-punch-note-${row.id}`}
               />
             ) : null}
 
-            {/* Clarification — the longer explanation the user writes
-                AFTER the exception has been flagged, intended for HR. */}
-            {hasClarification ? (
+            {row.status !== "unjustified" && row.staff_clarification ? (
               <ReadBlock
-                label="Clarification you sent HR"
+                label={
+                  row.status === "pending_review"
+                    ? "What you submitted"
+                    : row.status === "rejected"
+                      ? "Your previous submission"
+                      : "Clarification you sent HR"
+                }
                 icon={<MessageSquareText aria-hidden className="size-3.5" />}
-                body={row.staff_clarification ?? ""}
+                body={row.staff_clarification}
                 tone="info"
                 data-testid={`attendance-exception-clarification-${row.id}`}
               />
             ) : null}
 
-            {hasJustification ? (
+            {row.attachments.length > 0 ? (
+              <section className="flex flex-col gap-2">
+                <p className="text-foreground-subtle inline-flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase">
+                  <Paperclip aria-hidden className="size-3.5" />
+                  Attachments ({row.attachments.length})
+                </p>
+                <ul
+                  className="flex flex-col gap-1.5"
+                  data-testid={`attendance-exception-attachments-${row.id}`}
+                >
+                  {row.attachments.map((a) => (
+                    <li
+                      key={a.id}
+                      className="border-border-subtle bg-surface flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <FileText aria-hidden className="text-foreground-muted size-4 shrink-0" />
+                      <span className="truncate">{a.file_name}</span>
+                      <span className="text-foreground-subtle ml-auto shrink-0 text-xs tabular-nums">
+                        {humanSize(a.file_size_bytes)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {row.hr_note ? (
               <ReadBlock
-                label="HR resolution"
-                body={row.justification_reason ?? ""}
-                tone="success"
+                label={row.status === "rejected" ? "Why HR rejected" : "HR note"}
+                icon={
+                  row.status === "justified" ? (
+                    <CheckCircle2 aria-hidden className="size-3.5" />
+                  ) : row.status === "rejected" ? (
+                    <XCircle aria-hidden className="size-3.5" />
+                  ) : undefined
+                }
+                body={row.hr_note}
+                tone={row.status === "justified" ? "success" : "neutral"}
+                data-testid={`attendance-exception-hr-note-${row.id}`}
               />
             ) : null}
 
-            {row.status === "unjustified" && !hasClarification ? (
-              <div className="flex flex-col gap-2">
-                <label
-                  htmlFor="exception-clarify"
-                  className="text-foreground inline-flex items-center gap-2 text-xs font-medium"
-                >
-                  <MessageSquareText aria-hidden className="size-3.5" />
-                  {hasPunchNote ? "Add more context for HR" : "Explain what happened"}
-                </label>
-                <p className="text-foreground-muted text-[11px]">
-                  {hasPunchNote
-                    ? "You already left a short note at the time. Add a fuller explanation here — HR uses it to justify or convert the exception to leave."
-                    : "Write a short explanation so HR can justify this exception or convert it to leave."}
-                </p>
-                <Textarea
-                  id="exception-clarify"
-                  rows={4}
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
-                  placeholder="What happened? E.g. traffic delay, family emergency, prior approval from supervisor."
-                  maxLength={500}
-                  disabled={isPending}
-                  data-testid={`attendance-clarify-input-${row.id}`}
-                />
-                <p className="text-foreground-subtle self-end text-[11px] tabular-nums">
-                  {text.length}/500
-                </p>
+            {canEdit ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="exception-clarify"
+                    className="text-foreground inline-flex items-center gap-2 text-xs font-medium"
+                  >
+                    <MessageSquareText aria-hidden className="size-3.5" />
+                    {row.status === "rejected"
+                      ? "Edit your note and resubmit"
+                      : row.punch_remark
+                        ? "Add more context for HR"
+                        : "Explain what happened"}
+                  </label>
+                  <p className="text-foreground-muted text-[11px]">
+                    {row.status === "rejected"
+                      ? "HR rejected your previous note. Revise and resubmit — the request will go back for review."
+                      : "Write a short explanation and attach any supporting documents so HR can justify this exception."}
+                  </p>
+                  <Textarea
+                    id="exception-clarify"
+                    rows={4}
+                    value={text}
+                    onChange={(event) => setText(event.target.value)}
+                    placeholder="What happened? E.g. traffic delay, family emergency, prior approval from supervisor."
+                    maxLength={CLARIFICATION_MAX_LEN}
+                    disabled={isSubmitting}
+                    data-testid={`attendance-clarify-input-${row.id}`}
+                  />
+                  <p className="text-foreground-subtle self-end text-[11px] tabular-nums">
+                    {text.length}/{CLARIFICATION_MAX_LEN}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="exception-attachments"
+                      className="text-foreground inline-flex items-center gap-2 text-xs font-medium"
+                    >
+                      <Paperclip aria-hidden className="size-3.5" />
+                      Attachments ({pendingFiles.length}/{MAX_ATTACHMENTS})
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isSubmitting || pendingFiles.length >= MAX_ATTACHMENTS}
+                      data-testid={`attendance-attach-trigger-${row.id}`}
+                    >
+                      <Upload aria-hidden className="size-3.5" />
+                      Add file
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      id="exception-attachments"
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                      className="sr-only"
+                      onChange={onFileSelect}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  {pendingFiles.length > 0 ? (
+                    <ul
+                      className="flex flex-col gap-1.5"
+                      data-testid={`attendance-pending-attachments-${row.id}`}
+                    >
+                      {pendingFiles.map((f) => (
+                        <li
+                          key={f.id}
+                          className="border-border-subtle bg-surface flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                        >
+                          <FileText aria-hidden className="text-foreground-muted size-4 shrink-0" />
+                          <span className="truncate">{f.name}</span>
+                          <span className="text-foreground-subtle ml-auto shrink-0 text-xs tabular-nums">
+                            {humanSize(f.size)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removePending(f.id)}
+                            className="text-foreground-muted hover:text-foreground focus-visible:outline-ring -mr-1 grid size-6 place-items-center rounded focus-visible:outline-2 focus-visible:outline-offset-2"
+                            aria-label={`Remove ${f.name}`}
+                            disabled={isSubmitting}
+                          >
+                            <X aria-hidden className="size-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-foreground-subtle text-[11px]">
+                      Optional — attach MC, receipts, photos (JPEG, PNG, WebP, HEIC, PDF — up to 10
+                      MB each).
+                    </p>
+                  )}
+                </div>
               </div>
             ) : null}
           </div>
         ) : null}
 
         <SheetFooter className="border-border-subtle gap-2 border-t">
-          <Button variant="ghost" onClick={onClose} disabled={isPending}>
+          <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
             Close
           </Button>
-          {row?.status === "unjustified" && !hasClarification ? (
+          {canEdit ? (
             <Button
               onClick={onSubmit}
-              disabled={!canSubmit || isPending}
-              aria-busy={isPending || undefined}
-              data-testid={`attendance-clarify-submit-${row.id}`}
+              disabled={submitDisabled}
+              aria-busy={isSubmitting || uploading || undefined}
+              data-testid={`attendance-clarify-submit-${row?.id}`}
             >
-              {isPending ? "Sending…" : "Send to HR"}
+              {uploading
+                ? "Uploading…"
+                : isSubmitting
+                  ? "Sending…"
+                  : row?.status === "rejected"
+                    ? "Resubmit"
+                    : "Send to HR"}
             </Button>
           ) : null}
         </SheetFooter>
       </SheetContent>
     </Sheet>
   );
+}
+
+function humanStatus(status: ExceptionRow["status"]): string {
+  switch (status) {
+    case "unjustified":
+      return "Needs review";
+    case "pending_review":
+      return "Awaiting HR";
+    case "justified":
+      return "Approved";
+    case "rejected":
+      return "Rejected";
+  }
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function Meta({ label, value }: Readonly<{ label: string; value: string }>) {

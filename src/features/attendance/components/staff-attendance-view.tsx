@@ -91,6 +91,7 @@ export async function StaffAttendanceView({
       <AttendanceDashboard
         displayName={displayName}
         canWrite={canWrite}
+        staffRecordId={staffRecordId}
         shift={shift}
         todayIso={todayIso}
         selectedDateIso={selectedDateIso}
@@ -112,6 +113,7 @@ export async function StaffAttendanceView({
       <AttendanceDashboard
         displayName={displayName}
         canWrite={canWrite}
+        staffRecordId={staffRecordId}
         shift={shift}
         todayIso={todayIso}
         selectedDateIso={selectedDateIso}

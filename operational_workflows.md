@@ -391,23 +391,82 @@ UI clock-in/clock-out button logic:
     After cutoff (or already clocked in): show clock-out button
     Frontend reads max_late_clock_in_minutes from shift_types via today's schedule
 
-Staff self-service (My Exceptions tab at /crew/attendance):
-    Staff views own exceptions with punch_remark (from timecard_punches.remark) shown alongside
-    ├── Add Clarification → rpc_add_exception_clarification(exception_id, text)
-    │     SECURITY DEFINER, verifies staff_record_id matches caller
-    │     Updates staff_clarification column on own unjustified exceptions only
-    └── Read-only: cannot change status, cannot delete
+EXCEPTION STATE MACHINE (ADR-0007)
+─────────────────────────────────
+                  rpc_submit_exception_clarification
+                  (staff; transitions to pending_review,
+                   stamps clarification_submitted_at,
+                   idempotently links attachments)
+                                    │
+     ┌──── unjustified ─────────────┤
+     │                              ▼
+     │                        pending_review ◄────────┐
+ rpc_justify_exception        │          │            │
+ (HR unilateral, from         │          │  rpc_reject_exception_
+ the ledger — e.g.            │          │  clarification (HR; stores
+ system-outage day)           │          │  reason in hr_note)
+     │                        ▼          ▼            │
+     ▼                    justified    rejected ──────┘
+  justified              (TERMINAL)   (staff may resubmit, loops back)
 
-HR reviews discrepancy queue at /management/hr/attendance/queue:
-    HR sees: staff_clarification + punch_remark (read-only context from staff)
-    ├── Justify → status: justified, justification_reason, justified_by, justified_at
-    ├── Convert to Leave (absent/missing_clock_in only):
-    │     rpc_convert_exception_to_leave(exception_id, leave_type_id, days, note)
-    │     1. Creates leave_request (status=approved, reviewed_by=HR, start_date=end_date=shift_date)
-    │     2. trg_leave_approval_linkage fires → debits leave_ledger automatically
-    │     3. Exception justified: justification_reason = 'Converted to {leave_type_name}'
-    │     Atomic: leave + justification in one RPC call
-    └── No action → stays unjustified permanently (default = rejection)
+Staff self-service (/crew/attendance?tab=exceptions):
+    Immediate visibility for late_arrival / early_departure / missing_clock_in / missing_clock_out.
+    Absent + missing_clock_out arrive after the 00:05 nightly sweep.
+    Per-status affordance:
+      unjustified    → "Request HR review" editor (text + attachment uploader)
+      pending_review → read-only: submitted note + attachment list + "Awaiting HR"
+      justified      → read-only: HR note (approval / converted-to-leave)
+      rejected       → read-only rejection note + "Edit & resubmit" editor (pre-fills prior text)
+    Submission path:
+      1. Client uploads attachment blobs to the attendance-clarifications bucket
+         path: {staff_record_id}/{exception_id}/{uuid}.{ext}
+         bucket RLS locks first segment to caller's staff_record_id (10MB cap,
+         image/* + PDF only)
+      2. Client calls rpc_submit_exception_clarification(id, text, [paths]) as a Server Action
+         RPC atomically:
+           · UPDATE staff_clarification + status=pending_review +
+             clarification_submitted_at + clear reviewer fields
+           · INSERT clarification_attachments rows (metadata from storage.objects,
+             ON CONFLICT DO NOTHING for idempotency on resubmit)
+
+HR review — two surfaces per ADR-0007:
+
+  /management/hr/attendance/queue   (action-required inbox)
+    Scope: status = 'pending_review' ONLY
+    Row actions:
+      Approve       → rpc_justify_exception(id, reason)      → status=justified
+      Reject        → rpc_reject_exception_clarification(id, reason) → status=rejected
+                      (staff may resubmit; cycles back to pending_review)
+      Convert to Leave (absent / missing_clock_in only)
+                    → rpc_convert_exception_to_leave(id, leave_type_id, days, note)
+                      Atomic: approved leave_request + leave_ledger usage debit +
+                      exception justified with hr_note = 'Converted to <leave_type>'
+                      (widened to accept pending_review source per ADR-0007)
+
+  /management/hr/attendance/ledger  (read-only archive + unilateral path)
+    Scope: v_shift_attendance — every shift, exception state as a column
+    Row actions:
+      "Approve without request" (unjustified only) → rpc_justify_exception(id, reason)
+         The unilateral path. Use for system-outage days where every staff
+         member is affected and no per-person submission is warranted.
+
+NOTE-EXCHANGE MODEL (NO THREAD, TWO COLUMNS)
+────────────────────────────────────────────
+Per ADR-0007, the conversation lives in two existing columns:
+    staff_clarification — staff's latest note (overwritten on resubmit)
+    hr_note             — HR's latest decision note (justification on approve,
+                          rejection reason on reject)
+The `status` column disambiguates whether hr_note is an approval or a rejection.
+Only the latest round-trip is preserved; earlier messages are overwritten.
+
+PUNCH REMARK ≠ CLARIFICATION
+────────────────────────────
+    timecard_punches.remark     Quick note captured AT clock-in/out time
+                                ("heavy traffic"). Reference-only; never escalates.
+    attendance_exceptions.staff_clarification
+                                Formal submitted clarification. Triggers state
+                                transition to pending_review. Only this surface
+                                reaches HR's queue.
 
 Voiding (error correction):
     HR/Admin sets voided_at + voided_by on the erroneous punch
@@ -417,15 +476,17 @@ Voiding (error correction):
 
 ### Tables
 
-| Table                   | Role                             | Operation                                                                               |
-| ----------------------- | -------------------------------- | --------------------------------------------------------------------------------------- |
-| `timecard_punches`      | Staff (via SECURITY DEFINER RPC) | INSERT (clock_in, clock_out — separate rows)                                            |
-| `timecard_punches`      | HR/Admin                         | UPDATE (voided_at, voided_by — void only, never delete)                                 |
-| `attendance_exceptions` | Trigger / Cron                   | INSERT (auto-detected discrepancies, with denormalized staff_record_id + org_unit_path) |
-| `attendance_exceptions` | Staff (via RPC)                  | UPDATE (staff_clarification only, own exceptions, via rpc_add_exception_clarification)  |
-| `attendance_exceptions` | HR                               | UPDATE (justify: status, justification_reason, justified_by, justified_at)              |
-| `leave_requests`        | HR (via RPC)                     | INSERT (approved, via rpc_convert_exception_to_leave for absent/missing_clock_in)       |
-| `leave_ledger`          | Trigger                          | INSERT (usage debit, via trg_leave_approval_linkage fired by above)                     |
+| Table                                  | Role                             | Operation                                                                                                                               |
+| -------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `timecard_punches`                     | Staff (via SECURITY DEFINER RPC) | INSERT (clock_in, clock_out — separate rows)                                                                                            |
+| `timecard_punches`                     | HR/Admin                         | UPDATE (voided_at, voided_by — void only, never delete)                                                                                 |
+| `attendance_exceptions`                | Trigger / Cron                   | INSERT (auto-detected discrepancies, with denormalized staff_record_id + org_unit_path)                                                 |
+| `attendance_exceptions`                | Staff (via RPC)                  | UPDATE (staff_clarification + state → pending_review, via rpc_submit_exception_clarification)                                           |
+| `attendance_exceptions`                | HR (via RPC)                     | UPDATE (justified via rpc_justify_exception; rejected via rpc_reject_exception_clarification; leave via rpc_convert_exception_to_leave) |
+| `attendance_clarification_attachments` | Staff (via RPC, atomic)          | INSERT (via rpc_submit_exception_clarification — never direct)                                                                          |
+| `attendance_clarification_attachments` | —                                | No UPDATE / DELETE policies (append-only per ADR-0007)                                                                                  |
+| `leave_requests`                       | HR (via RPC)                     | INSERT (approved, via rpc_convert_exception_to_leave for absent/missing_clock_in)                                                       |
+| `leave_ledger`                         | Trigger                          | INSERT (usage debit, via trg_leave_approval_linkage fired by above)                                                                     |
 
 ### Event-Sourcing Integrity
 

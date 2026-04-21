@@ -14,25 +14,27 @@ import {
   CLARIFICATION_RATE_LIMIT_TOKENS,
   CLARIFICATION_RATE_LIMIT_WINDOW,
 } from "@/features/attendance/constants";
-import { addClarificationSchema } from "@/features/attendance/schemas/clock";
+import { rejectClarificationSchema } from "@/features/attendance/schemas/clock";
 import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
 
 const limiter = createRateLimiter({
   tokens: CLARIFICATION_RATE_LIMIT_TOKENS,
   window: CLARIFICATION_RATE_LIMIT_WINDOW,
-  prefix: "attendance-clarification",
+  prefix: "attendance-clarification-reject",
 });
 
 /**
- * Calls `rpc_add_exception_clarification(p_exception_id, p_text)` at
- * [init_schema.sql:5985](supabase/migrations/20260417064731_init_schema.sql#L5985).
- * The RPC itself enforces ownership (rejects `FORBIDDEN: not your exception`)
- * so the server action is mostly the pipeline shell.
+ * HR-only. Reject a pending clarification with a reason stored in
+ * `hr_note`. Staff may resubmit via `submitClarificationAction`, which
+ * flips the row back to `pending_review`.
+ *
+ * Wraps `rpc_reject_exception_clarification`. Intended consumer:
+ * `/management/hr/attendance/queue` row action (Phase 7).
  */
-export async function addClarificationAction(
+export async function rejectClarificationAction(
   input: unknown,
 ): Promise<ServerActionResult<{ exceptionId: string }>> {
-  const parsed = addClarificationSchema.safeParse(input);
+  const parsed = rejectClarificationSchema.safeParse(input);
   if (!parsed.success) {
     const fields: Record<string, string> = {};
     for (const issue of parsed.error.issues) {
@@ -48,14 +50,14 @@ export async function addClarificationAction(
   if (!user) return fail("UNAUTHENTICATED");
   const appMeta = (user.app_metadata ?? {}) as { domains?: Record<string, string[]> };
   const hrAccess = appMeta.domains?.hr ?? [];
-  if (!hrAccess.includes("c")) return fail("FORBIDDEN");
+  if (!hrAccess.includes("u")) return fail("FORBIDDEN");
 
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  const { error } = await supabase.rpc("rpc_add_exception_clarification", {
+  const { error } = await supabase.rpc("rpc_reject_exception_clarification", {
     p_exception_id: parsed.data.exceptionId,
-    p_text: parsed.data.text,
+    p_reason: parsed.data.reason,
   });
 
   if (error) {
@@ -63,7 +65,6 @@ export async function addClarificationAction(
     return fail(mapped.code);
   }
 
-  // Router Cache invalidation per ADR-0006 — see clock-in.ts.
   for (const path of ATTENDANCE_ROUTER_PATHS) {
     revalidatePath(path, "page");
   }
@@ -71,10 +72,10 @@ export async function addClarificationAction(
   after(async () => {
     const log = loggerWith({
       feature: "attendance",
-      event: "add_clarification",
+      event: "reject_clarification",
       user_id: user.id,
     });
-    log.info({ exception_id: parsed.data.exceptionId }, "addClarificationAction completed");
+    log.info({ exception_id: parsed.data.exceptionId }, "rejectClarificationAction completed");
   });
 
   return ok({ exceptionId: parsed.data.exceptionId });

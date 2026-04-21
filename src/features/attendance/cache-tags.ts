@@ -29,7 +29,15 @@
  * Add entries here as Phase 5 introduces admin/management wrappers that
  * consume the shared `AttendancePage` component.
  */
-export const ATTENDANCE_ROUTER_PATHS = ["/[locale]/crew/attendance"] as const;
+export const ATTENDANCE_ROUTER_PATHS = [
+  "/[locale]/crew/attendance",
+  // HR surfaces land in Phase 7 per ADR-0007 — the paths exist in the
+  // invalidation set already so mutation actions bust them the moment
+  // the routes are scaffolded. Revalidating a not-yet-matched dynamic
+  // route is a no-op, so it's safe to list them early.
+  "/[locale]/management/hr/attendance/queue",
+  "/[locale]/management/hr/attendance/ledger",
+] as const;
 
 // ── (2) Data Cache tags — reserved for future unstable_cache reads ─────
 

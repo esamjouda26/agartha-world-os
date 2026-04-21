@@ -12,9 +12,17 @@ import type { ExceptionRow } from "@/features/attendance/types";
  * sheet; submitting a clarification; server error via toastError.
  */
 
-const addClarificationMock = vi.hoisted(() => vi.fn());
-vi.mock("@/features/attendance/actions/add-clarification", () => ({
-  addClarificationAction: addClarificationMock,
+const submitClarificationMock = vi.hoisted(() => vi.fn());
+vi.mock("@/features/attendance/actions/submit-clarification", () => ({
+  submitClarificationAction: submitClarificationMock,
+}));
+
+// Upload path isn't exercised in these fixtures (no attachments are
+// added) but the UI imports the util — stub it so the test env doesn't
+// pull in the browser-only supabase client.
+vi.mock("@/features/attendance/utils/upload-clarification-attachment", () => ({
+  uploadClarificationAttachment: vi.fn(async () => "stub/path.webp"),
+  getClarificationAttachmentSignedUrl: vi.fn(async () => "https://example/signed"),
 }));
 
 vi.mock("@/components/ui/toast-helpers", () => ({
@@ -29,6 +37,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: routerRefreshMock, push: vi.fn(), replace: vi.fn() }),
 }));
 
+const STAFF_RECORD_ID = "00000000-0000-4000-8000-000000000aaa";
+
 const unjustified: ExceptionRow = {
   id: "00000000-0000-4000-8000-000000000010",
   shift_date: "2026-04-19",
@@ -39,21 +49,24 @@ const unjustified: ExceptionRow = {
   detail: "Arrived 15 minutes after grace period.",
   punch_remark: "Heavy traffic on the highway.",
   staff_clarification: null,
-  justification_reason: null,
+  hr_note: null,
+  clarification_submitted_at: null,
+  reviewed_at: null,
   created_at: "2026-04-19T09:30:00Z",
+  attachments: [],
 };
 
 function renderList(rows: ExceptionRow[]) {
   return render(
     <NuqsAdapter>
-      <ExceptionList rows={rows} />
+      <ExceptionList rows={rows} staffRecordId={STAFF_RECORD_ID} />
     </NuqsAdapter>,
   );
 }
 
 describe("ExceptionList", () => {
   beforeEach(() => {
-    addClarificationMock.mockReset();
+    submitClarificationMock.mockReset();
     routerRefreshMock.mockReset();
   });
 
@@ -74,7 +87,7 @@ describe("ExceptionList", () => {
   });
 
   it("opens the detail sheet and submits a clarification", async () => {
-    addClarificationMock.mockResolvedValue({
+    submitClarificationMock.mockResolvedValue({
       success: true,
       data: { exceptionId: unjustified.id },
     });
@@ -95,7 +108,7 @@ describe("ExceptionList", () => {
     await user.click(screen.getByTestId(`attendance-clarify-submit-${unjustified.id}`));
 
     await waitFor(() => {
-      expect(addClarificationMock).toHaveBeenCalledWith(
+      expect(submitClarificationMock).toHaveBeenCalledWith(
         expect.objectContaining({ exceptionId: unjustified.id }),
       );
     });
@@ -104,7 +117,7 @@ describe("ExceptionList", () => {
 
   it("surfaces rate-limit errors via toastError", async () => {
     const { toastError } = await import("@/components/ui/toast-helpers");
-    addClarificationMock.mockResolvedValue({ success: false, error: "RATE_LIMITED" });
+    submitClarificationMock.mockResolvedValue({ success: false, error: "RATE_LIMITED" });
     const user = userEvent.setup();
     renderList([unjustified]);
 

@@ -51,7 +51,9 @@ vi.mock("@/lib/supabase/server", () => ({
         data: {
           user: {
             id: "00000000-0000-0000-0000-000000000001",
-            app_metadata: { domains: { hr: ["c"] } },
+            // Grant hr:c (staff submit) + hr:u (HR approve/reject) so
+            // one mock supports all four actions.
+            app_metadata: { domains: { hr: ["c", "u"] } },
           },
         },
       }),
@@ -77,7 +79,13 @@ vi.mock("@/lib/supabase/server", () => ({
           error: null,
         };
       }
-      if (name === "rpc_add_exception_clarification") {
+      if (name === "rpc_submit_exception_clarification") {
+        return { data: { attachment_count: 0 }, error: null };
+      }
+      if (name === "rpc_reject_exception_clarification") {
+        return { data: null, error: null };
+      }
+      if (name === "rpc_justify_exception") {
         return { data: null, error: null };
       }
       if (name === "rpc_void_own_punch") {
@@ -133,12 +141,35 @@ describe("attendance Server Actions — cache-invalidation contract (ADR-0006)",
     assertCorrectInvalidation();
   });
 
-  it("addClarificationAction invalidates the attendance router paths surgically", async () => {
-    const { addClarificationAction } =
-      await import("@/features/attendance/actions/add-clarification");
-    const result = await addClarificationAction({
+  it("submitClarificationAction invalidates the attendance router paths surgically", async () => {
+    const { submitClarificationAction } =
+      await import("@/features/attendance/actions/submit-clarification");
+    const result = await submitClarificationAction({
       exceptionId: "00000000-0000-4000-8000-0000000000a1",
       text: "Traffic delayed arrival; receipt attached.",
+      attachmentPaths: [],
+    });
+    expect(result.success).toBe(true);
+    assertCorrectInvalidation();
+  });
+
+  it("rejectClarificationAction invalidates the attendance router paths surgically", async () => {
+    const { rejectClarificationAction } =
+      await import("@/features/attendance/actions/reject-clarification");
+    const result = await rejectClarificationAction({
+      exceptionId: "00000000-0000-4000-8000-0000000000a2",
+      reason: "Documentation insufficient — please attach MC.",
+    });
+    expect(result.success).toBe(true);
+    assertCorrectInvalidation();
+  });
+
+  it("justifyExceptionAction invalidates the attendance router paths surgically", async () => {
+    const { justifyExceptionAction } =
+      await import("@/features/attendance/actions/justify-exception");
+    const result = await justifyExceptionAction({
+      exceptionId: "00000000-0000-4000-8000-0000000000a3",
+      reason: "Medical certificate verified.",
     });
     expect(result.success).toBe(true);
     assertCorrectInvalidation();

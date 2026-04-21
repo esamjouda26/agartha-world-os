@@ -21,7 +21,16 @@ export const clockMutationSchema = z.object({
 
 export type ClockMutationInput = z.infer<typeof clockMutationSchema>;
 
-export const addClarificationSchema = z.object({
+/**
+ * Attachment path: produced by `uploadClarificationAttachment` — has the
+ * shape `{staff_record_id}/{exception_id}/{uuid}.{ext}` relative to the
+ * `attendance-clarifications` bucket. Storage RLS locks the first segment
+ * to the caller's staff_record_id; the RPC double-checks.
+ *
+ * Cap of 5 matches the typical MC + cab-receipt + whatever the user snaps —
+ * past that the form is more appeal than explanation.
+ */
+export const submitClarificationSchema = z.object({
   exceptionId: z.string().uuid(),
   text: z
     .string()
@@ -30,6 +39,27 @@ export const addClarificationSchema = z.object({
       CLARIFICATION_MAX_LEN,
       `Clarification must be at most ${CLARIFICATION_MAX_LEN} characters.`,
     ),
+  attachmentPaths: z.array(z.string().min(1)).max(5, "At most 5 attachments.").default([]),
 });
 
-export type AddClarificationInput = z.infer<typeof addClarificationSchema>;
+export type SubmitClarificationInput = z.infer<typeof submitClarificationSchema>;
+
+export const rejectClarificationSchema = z.object({
+  exceptionId: z.string().uuid(),
+  reason: z
+    .string()
+    .min(3, "Rejection reason must be at least 3 characters.")
+    .max(CLARIFICATION_MAX_LEN, `Reason must be at most ${CLARIFICATION_MAX_LEN} characters.`),
+});
+
+export type RejectClarificationInput = z.infer<typeof rejectClarificationSchema>;
+
+export const justifyExceptionSchema = z.object({
+  exceptionId: z.string().uuid(),
+  reason: z
+    .string()
+    .min(3, "Justification reason must be at least 3 characters.")
+    .max(CLARIFICATION_MAX_LEN, `Reason must be at most ${CLARIFICATION_MAX_LEN} characters.`),
+});
+
+export type JustifyExceptionInput = z.infer<typeof justifyExceptionSchema>;
