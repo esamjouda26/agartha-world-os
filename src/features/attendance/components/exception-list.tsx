@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import {
   CheckCircle2,
   ChevronRight,
@@ -18,7 +18,7 @@ import {
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { parseIsoDateLocal } from "@/lib/date";
+import { formatAtFacility, parseIsoDateLocal } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -136,6 +136,12 @@ export function ExceptionList({ rows, staffRecordId }: Props) {
           const status = row.original.status;
           const hasAttachments = row.original.attachments.length > 0;
 
+          // One label per state. The tab has a single job — get
+          // unjustified exceptions to HR — so the unjustified row always
+          // says "Request HR review" regardless of whether the user
+          // happens to have left a punch note at clock-in/out. The note
+          // itself is auto-displayed inside the detail sheet editor when
+          // the user opens the row, so it never gets lost.
           const copy: { icon: React.ReactNode; label: string; className: string } =
             status === "rejected"
               ? {
@@ -155,17 +161,11 @@ export function ExceptionList({ rows, staffRecordId }: Props) {
                       label: "Approved",
                       className: "text-status-success-foreground",
                     }
-                  : row.original.punch_remark
-                    ? {
-                        icon: <StickyNote aria-hidden className="size-3.5" />,
-                        label: "Review punch note",
-                        className: "text-status-warning-foreground",
-                      }
-                    : {
-                        icon: <StickyNote aria-hidden className="size-3.5" />,
-                        label: "Request HR review",
-                        className: "text-status-warning-foreground",
-                      };
+                  : {
+                      icon: <StickyNote aria-hidden className="size-3.5" />,
+                      label: "Request HR review",
+                      className: "text-status-warning-foreground",
+                    };
 
           return (
             <span
@@ -399,7 +399,7 @@ function ExceptionDetailSheet({
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
             <section className="grid grid-cols-2 gap-4 text-sm">
               <Meta label="Status" value={humanStatus(row.status)} />
-              <Meta label="Logged at" value={format(parseISO(row.created_at), "MMM d, p")} />
+              <Meta label="Logged at" value={formatAtFacility(row.created_at, "MMM d, p")} />
             </section>
 
             {row.detail ? <ReadBlock label="What the system recorded" body={row.detail} /> : null}

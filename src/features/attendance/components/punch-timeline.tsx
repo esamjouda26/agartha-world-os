@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { ChevronRight, MapPin } from "lucide-react";
-import { differenceInSeconds, format, parseISO } from "date-fns";
+import { differenceInSeconds, parseISO } from "date-fns";
 
+import { formatAtFacility } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { TodayShift } from "@/features/attendance/types";
 import { PunchDetailSheet } from "@/features/attendance/components/punch-detail-sheet";
@@ -142,7 +143,7 @@ function PunchRow({ punch, canUndo, secondsLeft, multiple, onClick }: PunchRowPr
       <span className="inline-flex items-center gap-3">
         <span className="text-foreground-muted inline-flex items-center gap-1 tabular-nums">
           <MapPin aria-hidden className="size-3" />
-          <time dateTime={punch.punch_time}>{format(parseISO(punch.punch_time), "p")}</time>
+          <time dateTime={punch.punch_time}>{formatAtFacility(punch.punch_time, "p")}</time>
         </span>
         {canUndo ? <UndoPunchButton punchId={punch.id} secondsLeft={secondsLeft} /> : null}
         <ChevronRight aria-hidden className="text-foreground-muted size-4" />

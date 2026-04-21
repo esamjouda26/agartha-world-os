@@ -32,6 +32,17 @@ const envSchema = z.object({
   NEXT_PUBLIC_POSTHOG_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   NEXT_PUBLIC_POSTHOG_HOST: z.preprocess(emptyToUndefined, z.string().url().optional()),
 
+  // Facility timezone — mirrors the `facility_timezone` row in
+  // `public.app_config`. IANA zone string. Used by client-side formatters
+  // (`formatAtFacility` in `src/lib/date.ts`) so displayed times always
+  // reflect the facility's wall-clock regardless of where the user's
+  // browser happens to be. Default matches the DB seed; override via
+  // `.env.local` only if you're running against a non-MYT facility.
+  NEXT_PUBLIC_FACILITY_TZ: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("Asia/Kuala_Lumpur"),
+  ),
+
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

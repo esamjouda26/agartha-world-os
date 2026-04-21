@@ -21,7 +21,39 @@
  *     (shift dates, month starts, URL params, DB date columns).
  *   - Keep `parseISO` for full ISO datetime strings that carry their own
  *     time + timezone (punch_time, created_at, audit-log timestamps).
+ *   - Use `formatAtFacility` to render full ISO instants — always uses
+ *     the facility timezone, never the browser's. Critical for shared
+ *     read surfaces (punch logs, audit timestamps) where a single row
+ *     should read identically to a Malaysia staff member, a roaming
+ *     colleague on VPN, and a CI runner in UTC.
  */
+import { formatInTimeZone } from "date-fns-tz";
+
+/**
+ * IANA timezone the app treats as the facility's wall-clock. Read from
+ * `NEXT_PUBLIC_FACILITY_TZ` (mirrors the `facility_timezone` row in
+ * `public.app_config`), with a pragmatic default matching the DB seed
+ * so this module stays zero-dep and safe to import from any runtime.
+ *
+ * Read inline rather than via `@/lib/env` because that module begins
+ * with `import "server-only";` and would block client-side consumers.
+ * The validated server boot still ensures the value is sane in prod.
+ */
+const FACILITY_TZ = process.env.NEXT_PUBLIC_FACILITY_TZ || "Asia/Kuala_Lumpur";
+
+/**
+ * Format a full ISO instant (or Date) in the facility's timezone —
+ * regardless of where the caller's browser happens to be.
+ *
+ * Use this instead of `format(parseISO(iso), pattern)` anywhere the
+ * displayed time represents a *facility event* (a punch, an audit
+ * timestamp, a shift boundary). `date-fns#format` renders in the
+ * browser's local TZ, which silently desynchronizes from the facility
+ * for roaming staff, CI runners, and future multi-region scenarios.
+ */
+export function formatAtFacility(input: string | Date, pattern: string): string {
+  return formatInTimeZone(input, FACILITY_TZ, pattern);
+}
 
 /**
  * Parse a `YYYY-MM-DD` string as local midnight on that calendar date.

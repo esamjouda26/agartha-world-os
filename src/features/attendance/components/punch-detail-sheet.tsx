@@ -1,7 +1,6 @@
 "use client";
 
 import { Clock, MapPin, Smartphone, StickyNote } from "lucide-react";
-import { format, parseISO } from "date-fns";
 
 import {
   Sheet,
@@ -10,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { formatAtFacility } from "@/lib/date";
 import type { TodayShift } from "@/features/attendance/types";
 
 type Punch = TodayShift["punches"][number];
@@ -45,7 +45,7 @@ export function PunchDetailSheet({ punch, open, onClose }: PunchDetailSheetProps
             {punch ? punch.punch_type.replace("_", " ") : "Punch"}
           </SheetTitle>
           <SheetDescription>
-            {punch ? format(parseISO(punch.punch_time), "EEE, MMM d yyyy · p") : ""}
+            {punch ? formatAtFacility(punch.punch_time, "EEE, MMM d yyyy · p") : ""}
           </SheetDescription>
         </SheetHeader>
         {punch ? (
@@ -54,7 +54,7 @@ export function PunchDetailSheet({ punch, open, onClose }: PunchDetailSheetProps
               <Meta
                 icon={<Clock aria-hidden className="size-3.5" />}
                 label="Time"
-                value={format(parseISO(punch.punch_time), "p")}
+                value={formatAtFacility(punch.punch_time, "p")}
               />
               <Meta
                 icon={<Smartphone aria-hidden className="size-3.5" />}
