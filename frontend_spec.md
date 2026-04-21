@@ -4292,10 +4292,10 @@ DOMAIN GATING:
 
 TABLES TOUCHED:
 
-- SELECT: `shift_schedules`, `shift_types`, `timecard_punches`, `attendance_exceptions`, `v_shift_attendance`
-- INSERT: `timecard_punches` (via RPC)
-- UPDATE: `attendance_exceptions` (staff_clarification via RPC)
-- RPCs: `rpc_clock_in(p_gps, p_selfie_url, p_remark, p_source)`, `rpc_clock_out(p_gps, p_selfie_url, p_remark, p_source)`, `rpc_add_exception_clarification(p_exception_id, p_text)`
+- SELECT: `shift_schedules`, `shift_types`, `timecard_punches`, `attendance_exceptions`, `attendance_clarification_attachments`, `v_shift_attendance`
+- INSERT: `timecard_punches` (via RPC); `attendance_clarification_attachments` (via RPC, atomic with submission)
+- UPDATE: `attendance_exceptions` (`staff_clarification` + state + `clarification_submitted_at` via RPC — ADR-0007)
+- RPCs: `rpc_clock_in(p_gps, p_selfie_url, p_remark, p_source)`, `rpc_clock_out(p_gps, p_selfie_url, p_remark, p_source)`, `rpc_submit_exception_clarification(p_exception_id, p_text, p_attachment_paths)` (ADR-0007; replaces the dropped `rpc_add_exception_clarification`), `rpc_void_own_punch(p_punch_id)`
 
 ---
 
@@ -4488,40 +4488,43 @@ Bottom tab bar examples by role (first 4 visible + "More"):
 
 ## 9. RPC Invocation Reference
 
-| RPC                               | Called From                                 | Domain Guard                        | WF    |
-| --------------------------------- | ------------------------------------------- | ----------------------------------- | ----- |
-| `rpc_get_available_slots`         | `/book`                                     | anon, authenticated                 | WF-7A |
-| `rpc_validate_promo_code`         | `/book`                                     | anon, authenticated                 | WF-7A |
-| `rpc_create_booking`              | `/book`                                     | authenticated (anon excluded)       | WF-7A |
-| `rpc_get_booking_identity`        | `/my-booking`                               | anon, authenticated                 | WF-7B |
-| `rpc_verify_otp`                  | `/my-booking/verify`                        | anon, authenticated                 | WF-7B |
-| `rpc_get_booking_by_ref`          | `/my-booking/manage`                        | authenticated                       | WF-7B |
-| `rpc_modify_booking`              | `/my-booking/manage`                        | authenticated                       | WF-7B |
-| `rpc_lookup_booking`              | `/crew/entry-validation`                    | authenticated                       | WF-7B |
-| `rpc_search_bookings_by_email`    | `/crew/entry-validation`                    | authenticated                       | WF-7B |
-| `rpc_checkin_booking`             | `/crew/entry-validation`                    | authenticated                       | WF-7B |
-| `rpc_preview_slot_override`       | `/management/operations/scheduler`          | booking:u                           | WF-8  |
-| `rpc_confirm_slot_override`       | `/management/operations/scheduler`          | booking:u                           | WF-8  |
-| `rpc_generate_time_slots`         | `/management/operations/experiences`        | booking:c                           | WF-7A |
-| `rpc_wipe_biometric_data`         | CLI/API only (no UI route)                  | system:d                            | —     |
-| `rpc_confirm_password_set`        | `/auth/set-password`                        | authenticated                       | WF-0  |
-| `rpc_update_own_avatar`           | `*/settings`                                | authenticated                       | —     |
-| `rpc_clock_in`                    | `/crew/attendance`                          | authenticated                       | WF-5  |
-| `rpc_clock_out`                   | `/crew/attendance`                          | authenticated                       | WF-5  |
-| `rpc_add_exception_clarification` | `/crew/attendance` (My Exceptions tab)      | authenticated (own exceptions only) | WF-5  |
-| `rpc_convert_exception_to_leave`  | `/management/hr/attendance/queue`           | hr:u                                | WF-5  |
-| `rpc_cancel_leave_request`        | `/crew/leave`                               | authenticated                       | WF-4  |
-| `rpc_generate_schedules`          | cron (daily 22:00 MYT)                      | —                                   | WF-6  |
-| `rpc_preview_pattern_change`      | `/management/hr/shifts`                     | hr:u                                | WF-6  |
-| `rpc_apply_pattern_change`        | `/management/hr/shifts`                     | hr:u                                | WF-6  |
-| `rpc_mark_day_off`                | `/management/hr/shifts`                     | hr:c                                | WF-6  |
-| `submit_pos_order`                | `/crew/pos`                                 | pos:c                               | WF-13 |
-| `rpc_reorder_dashboard`           | `/management/procurement/reorder`           | authenticated                       | WF-9  |
-| `rpc_request_recount`             | `/management/inventory/reconciliation/[id]` | authenticated                       | WF-11 |
-| `admin_lock_account`              | `/admin/iam`                                | system:d                            | WF-3  |
-| `get_visible_announcements`       | `*/announcements`                           | authenticated                       | WF-16 |
-| `rpc_run_monthly_accruals`        | cron (1st of month 00:30 MYT)               | —                                   | WF-4  |
-| `get_active_vendors_for_radius`   | RADIUS infrastructure (no UI route)         | authenticated                       | WF-15 |
+| RPC                                  | Called From                                           | Domain Guard                        | WF    |
+| ------------------------------------ | ----------------------------------------------------- | ----------------------------------- | ----- |
+| `rpc_get_available_slots`            | `/book`                                               | anon, authenticated                 | WF-7A |
+| `rpc_validate_promo_code`            | `/book`                                               | anon, authenticated                 | WF-7A |
+| `rpc_create_booking`                 | `/book`                                               | authenticated (anon excluded)       | WF-7A |
+| `rpc_get_booking_identity`           | `/my-booking`                                         | anon, authenticated                 | WF-7B |
+| `rpc_verify_otp`                     | `/my-booking/verify`                                  | anon, authenticated                 | WF-7B |
+| `rpc_get_booking_by_ref`             | `/my-booking/manage`                                  | authenticated                       | WF-7B |
+| `rpc_modify_booking`                 | `/my-booking/manage`                                  | authenticated                       | WF-7B |
+| `rpc_lookup_booking`                 | `/crew/entry-validation`                              | authenticated                       | WF-7B |
+| `rpc_search_bookings_by_email`       | `/crew/entry-validation`                              | authenticated                       | WF-7B |
+| `rpc_checkin_booking`                | `/crew/entry-validation`                              | authenticated                       | WF-7B |
+| `rpc_preview_slot_override`          | `/management/operations/scheduler`                    | booking:u                           | WF-8  |
+| `rpc_confirm_slot_override`          | `/management/operations/scheduler`                    | booking:u                           | WF-8  |
+| `rpc_generate_time_slots`            | `/management/operations/experiences`                  | booking:c                           | WF-7A |
+| `rpc_wipe_biometric_data`            | CLI/API only (no UI route)                            | system:d                            | —     |
+| `rpc_confirm_password_set`           | `/auth/set-password`                                  | authenticated                       | WF-0  |
+| `rpc_update_own_avatar`              | `*/settings`                                          | authenticated                       | —     |
+| `rpc_clock_in`                       | `/crew/attendance`                                    | authenticated                       | WF-5  |
+| `rpc_clock_out`                      | `/crew/attendance`                                    | authenticated                       | WF-5  |
+| `rpc_submit_exception_clarification` | `/crew/attendance?tab=exceptions` (ADR-0007)          | authenticated (own exceptions only) | WF-5  |
+| `rpc_reject_exception_clarification` | `/management/hr/attendance/queue` (ADR-0007)          | hr:u                                | WF-5  |
+| `rpc_justify_exception`              | `/management/hr/attendance/{queue,ledger}` (ADR-0007) | hr:u                                | WF-5  |
+| `rpc_void_own_punch`                 | `/crew/attendance`                                    | authenticated (own punch within 1h) | WF-5  |
+| `rpc_convert_exception_to_leave`     | `/management/hr/attendance/queue`                     | hr:u                                | WF-5  |
+| `rpc_cancel_leave_request`           | `/crew/leave`                                         | authenticated                       | WF-4  |
+| `rpc_generate_schedules`             | cron (daily 22:00 MYT)                                | —                                   | WF-6  |
+| `rpc_preview_pattern_change`         | `/management/hr/shifts`                               | hr:u                                | WF-6  |
+| `rpc_apply_pattern_change`           | `/management/hr/shifts`                               | hr:u                                | WF-6  |
+| `rpc_mark_day_off`                   | `/management/hr/shifts`                               | hr:c                                | WF-6  |
+| `submit_pos_order`                   | `/crew/pos`                                           | pos:c                               | WF-13 |
+| `rpc_reorder_dashboard`              | `/management/procurement/reorder`                     | authenticated                       | WF-9  |
+| `rpc_request_recount`                | `/management/inventory/reconciliation/[id]`           | authenticated                       | WF-11 |
+| `admin_lock_account`                 | `/admin/iam`                                          | system:d                            | WF-3  |
+| `get_visible_announcements`          | `*/announcements`                                     | authenticated                       | WF-16 |
+| `rpc_run_monthly_accruals`           | cron (1st of month 00:30 MYT)                         | —                                   | WF-4  |
+| `get_active_vendors_for_radius`      | RADIUS infrastructure (no UI route)                   | authenticated                       | WF-15 |
 
 ---
 
