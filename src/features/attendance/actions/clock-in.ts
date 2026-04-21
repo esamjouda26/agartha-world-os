@@ -3,20 +3,16 @@
 import "server-only";
 
 import { after } from "next/server";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  CLOCK_RATE_LIMIT_TOKENS,
-  CLOCK_RATE_LIMIT_WINDOW,
-  TAG_HR_ATTENDANCE,
-  TAG_HR_EXCEPTIONS,
-} from "@/features/attendance/constants";
+import { ATTENDANCE_ROUTER_PATHS } from "@/features/attendance/cache-tags";
+import { CLOCK_RATE_LIMIT_TOKENS, CLOCK_RATE_LIMIT_WINDOW } from "@/features/attendance/constants";
 import { clockMutationSchema } from "@/features/attendance/schemas/clock";
-import { mapClockRpcError } from "@/features/attendance/actions/_shared";
+import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
 
 export type ClockInResult = Readonly<{
   punchId: string;
@@ -97,21 +93,15 @@ export async function clockInAction(input: unknown): Promise<ServerActionResult<
     expectedStartTime: payload.expected_start_time ?? null,
   };
 
-  // 7. Invalidate cache — tags only (prompt.md rule 4)
-  updateTag(TAG_HR_ATTENDANCE);
-  updateTag(TAG_HR_EXCEPTIONS);
-  // Documented exception to prompt.md rule 4 ("NEVER use revalidatePath as
-  // a default"): our queries use React's `cache()` (per-request), not
-  // `unstable_cache` (tag-keyed). `updateTag` alone therefore does not
-  // force the RSC to refetch fresh `timecard_punches` rows, leaving the
-  // client stuck on "Clock out" after a successful clock-out. The spec
-  // itself (frontend_spec.md:4230) mentions `revalidatePath` here, and
-  // migrating every query to `unstable_cache` is a Phase 10 concern.
-  // Until then, one explicit revalidatePath per locale keeps state honest.
-  // Next.js 14 App Router does not correctly map bracket strings `/[locale]/...`
-  // back to evaluated paths. To bust the Router Cache for the attendance feature
-  // robustly across all 3 portals regardless of locale, we purge the layout tree.
-  revalidatePath("/", "layout");
+  // 7. Invalidate cache — surgical Router Cache bust per ADR-0006.
+  // RLS-scoped queries can't live in Next's Data Cache (unstable_cache's
+  // work fn is detached from request context — no `cookies()`, which
+  // would force a service-role client that bypasses RLS). The RSC payload
+  // layer is what we bust so next navigation reruns the React-`cache()`
+  // fetchers with fresh rows.
+  for (const path of ATTENDANCE_ROUTER_PATHS) {
+    revalidatePath(path, "page");
+  }
 
   after(async () => {
     const log = loggerWith({

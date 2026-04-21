@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Sparkles, TrendingUp, Users, Wallet } from "lucide-react";
-import type { Route } from "next";
 
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { KpiCard, KpiCardRow } from "@/components/ui/kpi-card";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { KpiCardRow } from "@/components/ui/kpi-card-row";
 import { PageBreadcrumb } from "@/components/ui/page-breadcrumb";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -391,8 +391,8 @@ export default function KitchenSinkPage() {
             breadcrumbs={
               <PageBreadcrumb
                 items={[
-                  { label: "Admin", href: "/kitchen-sink" as Route },
-                  { label: "Business", href: "/kitchen-sink" as Route },
+                  { label: "Admin", href: "/kitchen-sink" },
+                  { label: "Business", href: "/kitchen-sink" },
                   { label: "Daily operations", current: true },
                 ]}
               />

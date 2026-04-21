@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 
-import { Providers } from "@/components/providers";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/components/shared/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getThemeCookie } from "@/lib/theme";
@@ -50,9 +49,7 @@ export default async function RootLayout({
       <body className="bg-background text-foreground flex min-h-full flex-col">
         <ThemeProvider defaultTheme={theme}>
           <NuqsAdapter>
-            <TooltipProvider delayDuration={150}>
-              <Providers>{children}</Providers>
-            </TooltipProvider>
+            <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
           </NuqsAdapter>
           <Toaster />
         </ThemeProvider>

@@ -17,10 +17,17 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
 
   // Optional in development. Required before the corresponding feature ships:
-  //   PAYMENT_WEBHOOK_SECRET  → required before wiring any payment webhook
-  //   SENTRY_DSN              → required for staging + prod
-  //   NEXT_PUBLIC_POSTHOG_KEY → required before any feature-flagged release
+  //   PAYMENT_WEBHOOK_SECRET     → required before wiring any payment webhook
+  //   NEXT_PUBLIC_SENTRY_DSN     → browser + server DSN (preferred single key)
+  //   SENTRY_DSN                 → optional server-only override if client +
+  //                                server report to different Sentry projects
+  //   SENTRY_AUTH_TOKEN          → build-time only (source-map upload via
+  //                                withSentryConfig); NOT validated here because
+  //                                it's consumed by the webpack plugin, never
+  //                                at runtime.
+  //   NEXT_PUBLIC_POSTHOG_KEY    → required before any feature-flagged release
   PAYMENT_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(emptyToUndefined, z.string().url().optional()),
   SENTRY_DSN: z.preprocess(emptyToUndefined, z.string().url().optional()),
   NEXT_PUBLIC_POSTHOG_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   NEXT_PUBLIC_POSTHOG_HOST: z.preprocess(emptyToUndefined, z.string().url().optional()),

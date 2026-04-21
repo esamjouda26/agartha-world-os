@@ -10,14 +10,17 @@ import type { TodayShift } from "@/features/attendance/types";
 /**
  * Tab-1 loader — resolve the caller's staff_record, fetch today's schedule +
  * shift_type + non-voided punches. Named column projections only (prompt.md
- * Absolute Rule #21). Returns `null` when the caller has no shift today so the
- * UI renders `<EmptyState variant="first-use">` rather than throwing.
+ * Absolute Rule #21). Returns `null` when the caller has no shift today so
+ * the UI renders `<EmptyState variant="first-use">` rather than throwing.
  *
- * Precedence note: frontend_spec.md §6 AttendancePage Tab-1 references the
- * same tables + fields — we project only the columns the Client leaf consumes.
+ * Cache model (ADR-0006): React `cache()` — request-scoped dedup only. This
+ * query is RLS-scoped; Next's `unstable_cache` work fn runs detached from
+ * request context (no `cookies()`), which would force a service-role client
+ * that bypasses RLS — unacceptable per CLAUDE.md §2 "Zero-Trust RLS".
  *
- * Wrapped in `cache()` so RSC tree dedupes repeated calls within a single
- * request (no React Query on the server side of the initial render).
+ * Cross-request invalidation after mutations is handled by the Router Cache
+ * (targeted `revalidatePath` in the action), which busts the RSC payload
+ * and forces this fetcher to re-run on next navigation.
  */
 export const getTodayShift = cache(
   async (

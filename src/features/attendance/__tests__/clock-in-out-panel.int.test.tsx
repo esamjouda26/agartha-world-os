@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NuqsAdapter } from "nuqs/adapters/react";
 
 import { PunchDialog } from "@/features/attendance/components/punch-dialog";
-import { classifyCameraError } from "@/features/attendance/components/use-camera-capture";
+import { classifyCameraError } from "@/hooks/use-camera-capture";
 import type { TodayShift } from "@/features/attendance/types";
 
 /**
@@ -19,7 +19,7 @@ const uploadSelfieMock = vi.hoisted(() => vi.fn());
 const clockInMock = vi.hoisted(() => vi.fn());
 const clockOutMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/attendance/components/upload-selfie", () => ({
+vi.mock("@/features/attendance/utils/upload-selfie", () => ({
   uploadSelfie: uploadSelfieMock,
 }));
 vi.mock("@/features/attendance/actions/clock-in", () => ({

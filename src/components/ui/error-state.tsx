@@ -35,7 +35,7 @@ export function ErrorState({
   "data-testid": testId,
 }: ErrorStateProps) {
   React.useEffect(() => {
-    void captureException(error, error.digest ? { digest: error.digest } : undefined);
+    captureException(error, error.digest ? { digest: error.digest } : undefined);
   }, [error]);
 
   return (

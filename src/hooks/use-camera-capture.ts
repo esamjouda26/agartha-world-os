@@ -2,18 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  SELFIE_CAPTURE_HEIGHT,
-  SELFIE_CAPTURE_WIDTH,
-  SELFIE_MIME,
-  SELFIE_QUALITY,
-} from "@/features/attendance/constants";
-
 /**
- * Selfie camera hook — frontend_spec.md:4229-4231 requires front-camera
- * selfie capture with progressive permission prompt (spec:38 "not on page
- * load"). File-input fallback is explicitly forbidden per user contract:
- * staff may not upload a pre-existing image.
+ * Generic camera capture hook — cross-cutting per CLAUDE.md §1 (used by
+ * `/crew/attendance` selfie, `/crew/pos` selfie, `/crew/zone-scan` QR,
+ * `/my-booking/manage/biometrics` face capture).
+ *
+ * Progressive permission per frontend_spec.md:38 ("not on page load"): call
+ * `start()` on user gesture only. File-input fallback is NOT surfaced — live
+ * capture is deliberate (prevents pre-existing-image spoofing on selfie
+ * flows).
  *
  * Lifecycle states:
  *   - idle            → hook mounted, no stream requested yet.
@@ -49,6 +46,21 @@ export type CameraState =
   | "unsupported"
   | "unknown-error";
 
+export type CameraFacingMode = "user" | "environment";
+
+export type CameraCaptureOptions = Readonly<{
+  /** Front-facing ("user", selfie) vs rear-facing ("environment", QR). */
+  facingMode?: CameraFacingMode;
+  /** Ideal capture width. Defaults to 640. */
+  width?: number;
+  /** Ideal capture height. Defaults to 480. */
+  height?: number;
+  /** Output MIME for the captured blob. Defaults to `image/webp`. */
+  mimeType?: string;
+  /** Lossy quality [0..1]. Defaults to 0.8. */
+  quality?: number;
+}>;
+
 export type CameraCapture = Readonly<{
   state: CameraState;
   error: string | null;
@@ -57,6 +69,11 @@ export type CameraCapture = Readonly<{
   stop: () => void;
   capture: () => Promise<Blob | null>;
 }>;
+
+const DEFAULT_WIDTH = 640;
+const DEFAULT_HEIGHT = 480;
+const DEFAULT_MIME = "image/webp";
+const DEFAULT_QUALITY = 0.8;
 
 /**
  * Map a `getUserMedia` rejection to a specific state. Kept as a pure helper
@@ -84,7 +101,15 @@ export function classifyCameraError(err: unknown): CameraState {
   return "unknown-error";
 }
 
-export function useCameraCapture(): CameraCapture {
+export function useCameraCapture(options: CameraCaptureOptions = {}): CameraCapture {
+  const {
+    facingMode = "user",
+    width = DEFAULT_WIDTH,
+    height = DEFAULT_HEIGHT,
+    mimeType = DEFAULT_MIME,
+    quality = DEFAULT_QUALITY,
+  } = options;
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [state, setState] = useState<CameraState>("idle");
@@ -167,9 +192,9 @@ export function useCameraCapture(): CameraCapture {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: "user",
-          width: { ideal: SELFIE_CAPTURE_WIDTH },
-          height: { ideal: SELFIE_CAPTURE_HEIGHT },
+          facingMode,
+          width: { ideal: width },
+          height: { ideal: height },
         },
         audio: false,
       });
@@ -192,23 +217,23 @@ export function useCameraCapture(): CameraCapture {
       setState(classifyCameraError(err));
       setError(err instanceof Error ? err.message : "Camera capture failed.");
     }
-  }, []);
+  }, [facingMode, width, height]);
 
   const capture = useCallback(async (): Promise<Blob | null> => {
     const video = videoRef.current;
     if (!video || state !== "ready") return null;
-    const width = video.videoWidth || SELFIE_CAPTURE_WIDTH;
-    const height = video.videoHeight || SELFIE_CAPTURE_HEIGHT;
+    const w = video.videoWidth || width;
+    const h = video.videoHeight || height;
     const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    ctx.drawImage(video, 0, 0, width, height);
+    ctx.drawImage(video, 0, 0, w, h);
     return new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), SELFIE_MIME, SELFIE_QUALITY);
+      canvas.toBlob((blob) => resolve(blob), mimeType, quality);
     });
-  }, [state]);
+  }, [state, width, height, mimeType, quality]);
 
   return { state, error, videoRef, start, stop, capture };
 }

@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 /**
  * Auth shell — the non-portal surface. Renders every auth-flow route

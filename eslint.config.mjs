@@ -121,5 +121,110 @@ export default tseslint.config(
       ],
     },
   },
+  // ──────────────────────────────────────────────────────────────────
+  // Topology guards — keep src/components/ui/ flat, keep sonner
+  // wrapped, and keep features isolated from each other.
+  //
+  //   1. No subfolders under @/components/ui/* — shadcn convention is
+  //      flat, the CLI writes flat, and role-based taxonomies fight the
+  //      CLI plus breed bikeshedding.
+  //   2. No barrel imports from @/components/ui — deep imports only, so
+  //      HMR granularity stays intact and no internal index.ts can creep
+  //      back in.
+  //   3. sonner MUST go through @/components/ui/toast-helpers — all UI
+  //      copy + durations live there. Direct `from "sonner"` is reserved
+  //      for the wrapper + the `<Toaster>` primitive.
+  //   4. Features are islands — no @/features/a ↔ @/features/b imports.
+  //      Cross-feature sharing happens via @/lib/* or @/components/shared/*.
+  // ──────────────────────────────────────────────────────────────────
+  {
+    files: ["src/**/*.{ts,tsx}", "middleware.ts"],
+    ignores: [
+      "src/components/ui/sonner.tsx",
+      "src/components/ui/toast-helpers.tsx",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          // `paths` — exact-string matches. Used for the bare-barrel ban
+          // because pattern globs would accidentally swallow deep imports
+          // like `@/components/ui/button`.
+          paths: [
+            {
+              name: "@/components/ui",
+              message:
+                "No barrel imports. Import the specific primitive: `@/components/ui/<name>`. Barrels hurt HMR + tree-shaking.",
+            },
+            {
+              name: "@/components/ui/index",
+              message:
+                "No barrel imports. Import the specific primitive: `@/components/ui/<name>`.",
+            },
+            {
+              name: "sonner",
+              message:
+                "Route through `@/components/ui/toast-helpers` (toastSuccess/toastError/…). Direct sonner usage is reserved for the Toaster primitive.",
+            },
+          ],
+          // `patterns` — globs. Used for subfolder bans because they
+          // must catch any deep path under the role folders.
+          patterns: [
+            {
+              group: [
+                "@/components/ui/data/*",
+                "@/components/ui/feedback/*",
+                "@/components/ui/forms/*",
+                "@/components/ui/layout/*",
+                "@/components/ui/navigation/*",
+                "@/components/ui/overlays/*",
+              ],
+              message:
+                "src/components/ui/ is flat — import `@/components/ui/<name>` directly. Subfolder taxonomies fight the shadcn CLI.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Cross-feature isolation — a file in features/A may not import from
+  // features/B. Promote shared code to `@/lib/*`, `@/hooks/*`, or
+  // `@/components/shared/*`. One override block per feature, so adding a
+  // new feature = one new block listing every sibling feature it is barred
+  // from importing. CLAUDE.md §8.
+  {
+    files: ["src/features/attendance/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/auth/*"],
+              message:
+                "Cross-feature imports are forbidden. Share via @/lib/*, @/hooks/*, or @/components/shared/*.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/features/auth/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/attendance/*"],
+              message:
+                "Cross-feature imports are forbidden. Share via @/lib/*, @/hooks/*, or @/components/shared/*.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );

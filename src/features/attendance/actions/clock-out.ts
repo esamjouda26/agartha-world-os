@@ -3,20 +3,16 @@
 import "server-only";
 
 import { after } from "next/server";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  CLOCK_RATE_LIMIT_TOKENS,
-  CLOCK_RATE_LIMIT_WINDOW,
-  TAG_HR_ATTENDANCE,
-  TAG_HR_EXCEPTIONS,
-} from "@/features/attendance/constants";
+import { ATTENDANCE_ROUTER_PATHS } from "@/features/attendance/cache-tags";
+import { CLOCK_RATE_LIMIT_TOKENS, CLOCK_RATE_LIMIT_WINDOW } from "@/features/attendance/constants";
 import { clockMutationSchema } from "@/features/attendance/schemas/clock";
-import { mapClockRpcError } from "@/features/attendance/actions/_shared";
+import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
 
 export type ClockOutResult = Readonly<{
   punchId: string;
@@ -84,12 +80,13 @@ export async function clockOutAction(input: unknown): Promise<ServerActionResult
     clockInAt: payload.clock_in ?? null,
   };
 
-  updateTag(TAG_HR_ATTENDANCE);
-  updateTag(TAG_HR_EXCEPTIONS);
-  // See comment in clock-in.ts — revalidatePath forces the RSC to refetch
-  // fresh timecard_punches so `deriveButtonState` transitions to
-  // "Shift complete" immediately after the second punch lands.
-  revalidatePath("/", "layout");
+  // Router Cache invalidation (ADR-0006): surgical `revalidatePath` per
+  // known attendance-reading route. RLS-scoped queries can't go in the
+  // Data Cache; the RSC payload layer is what we bust so the next
+  // navigation reruns the React-`cache()` fetchers with fresh rows.
+  for (const path of ATTENDANCE_ROUTER_PATHS) {
+    revalidatePath(path, "page");
+  }
 
   after(async () => {
     const log = loggerWith({

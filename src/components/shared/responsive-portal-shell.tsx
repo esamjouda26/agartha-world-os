@@ -13,8 +13,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { PortalIcon } from "@/components/shells/portal-icon";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { PortalIcon } from "@/components/shared/portal-icon";
 import { cn } from "@/lib/utils";
 
 import type { NavItem, NavManifest, NavSection } from "@/lib/nav/types";

@@ -7,14 +7,8 @@ import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Input } from "@/components/ui/input";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormSubmitButton,
-} from "@/components/ui/form-primitives";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { toastSuccess } from "@/components/ui/toast-helpers";
 import type { ServerActionResult } from "@/lib/errors";
 

@@ -60,3 +60,6 @@ supabase/.branches/
 /lighthouse-phase3.json
 
 /tests
+
+# Sentry Config File
+.env.sentry-build-plugin

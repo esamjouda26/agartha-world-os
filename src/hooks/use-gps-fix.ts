@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { GpsFix } from "@/features/attendance/types";
-
 /**
- * GPS hook — frontend_spec.md:4229 calls for `navigator.geolocation` on
- * the clock-in surface. We defer the actual request to user-initiated
- * (CLAUDE.md §3 progressive-permission) and fall through a two-step
- * accuracy ladder so the fix lands across every device profile:
+ * Generic geolocation hook — cross-cutting per CLAUDE.md §1 (consumed by
+ * `/crew/attendance` clock-in, `/crew/zone-scan` zone verification, and any
+ * future crew route that needs a best-effort fix).
+ *
+ * Progressive permission per CLAUDE.md §3: the request fires only on
+ * user-initiated `request()`. A two-step accuracy ladder covers every
+ * device profile:
  *
  *   1. `enableHighAccuracy: true` (GPS hardware) — best on mobile.
  *   2. On failure/timeout, `enableHighAccuracy: false` (network / Wi-Fi /
@@ -20,10 +21,15 @@ import type { GpsFix } from "@/features/attendance/types";
  * later flips to `granted` (user resets permission in browser settings)
  * the hook clears its cached error so a retry can succeed.
  *
- * Null fix is an acceptable outcome — `rpc_clock_in` accepts
- * `p_gps JSONB DEFAULT NULL` ([init_schema.sql:5926](supabase/migrations/20260417064731_init_schema.sql#L5926)).
- * The UI treats GPS as best-effort.
+ * Null fix is an acceptable outcome — consumers (e.g. `rpc_clock_in`) accept
+ * `p_gps JSONB DEFAULT NULL` and treat GPS as best-effort.
  */
+export type GpsFix = Readonly<{
+  lat: number;
+  lng: number;
+  accuracy: number;
+}>;
+
 export type GeolocationStatus = "prompt" | "granted" | "denied" | "unsupported";
 
 export function useGpsFix(): Readonly<{

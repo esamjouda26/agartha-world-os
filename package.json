@@ -14,6 +14,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
     "format": "prettier --write . && eslint --fix .",
     "format:check": "prettier --check . && eslint .",
     "test": "vitest run --passWithNoTests",
@@ -42,7 +43,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@sentry/nextjs": "^10.49.0",
+    "@sentry/nextjs": "10",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "@tanstack/react-query": "^5.99.0",

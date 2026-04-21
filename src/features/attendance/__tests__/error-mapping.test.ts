@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mapClockRpcError } from "@/features/attendance/actions/error-mapping";
+import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
 
 /**
  * Error-taxonomy mapping tests — pins the strings raised by

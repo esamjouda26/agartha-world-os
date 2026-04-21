@@ -1,9 +1,5 @@
 "use client";
 
-// TODO(phase-4): drop the `as Route` casts below. They pre-date
-// `typedRoutes: true` (Phase 3). `/kitchen-sink` is a real route in the
-// dev segment, so plain string hrefs validate; the casts are now noise.
-
 import * as React from "react";
 import {
   Activity,
@@ -19,12 +15,11 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
-import type { Route } from "next";
 
 import { type BottomTabItem } from "@/components/ui/bottom-tab-bar";
 import { Button } from "@/components/ui/button";
 import { Sidebar, type SidebarSection, type SidebarState } from "@/components/ui/sidebar";
-import { FormSubmitButton } from "@/components/ui/form-primitives";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 
 const SECTIONS: readonly SidebarSection[] = [
   {
@@ -34,14 +29,14 @@ const SECTIONS: readonly SidebarSection[] = [
       {
         id: "dashboard",
         label: "Dashboard",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <LayoutDashboard className="size-4" aria-hidden />,
         active: true,
       },
       {
         id: "activity",
         label: "Activity",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <Activity className="size-4" aria-hidden />,
         hint: "12",
       },
@@ -54,19 +49,19 @@ const SECTIONS: readonly SidebarSection[] = [
       {
         id: "orders",
         label: "Orders",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <ShoppingBag className="size-4" aria-hidden />,
       },
       {
         id: "inventory",
         label: "Inventory",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <Boxes className="size-4" aria-hidden />,
       },
       {
         id: "maintenance",
         label: "Maintenance",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <Wrench className="size-4" aria-hidden />,
       },
     ],
@@ -78,13 +73,13 @@ const SECTIONS: readonly SidebarSection[] = [
       {
         id: "staff",
         label: "Staff",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <Users className="size-4" aria-hidden />,
       },
       {
         id: "announcements",
         label: "Announcements",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <Megaphone className="size-4" aria-hidden />,
       },
     ],
@@ -96,7 +91,7 @@ const SECTIONS: readonly SidebarSection[] = [
       {
         id: "settings",
         label: "Settings",
-        href: "/kitchen-sink" as Route,
+        href: "/kitchen-sink",
         icon: <Settings className="size-4" aria-hidden />,
       },
     ],
@@ -107,27 +102,27 @@ const BOTTOM_TABS: readonly BottomTabItem[] = [
   {
     id: "clock",
     label: "Clock",
-    href: "/kitchen-sink" as Route,
+    href: "/kitchen-sink",
     icon: <Clock4 className="size-5" aria-hidden />,
     active: true,
   },
   {
     id: "orders",
     label: "Orders",
-    href: "/kitchen-sink" as Route,
+    href: "/kitchen-sink",
     icon: <ShoppingBag className="size-5" aria-hidden />,
     badge: 3,
   },
   {
     id: "tasks",
     label: "Tasks",
-    href: "/kitchen-sink" as Route,
+    href: "/kitchen-sink",
     icon: <ClipboardCheck className="size-5" aria-hidden />,
   },
   {
     id: "me",
     label: "Me",
-    href: "/kitchen-sink" as Route,
+    href: "/kitchen-sink",
     icon: <BadgeCheck className="size-5" aria-hidden />,
   },
 ];

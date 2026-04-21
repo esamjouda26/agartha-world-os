@@ -7,7 +7,7 @@ import { format, parseISO } from "date-fns";
 import { EmptyState } from "@/components/ui/empty-state";
 import { parseIsoDateLocal } from "@/lib/date";
 import { PunchDetailSheet } from "@/features/attendance/components/punch-detail-sheet";
-import { displayShiftName } from "@/features/attendance/components/shift-display";
+import { displayShiftName } from "@/features/attendance/utils/shift-display";
 import type { MonthlyPunchesByDay } from "@/features/attendance/queries/get-monthly-punches";
 import type { TodayShift } from "@/features/attendance/types";
 

@@ -32,6 +32,24 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
   });
 }
 
+// jsdom doesn't implement HTMLMediaElement.play/pause. The camera-capture
+// hook calls `video.play()` inside a try/catch, so functionality isn't
+// affected — but the raw "Not implemented" notice is emitted unconditionally
+// by jsdom's `not-implemented.js` helper and pollutes CI logs. Stub with
+// resolved-promise no-ops so tests run silent.
+if (typeof HTMLMediaElement !== "undefined") {
+  Object.defineProperty(HTMLMediaElement.prototype, "play", {
+    configurable: true,
+    writable: true,
+    value: () => Promise.resolve(),
+  });
+  Object.defineProperty(HTMLMediaElement.prototype, "pause", {
+    configurable: true,
+    writable: true,
+    value: () => {},
+  });
+}
+
 afterEach(() => {
   cleanup();
 });

@@ -9,14 +9,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormSubmitButton,
-} from "@/components/ui/form-primitives";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { toastError } from "@/components/ui/toast-helpers";
 import { InputWithIcon } from "@/components/shared/input-with-icon";
 import type { ErrorCode, ServerActionResult } from "@/lib/errors";

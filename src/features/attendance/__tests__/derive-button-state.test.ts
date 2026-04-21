@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveButtonState } from "@/features/attendance/components/derive-button-state";
+import { deriveButtonState } from "@/features/attendance/utils/derive-button-state";
 import type { TodayShift } from "@/features/attendance/types";
 
 const shiftType: TodayShift["shiftType"] = {

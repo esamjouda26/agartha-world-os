@@ -4,9 +4,11 @@
  * here so code review surfaces threshold changes explicitly.
  */
 
-/** React Query tag taxonomy — frontend_spec.md §2 tag convention `hr:*`. */
-export const TAG_HR_ATTENDANCE = "hr:attendance" as const;
-export const TAG_HR_EXCEPTIONS = "hr:exceptions" as const;
+/**
+ * Cache tag taxonomy for attendance moved to
+ * `@/features/attendance/cache-tags.ts` alongside the Router Cache path
+ * list. Import `ATTENDANCE_ROUTER_PATHS` for Server-Action invalidation.
+ */
 
 /**
  * Staleness: shift data is tied to clock window cutoffs, so we keep it

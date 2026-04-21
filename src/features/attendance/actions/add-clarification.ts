@@ -3,19 +3,19 @@
 import "server-only";
 
 import { after } from "next/server";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ATTENDANCE_ROUTER_PATHS } from "@/features/attendance/cache-tags";
 import {
   CLARIFICATION_RATE_LIMIT_TOKENS,
   CLARIFICATION_RATE_LIMIT_WINDOW,
-  TAG_HR_EXCEPTIONS,
 } from "@/features/attendance/constants";
 import { addClarificationSchema } from "@/features/attendance/schemas/clock";
-import { mapClockRpcError } from "@/features/attendance/actions/_shared";
+import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
 
 const limiter = createRateLimiter({
   tokens: CLARIFICATION_RATE_LIMIT_TOKENS,
@@ -63,10 +63,10 @@ export async function addClarificationAction(
     return fail(mapped.code);
   }
 
-  updateTag(TAG_HR_EXCEPTIONS);
-  // See comment in clock-in.ts — matching revalidatePath so the sheet
-  // reflects the submitted clarification in the row's "note" column.
-  revalidatePath("/", "layout");
+  // Router Cache invalidation per ADR-0006 — see clock-in.ts.
+  for (const path of ATTENDANCE_ROUTER_PATHS) {
+    revalidatePath(path, "page");
+  }
 
   after(async () => {
     const log = loggerWith({

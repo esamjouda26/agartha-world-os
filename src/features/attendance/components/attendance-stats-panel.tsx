@@ -2,7 +2,8 @@
 
 import { format } from "date-fns";
 
-import { KpiCard, KpiCardRow } from "@/components/ui/kpi-card";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { KpiCardRow } from "@/components/ui/kpi-card-row";
 import { parseIsoDateLocal } from "@/lib/date";
 import { DailyPunchLog } from "@/features/attendance/components/daily-punch-log";
 import { MonthPicker } from "@/features/attendance/components/month-picker";

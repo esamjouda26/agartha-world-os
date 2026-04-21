@@ -103,9 +103,3 @@ export type ClockButtonState =
   | { kind: "complete"; clockInAt: string; clockOutAt: string }
   | { kind: "no-shift" }
   | { kind: "outside-window"; reason: "too-early" | "too-late" };
-
-export type GpsFix = Readonly<{
-  lat: number;
-  lng: number;
-  accuracy: number;
-}>;

@@ -28,18 +28,18 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastInfo, toastSuccess } from "@/components/ui/toast-helpers";
+import { useCameraCapture, type CameraState } from "@/hooks/use-camera-capture";
+import { useGpsFix } from "@/hooks/use-gps-fix";
 import { clockInAction } from "@/features/attendance/actions/clock-in";
 import { clockOutAction } from "@/features/attendance/actions/clock-out";
-import { uploadSelfie } from "@/features/attendance/components/upload-selfie";
 import {
-  useCameraCapture,
-  type CameraState,
-} from "@/features/attendance/components/use-camera-capture";
-import { useGpsFix } from "@/features/attendance/components/use-gps-fix";
-import {
-  displayShiftName,
-  displayShiftWindow,
-} from "@/features/attendance/components/shift-display";
+  SELFIE_CAPTURE_HEIGHT,
+  SELFIE_CAPTURE_WIDTH,
+  SELFIE_MIME,
+  SELFIE_QUALITY,
+} from "@/features/attendance/constants";
+import { uploadSelfie } from "@/features/attendance/utils/upload-selfie";
+import { displayShiftName, displayShiftWindow } from "@/features/attendance/utils/shift-display";
 import type { TodayShift } from "@/features/attendance/types";
 
 /**
@@ -107,7 +107,13 @@ const CAMERA_ERROR_TITLES: Partial<Record<CameraState, { title: string; body: st
 export function PunchDialog({ open, onOpenChange, kind, shift }: PunchDialogProps) {
   const router = useRouter();
   const labels = PUNCH_LABELS[kind];
-  const camera = useCameraCapture();
+  const camera = useCameraCapture({
+    facingMode: "user",
+    width: SELFIE_CAPTURE_WIDTH,
+    height: SELFIE_CAPTURE_HEIGHT,
+    mimeType: SELFIE_MIME,
+    quality: SELFIE_QUALITY,
+  });
   const gps = useGpsFix();
   const [phase, setPhase] = useState<Phase>("capture");
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);

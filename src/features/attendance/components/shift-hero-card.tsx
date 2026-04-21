@@ -7,11 +7,8 @@ import { Button } from "@/components/ui/button";
 import { assertNever } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import type { TodayShift } from "@/features/attendance/types";
-import type { deriveButtonState } from "@/features/attendance/components/derive-button-state";
-import {
-  displayShiftName,
-  displayShiftWindow,
-} from "@/features/attendance/components/shift-display";
+import type { deriveButtonState } from "@/features/attendance/utils/derive-button-state";
+import { displayShiftName, displayShiftWindow } from "@/features/attendance/utils/shift-display";
 
 /**
  * ShiftHeroCard — the attention-anchor of the Clock In/Out tab.

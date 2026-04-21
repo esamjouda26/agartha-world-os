@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { ShellWithPalette } from "@/components/shells/shell-with-palette";
+import { PortalProviders } from "@/components/shared/portal-providers";
+import { ShellWithPalette } from "@/components/shared/shell-with-palette";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { filterNavForUser } from "@/lib/nav/filter";
 import type { AccessLevel } from "@/lib/rbac/types";
@@ -31,8 +32,10 @@ export default async function CrewLayout({
   const initialCollapsed = cookieStore.get("SIDEBAR_COLLAPSED")?.value === "1";
 
   return (
-    <ShellWithPalette navigation={navigation} initialSidebarCollapsed={initialCollapsed}>
-      {children}
-    </ShellWithPalette>
+    <PortalProviders>
+      <ShellWithPalette navigation={navigation} initialSidebarCollapsed={initialCollapsed}>
+        {children}
+      </ShellWithPalette>
+    </PortalProviders>
   );
 }

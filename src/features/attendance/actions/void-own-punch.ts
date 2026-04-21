@@ -3,20 +3,16 @@
 import "server-only";
 
 import { after } from "next/server";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  CLOCK_RATE_LIMIT_TOKENS,
-  CLOCK_RATE_LIMIT_WINDOW,
-  TAG_HR_ATTENDANCE,
-  TAG_HR_EXCEPTIONS,
-} from "@/features/attendance/constants";
-import { mapClockRpcError } from "@/features/attendance/actions/error-mapping";
+import { ATTENDANCE_ROUTER_PATHS } from "@/features/attendance/cache-tags";
+import { CLOCK_RATE_LIMIT_TOKENS, CLOCK_RATE_LIMIT_WINDOW } from "@/features/attendance/constants";
+import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
 
 /**
  * Void-own-punch Server Action — wraps `rpc_void_own_punch` (migration
@@ -85,9 +81,10 @@ export async function voidOwnPunchAction(
     return fail(mapped.code);
   }
 
-  updateTag(TAG_HR_ATTENDANCE);
-  updateTag(TAG_HR_EXCEPTIONS);
-  revalidatePath("/", "layout");
+  // Router Cache invalidation per ADR-0006 — see clock-in.ts.
+  for (const path of ATTENDANCE_ROUTER_PATHS) {
+    revalidatePath(path, "page");
+  }
 
   after(async () => {
     const log = loggerWith({

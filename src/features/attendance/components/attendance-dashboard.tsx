@@ -13,10 +13,7 @@ import { AttendanceStatsPanel } from "@/features/attendance/components/attendanc
 import { ClockInOutPanel } from "@/features/attendance/components/clock-in-out-panel";
 import { ExceptionList } from "@/features/attendance/components/exception-list";
 import { MonthlyAttendanceCalendar } from "@/features/attendance/components/monthly-attendance-calendar";
-import {
-  displayShiftName,
-  displayShiftWindow,
-} from "@/features/attendance/components/shift-display";
+import { displayShiftName, displayShiftWindow } from "@/features/attendance/utils/shift-display";
 import type { MonthlyPunchesByDay } from "@/features/attendance/queries/get-monthly-punches";
 import type { ExceptionRow, MonthlyStats, TodayShift } from "@/features/attendance/types";
 

@@ -1,17 +1,26 @@
 /**
- * Next.js `instrumentation.ts` — runs once on server boot.
- * Logs a "boot OK" line per Phase 3 observability deliverable.
+ * Next.js instrumentation entry — runs once per server process boot.
  *
- * Sentry server-side init is gated on `SENTRY_DSN`; absent DSN → a log
- * line only (keeps dev + CI green without a paid project).
+ * Delegates to the runtime-specific Sentry config files at repo root:
+ *   - Node runtime  → `sentry.server.config.ts`
+ *   - Edge runtime  → `sentry.edge.config.ts`
+ *
+ * The browser SDK boots from `sentry.client.config.ts` on its own (Next's
+ * app-router bundler loads it into the first client chunk automatically).
+ *
+ * `onRequestError` forwards every caught request error to Sentry so RSC
+ * errors + Server Action failures are captured without bespoke try/catch
+ * wrappers at every call site.
  */
+import * as Sentry from "@sentry/nextjs";
+
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { initSentry } = await import("@/lib/telemetry");
-    await initSentry();
-    // `console.info` is the intentional server-boot signal; logger is not
-    // wired at this point in the lifecycle. The production-log scrub grep
-    // only rejects `console.log`, so this stays compliant.
-    console.info("[boot] AgarthaOS server instrumentation ready.");
+    await import("./sentry.server.config");
+  }
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("./sentry.edge.config");
   }
 }
+
+export const onRequestError = Sentry.captureRequestError;

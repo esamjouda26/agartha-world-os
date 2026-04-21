@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +36,13 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  toastError,
+  toastInfo,
+  toastQueued,
+  toastSuccess,
+  toastWarning,
+} from "@/components/ui/toast-helpers";
 
 export function FormsDemo() {
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -171,13 +177,11 @@ export function FormsDemo() {
             const value = String(data.get("email") ?? "").trim();
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
               setEmailError("Enter a valid email.");
-              toast.error("Form submission failed", {
-                description: "Email is invalid.",
-              });
+              toastError("VALIDATION_FAILED");
               return;
             }
             setEmailError(null);
-            toast.success("Form submitted", { description: value });
+            toastSuccess("Form submitted", { description: value });
             form.reset();
           }}
         >
@@ -298,22 +302,14 @@ export function ToastsDemo() {
       <Button
         variant="outline"
         data-testid="kitchen-sink-toast-success"
-        onClick={() =>
-          toast.success("Saved", {
-            description: "Profile updated successfully.",
-          })
-        }
+        onClick={() => toastSuccess("Saved", { description: "Profile updated successfully." })}
       >
         Trigger success
       </Button>
       <Button
         variant="outline"
         data-testid="kitchen-sink-toast-error"
-        onClick={() =>
-          toast.error("Save failed", {
-            description: "Network unreachable. Retry in a moment.",
-          })
-        }
+        onClick={() => toastError("DEPENDENCY_FAILED")}
       >
         Trigger error
       </Button>
@@ -321,22 +317,17 @@ export function ToastsDemo() {
         variant="outline"
         data-testid="kitchen-sink-toast-queued"
         onClick={() =>
-          toast.message("Queued for sync", {
-            description: "Will retry automatically when online.",
-          })
+          toastQueued("Queued for sync", { description: "Will retry automatically when online." })
         }
       >
         Trigger queued
       </Button>
-      <Button
-        variant="outline"
-        onClick={() => toast.info("Heads-up", { description: "Just FYI." })}
-      >
+      <Button variant="outline" onClick={() => toastInfo("Heads-up", { description: "Just FYI." })}>
         Trigger info
       </Button>
       <Button
         variant="outline"
-        onClick={() => toast.warning("Warning", { description: "Action required soon." })}
+        onClick={() => toastWarning("Warning", { description: "Action required soon." })}
       >
         Trigger warning
       </Button>

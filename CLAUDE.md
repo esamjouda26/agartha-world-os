@@ -35,10 +35,10 @@ Ad-hoc file placement is FORBIDDEN. Enforce Domain-Driven Design (DDD) colocatio
   - `queries/` — RSC fetchers + React Query hooks (`import "server-only";`)
   - `types/` — domain types extending generated DB types
   - `__tests__/` — unit + integration tests colocated
-- **`src/components/ui/`:** Pure, reusable design-system primitives governed by `class-variance-authority` (CVA). Search before creating to prevent duplication.
-- **`src/components/shared/`:** Cross-portal / cross-feature components (never domain-specific).
-- **`src/lib/`:** Framework-agnostic utilities — `supabase/` (typed clients), `env.ts` (Zod-validated typed env), `logger.ts`, `errors.ts` (taxonomy), `date.ts`, `rbac.ts`, `telemetry.ts`. No React imports.
-- **`src/hooks/`:** Cross-cutting React hooks (not domain-specific).
+- **`src/components/ui/`:** Pure, reusable design-system primitives governed by `class-variance-authority` (CVA). **Flat directory — zero subfolders.** shadcn CLI writes flat; role-based subfolders (`data/`, `overlays/`, etc.) fight the CLI and breed bikeshedding. Search before creating to prevent duplication. Each primitive is its own file: one `<Name>` per `<name>.tsx`; closely-coupled companions (e.g. `KpiCardRow`, `Sparkline`) live in sibling files, not colocated inside the parent. Feature-level wrappers that bind primitives to server-action ergonomics (`FormSubmitButton`, `useServerErrors`) are NOT primitives — they live in `ui/` (for pure-UI compositions) or `@/hooks/` (for hooks) respectively.
+- **`src/components/shared/`:** Cross-portal / cross-feature components (never domain-specific). Examples: `ResponsivePortalShell`, `AttendancePage`, `InputWithIcon`, `StatusMessageCard`, theme/provider wrappers.
+- **`src/lib/`:** Framework-agnostic utilities — `supabase/` (typed clients), `env.ts` (Zod-validated typed env), `logger.ts`, `errors.ts` (taxonomy), `date.ts`, `rbac/`, `nav/`, `telemetry.ts`, `motion.ts`. No React imports.
+- **`src/hooks/`:** Cross-cutting React hooks (not domain-specific). Examples: `use-camera-capture.ts` (generic browser camera wrapper), `use-gps-fix.ts` (generic geolocation wrapper), `use-server-errors.ts` (RHF + ServerActionResult bridge). Domain-specific hooks live inside their feature (e.g. `src/features/hr/hooks/use-leave-policy.ts`), not here.
 - **`tests/`:** `e2e/` (Playwright), `integration/` (cross-feature), `load/` (k6), `fixtures/` (factories).
 - **`docs/adr/`:** Architecture Decision Records (`NNNN-title.md`, Michael Nygard format).
 - **`docs/runbooks/`:** One file per alertable condition. Sections: severity, symptoms, diagnose, mitigate, recover, escalate.
@@ -47,7 +47,8 @@ Ad-hoc file placement is FORBIDDEN. Enforce Domain-Driven Design (DDD) colocatio
 - **`scripts/`:** CI helpers, seed generators, migration tools.
 - **`.github/`:** `workflows/`, `CODEOWNERS`, `pull_request_template.md`, `ISSUE_TEMPLATE/`.
 - **Path aliases (mandatory):** `@/features/*`, `@/lib/*`, `@/components/*`, `@/hooks/*` via `tsconfig.json` `paths`.
-- **Barrel files (`index.ts` re-exports) are FORBIDDEN** except for `src/components/ui/` public surface — they break tree-shaking.
+- **Barrel files (`index.ts` re-exports) are FORBIDDEN everywhere, including `src/components/ui/`.** Deep imports only (`@/components/ui/button`, not `@/components/ui`). Barrels hurt HMR granularity, bloat RSC compilation graphs, and fight Next.js App Router tree-shaking. Enforced by ESLint `no-restricted-imports`.
+- **Canonical library access:** `sonner` is accessed exclusively via `@/components/ui/toast-helpers` (`toastSuccess`, `toastError`, `toastInfo`, `toastWarning`, `toastQueued`). Direct `from "sonner"` is reserved for `@/components/ui/sonner.tsx` (the `<Toaster>` primitive). Same pattern applies to `framer-motion` (routed through `@/lib/motion.ts`) and the `lucide-react` icon surface.
 
 ## 2. DATABASE & BACKEND (Supabase & PostgreSQL)
 

@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { motion, slideUp, usePrefersReducedMotion, motionOrStill } from "@/lib/motion";
 import type { TodayShift } from "@/features/attendance/types";
-import { deriveButtonState } from "@/features/attendance/components/derive-button-state";
+import { deriveButtonState } from "@/features/attendance/utils/derive-button-state";
 import { PunchDialog } from "@/features/attendance/components/punch-dialog";
 import { PunchTimeline } from "@/features/attendance/components/punch-timeline";
 import { ShiftDatePicker } from "@/features/attendance/components/shift-date-picker";
