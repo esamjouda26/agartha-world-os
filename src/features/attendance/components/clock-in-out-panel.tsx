@@ -39,7 +39,11 @@ export function ClockInOutPanel({ shift, todayIso, selectedDateIso }: Props) {
   const isTodayView = selectedDateIso === todayIso;
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
+    // 15s tick — the two consumers (deriveButtonState for clock-window
+    // cutoffs + the "Hh Mm" elapsed display) are minute-level, so a 1Hz
+    // tick was 60× overkill and hammered battery on crew mobile. Quarter-
+    // minute keeps the elapsed display smooth without the drain.
+    const id = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(id);
   }, []);
   const buttonState = useMemo(

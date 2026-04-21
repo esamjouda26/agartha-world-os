@@ -5,27 +5,26 @@ import { format } from "date-fns";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { KpiCardRow } from "@/components/ui/kpi-card-row";
 import { parseIsoDateLocal } from "@/lib/date";
-import { DailyPunchLog } from "@/features/attendance/components/daily-punch-log";
 import { MonthPicker } from "@/features/attendance/components/month-picker";
-import type { MonthlyPunchesByDay } from "@/features/attendance/queries/get-monthly-punches";
 import type { MonthlyStats, WeeklyBreakdownRow } from "@/features/attendance/types";
 
 type Props = Readonly<{
   stats: MonthlyStats;
-  punches: ReadonlyArray<MonthlyPunchesByDay>;
 }>;
 
 /**
- * Tab-3 "My Attendance" surface — monthly KPIs, weekly breakdown, daily
- * punch log. Layout:
+ * Tab-3 "Stats" surface — a month at a glance, nothing more. Layout:
  *   - Month picker + month title on top.
  *   - One-paragraph natural-language summary — faster to read than grids.
  *   - KPI card row (KpiCard primitive) — accent emphasis on the two
  *     metrics that demand user action when non-zero.
  *   - Weekly trend as a CSS bar chart (no chart library).
- *   - Daily punch log on the bottom.
+ *
+ * The day-by-day punch log that used to live below the weekly trend
+ * was dropped — users browse day-specific punches on the Clock tab
+ * via the date picker instead, so listing them here was redundant.
  */
-export function AttendanceStatsPanel({ stats, punches }: Props) {
+export function AttendanceStatsPanel({ stats }: Props) {
   return (
     <div className="flex flex-col gap-6" data-testid="attendance-stats-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -57,8 +56,6 @@ export function AttendanceStatsPanel({ stats, punches }: Props) {
       </KpiCardRow>
 
       <WeeklyTrend rows={stats.weekly_breakdown} />
-
-      <DailyPunchLog days={punches} />
     </div>
   );
 }

@@ -30,7 +30,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastInfo, toastSuccess } from "@/components/ui/toast-helpers";
 import {
@@ -105,81 +104,84 @@ export function ExceptionList({ rows, staffRecordId }: Props) {
         ),
       },
       {
-        id: "shift_type",
-        accessorKey: "shift_type_name",
-        header: "Shift",
-        cell: ({ row }) => row.original.shift_type_name ?? row.original.shift_type_code ?? "—",
-      },
-      {
         id: "type",
         accessorKey: "type",
         header: "Issue",
-        cell: ({ row }) => TYPE_LABEL[row.original.type],
-      },
-      {
-        id: "status",
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.status} enum="exception_status" />,
-      },
-      {
-        id: "note_state",
-        accessorKey: "staff_clarification",
-        header: "Your input",
         cell: ({ row }) => {
-          const hasClarification = Boolean(row.original.staff_clarification);
-          const hasPunchNote = Boolean(row.original.punch_remark);
-          const hasAttachments = row.original.attachments.length > 0;
-          if (row.original.status === "rejected") {
-            return (
-              <span className="text-status-danger-foreground text-xs font-medium">
-                HR rejected — edit & resubmit
-              </span>
-            );
-          }
-          if (row.original.status === "pending_review") {
-            return (
-              <span className="text-status-info-foreground inline-flex items-center gap-1 text-xs font-medium">
-                <Clock4 aria-hidden className="size-3.5" />
-                Awaiting HR review
-                {hasAttachments ? (
-                  <span className="text-foreground-subtle inline-flex items-center gap-0.5">
-                    <Paperclip aria-hidden className="size-3" />
-                    {row.original.attachments.length}
-                  </span>
-                ) : null}
-              </span>
-            );
-          }
-          if (row.original.status === "justified") {
-            return (
-              <span className="text-status-success-foreground inline-flex items-center gap-1 text-xs font-medium">
-                <CheckCircle2 aria-hidden className="size-3.5" />
-                Approved
-              </span>
-            );
-          }
-          // unjustified
-          if (hasClarification) {
-            // Shouldn't happen (CHECK constraint ensures unjustified →
-            // staff_clarification NULL) but be defensive.
-            return (
-              <span className="text-foreground-muted line-clamp-1 text-left">
-                {row.original.staff_clarification}
-              </span>
-            );
-          }
-          if (hasPunchNote) {
-            return (
-              <span className="text-status-info-foreground inline-flex items-center gap-1 text-xs font-medium">
-                <StickyNote aria-hidden className="size-3.5" />
-                Punch note left
-              </span>
-            );
-          }
+          // Shift name/code folded in as a subtitle — saves a column and
+          // reads faster ("Late arrival · Morning" is one glance). Empty
+          // string when there's no shift metadata.
+          const shiftLabel = row.original.shift_type_name ?? row.original.shift_type_code;
           return (
-            <span className="text-status-warning-foreground text-xs font-medium">
-              Request HR review
+            <span className="flex flex-col gap-0.5">
+              <span className="text-foreground font-medium">{TYPE_LABEL[row.original.type]}</span>
+              {shiftLabel ? (
+                <span className="text-foreground-subtle text-[11px]">{shiftLabel}</span>
+              ) : null}
+            </span>
+          );
+        },
+      },
+      {
+        // Consolidated state column — replaces the previous separate
+        // "Status" (badge) + "Your input" (prose) pair. One visual
+        // signal per row: icon + primary label (action-required for
+        // unjustified / rejected; progress for pending_review; terminal
+        // for justified) + optional attachment chip for submissions
+        // that carry supporting documents.
+        id: "state",
+        accessorKey: "status",
+        header: "State",
+        cell: ({ row }) => {
+          const status = row.original.status;
+          const hasAttachments = row.original.attachments.length > 0;
+
+          const copy: { icon: React.ReactNode; label: string; className: string } =
+            status === "rejected"
+              ? {
+                  icon: <XCircle aria-hidden className="size-3.5" />,
+                  label: "Edit & resubmit",
+                  className: "text-status-danger-foreground",
+                }
+              : status === "pending_review"
+                ? {
+                    icon: <Clock4 aria-hidden className="size-3.5" />,
+                    label: "Awaiting HR",
+                    className: "text-status-info-foreground",
+                  }
+                : status === "justified"
+                  ? {
+                      icon: <CheckCircle2 aria-hidden className="size-3.5" />,
+                      label: "Approved",
+                      className: "text-status-success-foreground",
+                    }
+                  : row.original.punch_remark
+                    ? {
+                        icon: <StickyNote aria-hidden className="size-3.5" />,
+                        label: "Review punch note",
+                        className: "text-status-warning-foreground",
+                      }
+                    : {
+                        icon: <StickyNote aria-hidden className="size-3.5" />,
+                        label: "Request HR review",
+                        className: "text-status-warning-foreground",
+                      };
+
+          return (
+            <span
+              className={`inline-flex items-center gap-1.5 text-xs font-medium ${copy.className}`}
+            >
+              {copy.icon}
+              <span>{copy.label}</span>
+              {hasAttachments ? (
+                <span
+                  className="text-foreground-subtle inline-flex items-center gap-0.5"
+                  aria-label={`${row.original.attachments.length} attachment${row.original.attachments.length === 1 ? "" : "s"}`}
+                >
+                  <Paperclip aria-hidden className="size-3" />
+                  {row.original.attachments.length}
+                </span>
+              ) : null}
             </span>
           );
         },
@@ -228,7 +230,8 @@ export function ExceptionList({ rows, staffRecordId }: Props) {
       <DataTable<ExceptionRow>
         data={rows}
         columns={columns}
-        mobileFieldPriority={["shift_date", "type", "status", "note_state"]}
+        mobileFieldPriority={["shift_date", "type", "state"]}
+        toolbar="none"
         getRowId={(row) => row.id}
         density="comfortable"
         onRowClick={(row) => setSelectedId(row.id)}
@@ -498,9 +501,22 @@ function ExceptionDetailSheet({
                     disabled={isSubmitting}
                     data-testid={`attendance-clarify-input-${row.id}`}
                   />
-                  <p className="text-foreground-subtle self-end text-[11px] tabular-nums">
-                    {text.length}/{CLARIFICATION_MAX_LEN}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 text-[11px] tabular-nums">
+                    {text.trim().length < 3 ? (
+                      <p
+                        className="text-foreground-muted"
+                        data-testid={`attendance-clarify-min-hint-${row.id}`}
+                      >
+                        {3 - text.trim().length} more character
+                        {3 - text.trim().length === 1 ? "" : "s"} to submit
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+                    <p className="text-foreground-subtle">
+                      {text.length}/{CLARIFICATION_MAX_LEN}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-2">

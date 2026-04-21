@@ -111,6 +111,20 @@ export type DataTableProps<TData> = Readonly<{
    * links) should `stopPropagation()` to avoid double-firing.
    */
   onRowClick?: (row: TData) => void;
+  /**
+   * Toolbar mode. Controls which admin-oriented affordances render above
+   * the table body:
+   *   `"full"`    (default) — row count + density dropdown + columns
+   *                dropdown. For admin/management tables where users
+   *                benefit from shaping dense data.
+   *   `"compact"` — row count only. For mid-size read-only tables where
+   *                the total is meaningful but the user has no reason to
+   *                hide columns or change density.
+   *   `"none"`    — no toolbar rendered at all. For consumer surfaces
+   *                (crew views, personal dashboards) where density /
+   *                column controls are noise.
+   */
+  toolbar?: "full" | "compact" | "none";
   className?: string;
   "data-testid"?: string;
 }>;
@@ -137,6 +151,7 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
     rowCount,
     viewportClassName,
     onRowClick,
+    toolbar: toolbarMode = "full",
     className,
     "data-testid": testId,
   } = props;
@@ -206,12 +221,15 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
       data-density={density}
       className={cn("flex flex-col gap-3", className)}
     >
-      <Toolbar
-        table={table}
-        density={density}
-        onDensityChange={setDensity}
-        totalRowCount={totalRowCount}
-      />
+      {toolbarMode !== "none" ? (
+        <Toolbar
+          table={table}
+          density={density}
+          onDensityChange={setDensity}
+          totalRowCount={totalRowCount}
+          mode={toolbarMode}
+        />
+      ) : null}
 
       {selectedIds.length > 0 && bulkActionBar ? (
         <div
@@ -277,69 +295,73 @@ function Toolbar<TData>({
   density,
   onDensityChange,
   totalRowCount,
+  mode,
 }: Readonly<{
   table: TanstackTable<TData>;
   density: Density;
   onDensityChange: (density: Density) => void;
   totalRowCount: number;
+  mode: "full" | "compact";
 }>) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-foreground-subtle text-xs tabular-nums">
         {totalRowCount.toLocaleString()} rows
       </p>
-      <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" data-testid="data-table-density">
-              {density === "compact" ? (
-                <Table2 aria-hidden className="size-4" />
-              ) : (
-                <LayoutList aria-hidden className="size-4" />
-              )}
-              Density
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Row density</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {(["compact", "comfortable", "spacious"] as const).map((value) => (
-              <DropdownMenuCheckboxItem
-                key={value}
-                checked={density === value}
-                onCheckedChange={() => onDensityChange(value)}
-              >
-                {value}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" data-testid="data-table-columns">
-              <Columns3 aria-hidden className="size-4" />
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {table.getAllLeafColumns().map((col) =>
-              col.getCanHide() ? (
+      {mode === "full" ? (
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="data-table-density">
+                {density === "compact" ? (
+                  <Table2 aria-hidden className="size-4" />
+                ) : (
+                  <LayoutList aria-hidden className="size-4" />
+                )}
+                Density
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Row density</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {(["compact", "comfortable", "spacious"] as const).map((value) => (
                 <DropdownMenuCheckboxItem
-                  key={col.id}
-                  checked={col.getIsVisible()}
-                  onCheckedChange={(value) => col.toggleVisibility(Boolean(value))}
-                  className="capitalize"
+                  key={value}
+                  checked={density === value}
+                  onCheckedChange={() => onDensityChange(value)}
                 >
-                  {String(col.columnDef.header ?? col.id)}
+                  {value}
                 </DropdownMenuCheckboxItem>
-              ) : null,
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="data-table-columns">
+                <Columns3 aria-hidden className="size-4" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {table.getAllLeafColumns().map((col) =>
+                col.getCanHide() ? (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(value) => col.toggleVisibility(Boolean(value))}
+                    className="capitalize"
+                  >
+                    {String(col.columnDef.header ?? col.id)}
+                  </DropdownMenuCheckboxItem>
+                ) : null,
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : null}
     </div>
   );
 }

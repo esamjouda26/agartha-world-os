@@ -100,14 +100,14 @@ export function AttendanceDashboard({
       <div className="sticky top-[60px] z-20 -mx-4 bg-[color:var(--frost-bg-md)] px-4 py-2 [backdrop-filter:var(--frost-blur-md)] lg:static lg:z-auto lg:mx-0 lg:bg-transparent lg:p-0 lg:[backdrop-filter:none]">
         <StatusTabBar
           tabs={[
-            { value: "clock", label: "Clock In/Out" },
+            { value: "clock", label: "Today" },
             {
               value: "exceptions",
               label: "Exceptions",
               count: exceptions.length,
               ...(unjustifiedCount > 0 ? ({ tone: "warning" } as const) : {}),
             },
-            { value: "stats", label: "My Attendance" },
+            { value: "stats", label: "Stats" },
           ]}
           paramKey="tab"
           ariaLabel="Attendance sections"
@@ -132,9 +132,11 @@ export function AttendanceDashboard({
                 todayIso={todayIso}
                 selectedDateIso={selectedDateIso}
               />
-              {/* Mobile-only at-a-glance KPI strip. The desktop aside
-                  covers the same awareness at lg+ with richer preview
-                  cards + the mini-calendar. */}
+              {/* Mobile-only action strip. Two cards only — the two
+                  signals that can prompt the user to switch tabs.
+                  Historical detail (days worked / late min / net hours)
+                  lives in the Stats tab and doesn't belong above the
+                  fold on the Clock tab. */}
               <section
                 className="grid grid-cols-2 gap-3 lg:hidden"
                 data-testid="attendance-mobile-kpi-strip"
@@ -147,14 +149,6 @@ export function AttendanceDashboard({
                   data-testid="attendance-mobile-kpi-status"
                 />
                 <KpiCard
-                  label="Late min"
-                  value={stats.late_minutes}
-                  caption="this month"
-                  density="compact"
-                  emphasis={stats.late_minutes > 0 ? "accent" : "default"}
-                  data-testid="attendance-mobile-kpi-late"
-                />
-                <KpiCard
                   label="Unjustified"
                   value={unjustifiedCount}
                   caption={unjustifiedCount > 0 ? "needs action" : "all clear"}
@@ -162,20 +156,13 @@ export function AttendanceDashboard({
                   emphasis={unjustifiedCount > 0 ? "accent" : "default"}
                   data-testid="attendance-mobile-kpi-unjustified"
                 />
-                <KpiCard
-                  label="Days worked"
-                  value={stats.days_worked}
-                  caption="this month"
-                  density="compact"
-                  data-testid="attendance-mobile-kpi-days"
-                />
               </section>
             </>
           ) : null}
           {current === "exceptions" ? (
             <ExceptionList rows={exceptions} staffRecordId={staffRecordId} />
           ) : null}
-          {current === "stats" ? <AttendanceStatsPanel stats={stats} punches={punches} /> : null}
+          {current === "stats" ? <AttendanceStatsPanel stats={stats} /> : null}
         </main>
 
         {/* At-a-glance aside — only on lg+. Preview cards for the two
@@ -188,7 +175,7 @@ export function AttendanceDashboard({
         >
           {current !== "clock" ? (
             <AttendancePreview
-              eyebrow="Clock In/Out"
+              eyebrow="Today"
               title={shift ? displayShiftName(shift.shiftType.name) : "No shift today"}
               metric={resolveClockMetric(shift, canWrite)}
               detail={shift ? (displayShiftWindow(shift) ?? undefined) : "Nothing to clock into"}
@@ -218,7 +205,7 @@ export function AttendanceDashboard({
           ) : null}
           {current !== "stats" ? (
             <AttendancePreview
-              eyebrow="My Attendance"
+              eyebrow="Stats"
               title={format(parseIsoDateLocal(stats.month_start), "LLLL yyyy")}
               metric={`${stats.days_worked} days`}
               detail={`${stats.net_hours.toFixed(1)} net hours · ${stats.late_minutes} late min`}
