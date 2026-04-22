@@ -1,9 +1,9 @@
-# 0005 — AttendancePage: Pattern A → Pattern C Override
+# 0005 — AttendancePage: Pattern A → Pattern C Precedent
 
-**Status:** Accepted — 2026-04-20
+**Status:** Accepted — 2026-04-20 (Later expanded to Universal Pattern C via ADR-0007)
 **Decision owner:** Pre-Phase-5 design overhaul
-**Overrides:** `frontend_spec.md §6 · AttendancePage — Pattern A (no props)` ([frontend_spec.md:3789-3802](../../frontend_spec.md#L3789-L3802))
-**Supersedes-for:** `AttendancePage` shared component only. `AnnouncementsPage` (Pattern B) and `DomainReportsPage` (Pattern C) are unaffected. `IncidentLogPage` (Pattern B) is unaffected.
+**Overrides:** `frontend_spec.md §6 · AttendancePage — Pattern A (no props)`
+**Supersedes-for:** Originally scoped for `AttendancePage` only, this ADR served as the architectural precedent that led to the deprecation of Pattern A and Pattern B repository-wide (see [ADR-0007](0007-universal-pattern-c.md)).
 
 ---
 
@@ -150,9 +150,7 @@ land. That work is out of scope for this ADR.
 - `frontend_spec.md §6` is now partially overridden — future readers must
   follow the `> AMENDED BY ADR-0005` marker back here. Added discipline, not
   a defect.
-- Pattern A / B / C triad becomes A (none) / B (IncidentLogPage,
-  AnnouncementsPage) / C (DomainReportsPage, AttendancePage). A is now empty
-  but kept in the spec as a named pattern for future self-scoped components.
+- Originally, the Pattern A / B / C triad became A (none) / B (IncidentLogPage, AnnouncementsPage) / C (DomainReportsPage, AttendancePage). Ultimately, the success of this refactor led to the creation of ADR-0007, which deprecates A and B entirely in favor of Universal Pattern C.
 
 ## Alternatives rejected
 

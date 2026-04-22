@@ -3774,39 +3774,41 @@ Components written once in `src/components/shared/`, wrapped per portal via thin
 
 ### Shared Component Wrapper Pattern
 
-Each portal's `page.tsx` is a thin wrapper that imports the shared component and passes exactly the props needed to control portal-specific behavior. Three patterns emerge:
+Each portal's `page.tsx` is a thin wrapper that imports the shared component and passes exactly the props needed to control portal-specific behavior.
 
-**Pattern A — No Props (identical behavior).** The wrapper passes nothing. The shared component reads its own data server-side.
-
-**Pattern B — Mode Prop (same data, different UI capabilities).** The wrapper passes a `mode` literal that toggles UI affordances (e.g., create buttons, resolve actions). Data scoping is still enforced by RLS/RPCs server-side, not by the mode prop.
-
-**Pattern C — Server-Injected Context (different data scope).** The RSC wrapper reads JWT claims server-side and passes the resolved filter set as props. The shared component never reads the JWT itself — it receives pre-computed, typed filter arrays.
+**Universal Pattern C — Server-Injected Context.** The RSC wrapper reads JWT claims and data context server-side and passes the resolved filter sets and boolean permission flags as explicit props. The shared component **never** reads the JWT itself, nor does it magically derive behavior from an abstract "mode" string. It receives explicitly pre-computed, typed primitive props. Pattern A (no props) and Pattern B (mode props) are deprecated.
 
 ---
 
-#### 1. `SettingsPage` — Pattern A (no props)
+#### 1. `SettingsPage` — Pattern C (server-injected context)
 
 ```tsx
-// Props interface
-interface SettingsPageProps {} // none
+// Props interface — explicit user context injected by wrapper
+interface SettingsPageProps {
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
+}
 
 // src/app/(portal)/admin/settings/page.tsx
 // src/app/(portal)/management/settings/page.tsx
 // src/app/(portal)/crew/settings/page.tsx
 import { SettingsPage } from "@/components/shared/settings-page";
-export default function Page() {
-  return <SettingsPage />;
+import { resolveSettingsUser } from "@/features/settings/queries/resolve-settings-user";
+
+export default async function Page() {
+  // Wrapper fetches data specifically for the shared component
+  const user = await resolveSettingsUser();
+  return <SettingsPage user={user} />;
 }
 ```
 
-#### 2. `AttendancePage` — Pattern C (server-injected context) — **AMENDED BY ADR-0005**
+#### 2. `AttendancePage` — Pattern C (server-injected context)
 
-> **Historical note:** originally specified as Pattern A (no props). Overridden by
-> [ADR-0005](docs/adr/0005-attendance-pattern-c-override.md) to enable
-> drill-down, hover previews, shareable deep-links, and future admin
-> "view-as" UX. RLS unchanged — safety-neutral refactor. The shared
-> component is split into a thin self-resolving wrapper (`AttendancePage`)
-> plus a parametrized renderer (`StaffAttendanceView`).
+> **Architectural precedent:** AttendancePage's requirements for drill-down and "view-as" UX drove the decision to enforce Pattern C across the entire application ([ADR-0005](docs/adr/0005-attendance-pattern-c-override.md) and [ADR-0007](docs/adr/0007-universal-pattern-c.md)). The shared component receives its display identity via explicitly passed props.
 
 ```tsx
 // Parametrized renderer — feature-local, reused by future admin drill-down.
@@ -3820,61 +3822,96 @@ interface StaffAttendanceViewProps {
   density?: "default" | "compact"; // defaults "default"
 }
 
-// Thin wrapper — preserves the import surface for every /*/attendance route.
+// Shared component — receives identity as explicit props (Pattern C).
+// Never reads the JWT itself. Delegates to StaffAttendanceView.
 // src/components/shared/attendance-page.tsx
 interface AttendancePageProps {
+  staffRecordId: string; // Injected by route wrapper
+  displayName: string; // Injected by route wrapper
   locale: string;
   searchParams?: Readonly<{ tab?: string; date?: string; month?: string }>;
 }
 
-// Route wrappers unchanged:
+// Route wrappers resolve auth + profile, inject identity as props:
 // src/app/(portal)/admin/attendance/page.tsx
 // src/app/(portal)/management/attendance/page.tsx
 // src/app/(portal)/crew/attendance/page.tsx
-import { AttendancePage } from "@/components/shared/attendance-page";
-export default function Page(props) {
-  return <AttendancePage {...props} />;
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  AttendancePage,
+  StaffRecordNotLinkedEmptyState,
+} from "@/components/shared/attendance-page";
+
+export default async function Page({ params, searchParams }) {
+  const [{ locale }, sp] = await Promise.all([params, searchParams]);
+
+  // Pattern C: route wrapper resolves server-side context
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect(`/${locale}/auth/login`);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, staff_record_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.staff_record_id) return <StaffRecordNotLinkedEmptyState />;
+
+  // Inject resolved identity as explicit props
+  return (
+    <AttendancePage
+      staffRecordId={profile.staff_record_id}
+      displayName={profile.display_name ?? "Staff"}
+      locale={locale}
+      searchParams={sp}
+    />
+  );
 }
 ```
 
-#### 3. `AnnouncementsPage` — Pattern B (mode prop)
+#### 3. `AnnouncementsPage` — Pattern C (server-injected context)
 
 ```tsx
-// Props interface
+// Props interface — explicit capabilities, no abstract "mode" strings
 interface AnnouncementsPageProps {
-  mode: "manage" | "read-only";
-  // "manage": shows create/edit/target controls (comms:c/u/d enforced server-side)
-  // "read-only": shows read + mark-as-read only (comms:r)
+  canManage: boolean;
+  // true: shows create/edit/target controls
+  // false: shows read + mark-as-read only
 }
 
 // src/app/(portal)/admin/announcements/page.tsx
-import { AnnouncementsPage } from "@/components/shared/announcements-page";
-export default function Page() {
-  return <AnnouncementsPage mode="manage" />;
-}
-
 // src/app/(portal)/management/announcements/page.tsx
 import { AnnouncementsPage } from "@/components/shared/announcements-page";
-export default function Page() {
-  return <AnnouncementsPage mode="manage" />;
+import { hasPermission } from "@/lib/auth/permissions";
+
+export default async function Page() {
+  // Wrapper evaluates capabilities explicitly
+  const canManage = await hasPermission("comms:c");
+  return <AnnouncementsPage canManage={canManage} />;
 }
 
 // src/app/(portal)/crew/announcements/page.tsx
 import { AnnouncementsPage } from "@/components/shared/announcements-page";
-export default function Page() {
-  return <AnnouncementsPage mode="read-only" />;
+
+export default async function Page() {
+  // Crew never manages
+  return <AnnouncementsPage canManage={false} />;
 }
 ```
 
-#### 4. `IncidentLogPage` — Pattern B (single `mode` prop; groups derived internally)
+#### 4. `IncidentLogPage` — Pattern C (server-injected context)
 
 ```tsx
-// Props interface — single mode prop, no redundant visibleGroups
+// Props interface — explicit capabilities and data resolution
 interface IncidentLogPageProps {
-  mode: "ops" | "maintenance" | "crew";
-  // "ops": full table with resolve action, KPI bar, ops category groups
-  // "maintenance": full table with resolve action, KPI bar, maintenance category groups
-  // "crew": report form (all categories) + view own incidents only
+  canResolve: boolean;
+  // true: full table with resolve action, KPI bar
+  // false: report form + view own incidents only
+  allowedCategories: IncidentGroupKey[];
 }
 
 type IncidentGroupKey =
@@ -3886,30 +3923,48 @@ type IncidentGroupKey =
   | "equipment"
   | "other";
 
-// Single source of truth, colocated with the shared component.
-// visibleGroups is a PURE FUNCTION of mode — derived at runtime, never passed by wrappers.
-const MODE_TO_GROUPS: Record<IncidentLogPageProps["mode"], IncidentGroupKey[]> = {
-  ops: ["safety", "medical", "security", "guest", "other"],
-  maintenance: ["structural", "equipment"],
-  crew: ["safety", "medical", "security", "guest", "structural", "equipment", "other"],
-};
-
 // src/app/(portal)/management/operations/incidents/page.tsx
 import { IncidentLogPage } from "@/components/shared/incident-log-page";
-export default function Page() {
-  return <IncidentLogPage mode="ops" />;
+import { resolveIncidentCategories } from "@/features/incidents/queries/resolve-categories";
+import { hasPermission } from "@/lib/auth/permissions";
+
+export default async function Page() {
+  // Wrapper evaluates capabilities explicitly based on domain
+  const canResolve = await hasPermission("ops:u");
+  const allowedCategories = await resolveIncidentCategories("ops");
+  return <IncidentLogPage canResolve={canResolve} allowedCategories={allowedCategories} />;
 }
 
 // src/app/(portal)/management/maintenance/incidents/page.tsx
 import { IncidentLogPage } from "@/components/shared/incident-log-page";
-export default function Page() {
-  return <IncidentLogPage mode="maintenance" />;
+import { resolveIncidentCategories } from "@/features/incidents/queries/resolve-categories";
+import { hasPermission } from "@/lib/auth/permissions";
+
+export default async function Page() {
+  const canResolve = await hasPermission("ops:u"); // Requires ops:u even inside maintenance
+  const allowedCategories = await resolveIncidentCategories("maintenance");
+  return <IncidentLogPage canResolve={canResolve} allowedCategories={allowedCategories} />;
 }
 
 // src/app/(portal)/crew/incidents/page.tsx
 import { IncidentLogPage } from "@/components/shared/incident-log-page";
-export default function Page() {
-  return <IncidentLogPage mode="crew" />;
+
+export default async function Page() {
+  // Crew never resolves, sees all categories for reporting
+  return (
+    <IncidentLogPage
+      canResolve={false}
+      allowedCategories={[
+        "safety",
+        "medical",
+        "security",
+        "guest",
+        "structural",
+        "equipment",
+        "other",
+      ]}
+    />
+  );
 }
 ```
 

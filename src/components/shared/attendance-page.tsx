@@ -1,6 +1,3 @@
-import { redirect } from "next/navigation";
-
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   StaffAttendanceView,
   StaffRecordNotLinkedEmptyState,
@@ -8,52 +5,47 @@ import {
 } from "@/features/attendance/components/staff-attendance-view";
 
 /**
- * Shared `AttendancePage` — the self-resolving thin wrapper.
+ * Shared `AttendancePage` — Pattern C (Server-Injected Context).
  *
- * Historical note: originally specified as Pattern A ("no props") in
- * `frontend_spec.md §6`. Overridden by
- * [ADR-0005](docs/adr/0005-attendance-pattern-c-override.md) to enable
- * drill-down, hover previews, shareable deep-links, and future
- * admin "view-as" UX.
+ * This component **never** reads the JWT or fetches auth context.
+ * Identity is injected as explicit props by each route wrapper,
+ * per ADR-0005 / ADR-0007 (Universal Pattern C).
  *
- * Responsibility here is narrow: authenticate, resolve the caller's
- * `staff_record_id`, and delegate rendering to the parametrized
- * `<StaffAttendanceView />` (the Pattern-C renderer that accepts any
- * staffRecordId and is reused by future admin drill-down surfaces).
+ * The route wrapper resolves `staffRecordId` and `displayName`
+ * server-side and passes them down. This component delegates
+ * rendering entirely to the parametrized `<StaffAttendanceView />`.
  *
- * RLS remains the security boundary — see ADR-0005 §"RLS contract".
+ * For admin drill-down / hover-preview surfaces the route wrapper
+ * can inject any `staffRecordId` — RLS remains the security
+ * boundary (see ADR-0005 §"RLS contract").
  */
-export async function AttendancePage({
-  locale,
-  searchParams,
-}: Readonly<{
+
+export interface AttendancePageProps {
+  /** Resolved staff_record_id — injected by the route wrapper. */
+  staffRecordId: string;
+  /** Display name for the page header — injected by the route wrapper. */
+  displayName: string;
   locale: string;
   searchParams?: AttendanceSearchParams;
-}>) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect(`/${locale}/auth/login`);
+}
 
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("display_name, staff_record_id")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profileErr) throw profileErr;
-
-  if (!profile?.staff_record_id) {
-    return <StaffRecordNotLinkedEmptyState />;
-  }
-
+export async function AttendancePage({
+  staffRecordId,
+  displayName,
+  locale,
+  searchParams,
+}: Readonly<AttendancePageProps>) {
   return (
     <StaffAttendanceView
-      staffRecordId={profile.staff_record_id}
-      displayName={profile.display_name ?? "Staff"}
+      staffRecordId={staffRecordId}
+      displayName={displayName}
       canWrite
       searchParams={searchParams ?? {}}
       locale={locale}
     />
   );
 }
+
+/** Re-export so route wrappers can render the empty state when
+ *  the profile has no linked staff_record_id. */
+export { StaffRecordNotLinkedEmptyState };
