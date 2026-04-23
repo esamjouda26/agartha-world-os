@@ -1,7 +1,5 @@
 import { getTranslations } from "next-intl/server";
 
-import { ThemeToggle } from "@/components/shared/theme-toggle";
-
 /**
  * Auth shell — the non-portal surface. Renders every auth-flow route
  * (login, set-password, access-revoked, not-started, on-leave).
@@ -24,13 +22,6 @@ export default async function AuthLayout({ children }: Readonly<{ children: Reac
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="bg-brand-primary/10 dark:bg-brand-primary/20 absolute -top-40 -left-32 h-[28rem] w-[28rem] rounded-full blur-3xl" />
         <div className="bg-brand-accent/10 dark:bg-brand-accent/25 absolute -right-32 -bottom-40 h-[28rem] w-[28rem] rounded-full blur-3xl" />
-      </div>
-
-      {/* Theme toggle for users who arrive via a deep link in the wrong
-          mode (the SSR cookie is honored on first paint, but an
-          explicit opt-out is expected UX on auth surfaces). */}
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
       </div>
 
       {/* Brand lockup: gold rounded mark + mixed-case wordmark with the

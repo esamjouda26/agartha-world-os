@@ -31,7 +31,7 @@ export type ClockMutationInput = z.infer<typeof clockMutationSchema>;
  * past that the form is more appeal than explanation.
  */
 export const submitClarificationSchema = z.object({
-  exceptionId: z.string().uuid(),
+  exceptionId: z.guid(),
   text: z
     .string()
     .min(3, "Clarification must be at least 3 characters.")
@@ -45,7 +45,7 @@ export const submitClarificationSchema = z.object({
 export type SubmitClarificationInput = z.infer<typeof submitClarificationSchema>;
 
 export const rejectClarificationSchema = z.object({
-  exceptionId: z.string().uuid(),
+  exceptionId: z.guid(),
   reason: z
     .string()
     .min(3, "Rejection reason must be at least 3 characters.")
@@ -55,7 +55,7 @@ export const rejectClarificationSchema = z.object({
 export type RejectClarificationInput = z.infer<typeof rejectClarificationSchema>;
 
 export const justifyExceptionSchema = z.object({
-  exceptionId: z.string().uuid(),
+  exceptionId: z.guid(),
   reason: z
     .string()
     .min(3, "Justification reason must be at least 3 characters.")

@@ -32,7 +32,10 @@ import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
  */
 
 const voidPunchSchema = z.object({
-  punchId: z.string().uuid(),
+  // `z.guid()` not `z.string().uuid()` — Zod 4's strict UUID matcher
+  // rejects hand-crafted seed IDs (version nibble 0). Postgres's UUID
+  // column is the authoritative format check.
+  punchId: z.guid(),
 });
 
 type VoidRpcResult = { error: { message: string } | null };

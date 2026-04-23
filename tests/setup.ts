@@ -50,6 +50,44 @@ if (typeof HTMLMediaElement !== "undefined") {
   });
 }
 
+// jsdom doesn't implement Element pointer-capture or scrollIntoView. Radix
+// Select / DropdownMenu / Popover / Combobox call these on every open and
+// crash with "TypeError: target.hasPointerCapture is not a function" when
+// rendered in tests. Stub with no-ops — pointer capture is meaningless in
+// jsdom (no real pointer device) and scroll-into-view has no visual effect
+// in a non-painting environment. Same shape as widely-recommended Radix
+// + Vitest setup snippets.
+if (typeof Element !== "undefined") {
+  if (!Element.prototype.hasPointerCapture) {
+    Object.defineProperty(Element.prototype, "hasPointerCapture", {
+      configurable: true,
+      writable: true,
+      value: () => false,
+    });
+  }
+  if (!Element.prototype.setPointerCapture) {
+    Object.defineProperty(Element.prototype, "setPointerCapture", {
+      configurable: true,
+      writable: true,
+      value: () => {},
+    });
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Object.defineProperty(Element.prototype, "releasePointerCapture", {
+      configurable: true,
+      writable: true,
+      value: () => {},
+    });
+  }
+  if (!Element.prototype.scrollIntoView) {
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => {},
+    });
+  }
+}
+
 afterEach(() => {
   cleanup();
 });

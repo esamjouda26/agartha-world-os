@@ -5419,6 +5419,16 @@ export type Database = {
         }
         Returns: string
       }
+      rpc_create_announcement: {
+        Args: {
+          p_content: string
+          p_expires_at: string
+          p_is_published: boolean
+          p_targets: Json
+          p_title: string
+        }
+        Returns: string
+      }
       rpc_create_booking: {
         Args: {
           p_adult_count: number
@@ -5452,6 +5462,24 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_get_active_staff: {
+        Args: never
+        Returns: {
+          clocked_in_at: string
+          display_name: string
+          employee_id: string
+          org_unit_id: string
+          org_unit_name: string
+          profile_id: string
+          role_display_name: string
+          role_id: string
+          role_name: string
+          shift_code: string
+          shift_expected_end_time: string
+          shift_name: string
+          staff_record_id: string
+        }[]
+      }
       rpc_get_available_slots: {
         Args: {
           p_date: string
@@ -5466,6 +5494,7 @@ export type Database = {
         Args: { p_booking_ref: string; p_ip_address?: unknown }
         Returns: Json
       }
+      rpc_get_unread_announcement_count: { Args: never; Returns: number }
       rpc_justify_exception: {
         Args: { p_exception_id: string; p_reason: string }
         Returns: Json
@@ -5474,6 +5503,7 @@ export type Database = {
         Args: { p_booking_ref?: string; p_qr_code_ref?: string }
         Returns: Json
       }
+      rpc_mark_all_visible_announcements_read: { Args: never; Returns: number }
       rpc_mark_day_off: {
         Args: { p_date: string; p_name?: string }
         Returns: string
@@ -5539,6 +5569,17 @@ export type Database = {
           p_text: string
         }
         Returns: Json
+      }
+      rpc_update_announcement: {
+        Args: {
+          p_announcement_id: string
+          p_content: string
+          p_expires_at: string
+          p_is_published: boolean
+          p_targets: Json
+          p_title: string
+        }
+        Returns: undefined
       }
       rpc_update_own_avatar: {
         Args: { p_avatar_url: string }

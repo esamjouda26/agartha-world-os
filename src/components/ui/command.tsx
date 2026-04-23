@@ -139,7 +139,6 @@ function CommandItem({ className, ...props }: React.ComponentProps<typeof Comman
         "relative flex cursor-default items-center gap-2 rounded-md px-2 py-2 text-sm outline-hidden select-none",
         "transition-colors duration-[var(--duration-micro)]",
         "data-[selected=true]:bg-surface/80 data-[selected=true]:text-foreground",
-        "data-[selected=true]:before:bg-brand-primary data-[selected=true]:before:absolute data-[selected=true]:before:top-2 data-[selected=true]:before:bottom-2 data-[selected=true]:before:-left-0.5 data-[selected=true]:before:w-0.5 data-[selected=true]:before:rounded-full",
         "[&_svg:not([class*='text-'])]:text-foreground-subtle",
         "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",

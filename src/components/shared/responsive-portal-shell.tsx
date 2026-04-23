@@ -13,7 +13,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+
 import { PortalIcon } from "@/components/shared/portal-icon";
 import { cn } from "@/lib/utils";
 
@@ -206,7 +206,6 @@ export function ResponsivePortalShell({
           <div className="flex items-center gap-2">
             {notifications}
             {userMenu}
-            <ThemeToggle />
           </div>
         </header>
 

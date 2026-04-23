@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  */
 
 const emptyStateVariants = cva(
-  "flex flex-col items-center justify-center gap-5 rounded-xl border px-6 py-12 text-center",
+  "flex flex-col items-center justify-center gap-5 px-6 py-12 text-center",
   {
     variants: {
       variant: {
@@ -32,10 +32,20 @@ const emptyStateVariants = cva(
         default: "",
         compact: "gap-3 py-8",
       },
+      frame: {
+        // Standalone — paints its own card chrome (border + radius).
+        // Default for top-level usage on a route page.
+        card: "rounded-xl border",
+        // Naked — no border, no rounded corners. Use when composing
+        // inside another framed surface (e.g., `<FilterableDataTable>`)
+        // so the parent's frame isn't doubled with an inner card.
+        none: "border-0",
+      },
     },
     defaultVariants: {
       variant: "first-use",
       density: "default",
+      frame: "card",
     },
   },
 );
@@ -75,6 +85,7 @@ export function EmptyState({
   secondaryAction,
   variant = "first-use",
   density,
+  frame,
   className,
   "data-testid": testId,
   ...props
@@ -87,8 +98,9 @@ export function EmptyState({
       aria-live={resolvedVariant === "error" ? "assertive" : "polite"}
       data-slot="empty-state"
       data-variant={resolvedVariant}
+      data-frame={frame ?? "card"}
       data-testid={testId}
-      className={cn(emptyStateVariants({ variant, density }), className)}
+      className={cn(emptyStateVariants({ variant, density, frame }), className)}
       {...props}
     >
       <span

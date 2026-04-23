@@ -48,10 +48,16 @@ describe("filterNavForUser — attendance visibility", () => {
   });
 });
 
-describe("filterNavForUser — empty-manifest behavior", () => {
-  test("portal with no landed features returns empty manifest", () => {
-    const manifest = filterNavForUser("admin", "admin", {});
-    expect(manifest.sections.length).toBe(0);
+describe("filterNavForUser — baseline visibility", () => {
+  test("every authenticated user sees Settings (no `requires` gate)", () => {
+    // Settings is a shared route — no domain required. Surfaces across
+    // admin / management / crew for any authenticated user.
+    const crew = idsIn(filterNavForUser("crew", "crew", {}));
+    const mgmt = idsIn(filterNavForUser("management", "manager", {}));
+    const admin = idsIn(filterNavForUser("admin", "admin", {}));
+    expect(crew.has("crew-settings")).toBe(true);
+    expect(mgmt.has("mgmt-settings")).toBe(true);
+    expect(admin.has("admin-settings")).toBe(true);
   });
 
   test("manifest is portal-scoped: admin does not see crew items", () => {
@@ -70,15 +76,11 @@ describe("firstAccessiblePath", () => {
     expect(firstAccessiblePath(manifest)).toBe("/crew/attendance");
   });
 
-  test("empty manifest returns null", () => {
-    const manifest = filterNavForUser("admin", "admin", {});
-    expect(firstAccessiblePath(manifest)).toBeNull();
-  });
-
-  test("excludeSectionId filters that section out", () => {
+  test("excludeSectionId returning no items returns null", () => {
+    // Both Attendance and Settings live under "shared"; excluding that
+    // section leaves nothing for a crew user with hr:c today.
     const domains = { hr: ["c", "r"] };
     const manifest = filterNavForUser("crew", "crew", domains);
-    // Attendance lives under "shared"; excluding it leaves nothing.
     expect(firstAccessiblePath(manifest, { excludeSectionId: "shared" })).toBeNull();
   });
 });

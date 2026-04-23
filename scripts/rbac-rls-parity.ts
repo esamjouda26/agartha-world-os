@@ -53,17 +53,25 @@ function readAllMigrations(): string {
 }
 
 function extractPolicies(sql: string): readonly Policy[] {
-  // Matches: CREATE POLICY "name" ON schema.table FOR cmd [TO role] USING (...) [WITH CHECK (...)]
-  // `m` flag; tolerant of whitespace, optional schema prefix.
+  // Matches: CREATE POLICY "name" ON schema.table FOR cmd [TO role]
+  //          [USING (...)] [WITH CHECK (...)];
+  //
+  // Per PostgreSQL, INSERT policies carry only `WITH CHECK`, SELECT /
+  // DELETE carry only `USING`, UPDATE carries both. We capture whichever
+  // is present and expose the combined boolean expression in
+  // `usingClause` so the shape-matcher can scan both.
   const re =
-    /CREATE\s+POLICY[\s\S]*?ON\s+(?:public\.)?(\w+)\s+FOR\s+(INSERT|SELECT|UPDATE|DELETE|ALL)[\s\S]*?USING\s*\(([\s\S]*?)\)(?:\s*WITH\s+CHECK\s*\([\s\S]*?\))?\s*;/gi;
+    /CREATE\s+POLICY[\s\S]*?ON\s+(?:public\.)?(\w+)\s+FOR\s+(INSERT|SELECT|UPDATE|DELETE|ALL)(?:\s+TO\s+\w+)?(?:\s+USING\s*\(([\s\S]*?)\))?(?:\s*WITH\s+CHECK\s*\(([\s\S]*?)\))?\s*;/gi;
   const out: Policy[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(sql)) !== null) {
+    const usingClause = m[3] ?? "";
+    const withCheckClause = m[4] ?? "";
+    if (!usingClause && !withCheckClause) continue; // malformed / unsupported
     out.push({
       table: m[1]!,
       command: m[2]!.toUpperCase(),
-      usingClause: m[3]!,
+      usingClause: [usingClause, withCheckClause].filter(Boolean).join(" AND "),
       rawMatch: m[0]!,
     });
   }

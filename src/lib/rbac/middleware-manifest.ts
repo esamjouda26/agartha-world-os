@@ -1,4 +1,9 @@
+import { rbac as announcementsRbac } from "@/features/announcements/rbac";
 import { rbac as attendanceRbac } from "@/features/attendance/rbac";
+import { rbac as auditRbac } from "@/features/audit/rbac";
+import { rbac as incidentsRbac } from "@/features/incidents/rbac";
+import { rbac as reportsRbac } from "@/features/reports/rbac";
+import { rbac as staffingRbac } from "@/features/staffing/rbac";
 
 import type { RouteRequirement } from "./types";
 
@@ -27,7 +32,14 @@ import type { RouteRequirement } from "./types";
  * CPU budget per CLAUDE.md §14.
  */
 
-const FEATURE_RBAC = [attendanceRbac] as const;
+const FEATURE_RBAC = [
+  attendanceRbac,
+  announcementsRbac,
+  auditRbac,
+  incidentsRbac,
+  reportsRbac,
+  staffingRbac,
+] as const;
 
 /**
  * Scores patterns by literal-scaffold length minus wildcard penalty plus a
@@ -87,17 +99,17 @@ export const MIDDLEWARE_ROUTES: readonly CompiledRoute[] = compileAll();
  */
 export const SHARED_BYPASS_PREFIXES: readonly string[] = [
   // ── Admin ──
-  "/admin/reports",
-  "/admin/audit",
-  "/admin/announcements",
+  // /admin/reports — Gate 5 (reports:r) via reports/rbac.ts
+  // /admin/audit   — Gate 5 (reports:r) via audit/rbac.ts
+  // /admin/announcements — Gate 5 (comms:c) via announcements/rbac.ts
   "/admin/attendance",
   "/admin/settings",
   // ── Management ──
-  "/management/reports",
-  "/management/audit",
-  "/management/announcements",
+  // /management/reports — Gate 5 (reports:r) via reports/rbac.ts
+  // /management/audit   — Gate 5 (reports:r) via audit/rbac.ts
+  // /management/announcements — Gate 5 (comms:c) via announcements/rbac.ts
+  // /management/staffing — Gate 5 (reports:r) via staffing/rbac.ts
   "/management/attendance",
-  "/management/staffing",
   "/management/settings",
   // ── Crew ──
   "/crew/attendance",
@@ -106,7 +118,7 @@ export const SHARED_BYPASS_PREFIXES: readonly string[] = [
   "/crew/zone-scan",
   "/crew/feedback",
   "/crew/incidents",
-  "/crew/announcements",
+  // Crew do not get a route for announcements — they read via the topbar bell only.
   "/crew/settings",
 ] as const;
 

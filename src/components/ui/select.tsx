@@ -59,8 +59,8 @@ function SelectTrigger({
 function SelectContent({
   className,
   children,
-  position = "item-aligned",
-  align = "center",
+  position = "popper",
+  align = "start",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
@@ -117,6 +117,7 @@ function SelectItem({
       data-slot="select-item"
       // Warm-surface hover (not brand-accent loud). Checked state keeps
       // default typography + adds a gold check icon on the right edge.
+      // Synced with CommandItem: hover/focus triggers a subtle gold bar on the left.
       className={cn(
         "relative flex w-full cursor-default items-center gap-2 rounded-md py-1.5 pr-8 pl-2 text-sm outline-hidden select-none",
         "transition-colors duration-[var(--duration-micro)]",

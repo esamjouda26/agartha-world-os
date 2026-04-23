@@ -21,19 +21,20 @@ const EXPECTATIONS: readonly Expected[] = [
   // ── Admin landings + shared-bypass ──
   { path: "/admin/it", bypass: true, resolved: null },
   { path: "/admin/business", bypass: true, resolved: null },
-  { path: "/admin/reports", bypass: true, resolved: null },
-  { path: "/admin/audit", bypass: true, resolved: null },
-  { path: "/admin/announcements", bypass: true, resolved: null },
   { path: "/admin/attendance", bypass: true, resolved: null },
   { path: "/admin/settings", bypass: true, resolved: null },
+  // Announcements + Reports + Audit management routes are Gate-5 via feature rbac.ts.
+  { path: "/admin/announcements", bypass: false, resolved: { domain: "comms", access: "c" } },
+  { path: "/admin/reports", bypass: false, resolved: { domain: "reports", access: "r" } },
+  { path: "/admin/audit", bypass: false, resolved: { domain: "reports", access: "r" } },
   // ── Management landings + shared-bypass ──
   { path: "/management", bypass: true, resolved: null },
-  { path: "/management/reports", bypass: true, resolved: null },
-  { path: "/management/audit", bypass: true, resolved: null },
-  { path: "/management/announcements", bypass: true, resolved: null },
   { path: "/management/attendance", bypass: true, resolved: null },
-  { path: "/management/staffing", bypass: true, resolved: null },
   { path: "/management/settings", bypass: true, resolved: null },
+  { path: "/management/announcements", bypass: false, resolved: { domain: "comms", access: "c" } },
+  { path: "/management/reports", bypass: false, resolved: { domain: "reports", access: "r" } },
+  { path: "/management/audit", bypass: false, resolved: { domain: "reports", access: "r" } },
+  { path: "/management/staffing", bypass: false, resolved: { domain: "reports", access: "r" } },
   // ── Crew shared-bypass ──
   { path: "/crew/attendance", bypass: true, resolved: null },
   { path: "/crew/schedule", bypass: true, resolved: null },
@@ -41,11 +42,25 @@ const EXPECTATIONS: readonly Expected[] = [
   { path: "/crew/zone-scan", bypass: true, resolved: null },
   { path: "/crew/feedback", bypass: true, resolved: null },
   { path: "/crew/incidents", bypass: true, resolved: null },
-  { path: "/crew/announcements", bypass: true, resolved: null },
   { path: "/crew/settings", bypass: true, resolved: null },
+  // Crew has no route for announcements — they read via the topbar bell
+  // only. An unmatched deep-link falls through to Next's 404.
+  { path: "/crew/announcements", bypass: false, resolved: null },
   // ── Deep-link children of shared-bypass prefixes ──
-  { path: "/admin/reports/monthly", bypass: true, resolved: null },
   { path: "/crew/attendance/history", bypass: true, resolved: null },
+  // Reports child paths inherit the feature's Gate-5 requirement.
+  {
+    path: "/admin/reports/monthly",
+    bypass: false,
+    resolved: { domain: "reports", access: "r" },
+  },
+  // Deep-link children of the announcements Gate-5 routes inherit the
+  // same comms:c requirement.
+  {
+    path: "/admin/announcements/new",
+    bypass: false,
+    resolved: { domain: "comms", access: "c" },
+  },
   // ── Unmatched (no feature yet — middleware lets them through to Next's 404) ──
   { path: "/admin/iam", bypass: false, resolved: null },
   { path: "/admin/does-not-exist", bypass: false, resolved: null },

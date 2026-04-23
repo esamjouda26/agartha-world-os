@@ -5,9 +5,12 @@ import { ChevronDown, ChevronUp, Columns3, LayoutList, Table2 } from "lucide-rea
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type ExpandedState,
+  type Row,
   type RowSelectionState,
   type SortingState,
   type Table as TanstackTable,
@@ -27,6 +30,40 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TableSkeleton } from "@/components/ui/skeleton-kit";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+/**
+ * Per-column className passthrough — TanStack `ColumnMeta` augmentation.
+ *
+ * Lets callers attach CSS to specific column headers / cells without forking
+ * the body renderers. Used heavily by the intrinsic-width pattern on text-
+ * dense tables: pass `meta: { headerClassName: "w-0 whitespace-nowrap",
+ * cellClassName: "w-0 whitespace-nowrap" }` to make a column shrink-wrap
+ * its contents while siblings absorb remaining width.
+ *
+ * Augmentation is module-scoped; `unknown` generics keep it safe under
+ * `noImplicitAny`.
+ */
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    /** Tailwind classes applied to the `<TableHead>` for this column. */
+    headerClassName?: string;
+    /** Tailwind classes applied to every `<TableCell>` for this column. */
+    cellClassName?: string;
+  }
+}
+
+// `RowData` is the constraint TanStack's ColumnMeta generic uses. Re-import
+// the type without polluting the value namespace.
+import type { RowData } from "@tanstack/react-table";
 
 /**
  * DataTable — prompt.md §2B-D.4.
@@ -125,6 +162,34 @@ export type DataTableProps<TData> = Readonly<{
    *                column controls are noise.
    */
   toolbar?: "full" | "compact" | "none";
+  /**
+   * Outer chrome around the table body.
+   *   `"card"` (default) — the table renders inside its own bordered
+   *                       card surface (`bg-card`, hairline border,
+   *                       rounded-xl, soft shadow). Used by every
+   *                       standalone `<DataTable>` caller.
+   *   `"none"`           — no outer card; only the inner overflow
+   *                       wrapper. Used by `<FilterableDataTable>`
+   *                       which provides its own unified frame around
+   *                       toolbar + body + pagination ("Premium Frame").
+   */
+  frame?: "card" | "none";
+  /**
+   * When set, every row becomes expandable and this fn renders the
+   * expanded panel below it (full-width `colSpan` `<TableRow>` on
+   * desktop, inline panel inside the `<li>` on mobile). Each row is
+   * toggled via TanStack's expansion model — callers either let the
+   * caller-defined "expander" column call `row.getToggleExpandedHandler()`
+   * OR rely on the auto whole-row click toggle on mobile.
+   *
+   * Note: virtualization is automatically disabled when this prop is
+   * provided — `useVirtualizer`'s fixed `estimateSize` is incompatible
+   * with variable-height expanded sub-rows.
+   */
+  renderSubComponent?: (row: Row<TData>) => React.ReactNode;
+  /** Controlled expansion state (TanStack `ExpandedState`). */
+  expanded?: ExpandedState;
+  onExpandedChange?: (value: ExpandedState) => void;
   className?: string;
   "data-testid"?: string;
 }>;
@@ -152,6 +217,10 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
     viewportClassName,
     onRowClick,
     toolbar: toolbarMode = "full",
+    frame = "card",
+    renderSubComponent,
+    expanded: expandedProp,
+    onExpandedChange,
     className,
     "data-testid": testId,
   } = props;
@@ -170,6 +239,9 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
   const [rowSelectionState, setRowSelectionState] = React.useState<RowSelectionState>({});
   const rowSelection = rowSelectionProp ?? rowSelectionState;
 
+  const [expandedState, setExpandedState] = React.useState<ExpandedState>({});
+  const expanded = expandedProp ?? expandedState;
+
   // Mutable references so writable array/record types satisfy TanStack typing.
   const mutableData = React.useMemo<TData[]>(() => data.slice(), [data]);
   const mutableColumns = React.useMemo<ColumnDef<TData, unknown>[]>(
@@ -177,11 +249,13 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
     [columns],
   );
 
+  const expandable = Boolean(renderSubComponent);
+
   const table = useReactTable<TData>({
     data: mutableData,
     columns: mutableColumns,
     getRowId,
-    state: { columnVisibility: visibility, sorting, rowSelection },
+    state: { columnVisibility: visibility, sorting, rowSelection, expanded },
     onColumnVisibilityChange: (updater) => {
       const next = typeof updater === "function" ? updater(visibility) : updater;
       setVisibility(next);
@@ -197,13 +271,24 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
       if (!rowSelectionProp) setRowSelectionState(next);
       onRowSelectionChange?.(next);
     },
+    onExpandedChange: (updater) => {
+      const next = typeof updater === "function" ? updater(expanded) : updater;
+      if (expandedProp === undefined) setExpandedState(next);
+      onExpandedChange?.(next);
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    getRowCanExpand: () => expandable,
     enableRowSelection: Boolean(bulkActionBar),
+    enableExpanding: expandable,
   });
 
   const totalRowCount = rowCount ?? data.length;
-  const shouldVirtualize = totalRowCount > VIRTUALIZE_THRESHOLD;
+  // Variable-height expanded sub-rows are incompatible with the virtualizer's
+  // fixed `estimateSize` — disable virtualization whenever sub-rows are in
+  // play (documented in `renderSubComponent` JSDoc).
+  const shouldVirtualize = !expandable && totalRowCount > VIRTUALIZE_THRESHOLD;
 
   const selectedIds = React.useMemo(
     () => Object.keys(rowSelection).filter((id) => rowSelection[id]),
@@ -264,6 +349,7 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
               priority={mobileFieldPriority}
               enableSelection={Boolean(bulkActionBar)}
               {...(onRowClick !== undefined ? { onRowClick } : {})}
+              {...(renderSubComponent !== undefined ? { renderSubComponent } : {})}
             />
           </div>
           <div className="hidden md:block">
@@ -271,6 +357,7 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
               <VirtualizedBody
                 table={table}
                 density={density}
+                frame={frame}
                 {...(viewportClassName !== undefined ? { viewportClassName } : {})}
                 {...(onRowClick !== undefined ? { onRowClick } : {})}
               />
@@ -278,7 +365,9 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
               <StandardBody
                 table={table}
                 density={density}
+                frame={frame}
                 {...(onRowClick !== undefined ? { onRowClick } : {})}
+                {...(renderSubComponent !== undefined ? { renderSubComponent } : {})}
               />
             )}
           </div>
@@ -369,35 +458,71 @@ function Toolbar<TData>({
 function StandardBody<TData>({
   table,
   density,
+  frame,
   onRowClick,
+  renderSubComponent,
 }: Readonly<{
   table: TanstackTable<TData>;
   density: Density;
+  frame: "card" | "none";
   onRowClick?: (row: TData) => void;
+  renderSubComponent?: (row: Row<TData>) => React.ReactNode;
 }>) {
+  // StandardBody composes the shadcn `<Table>` primitives so table theming
+  // lives in ONE file (`table.tsx`). Padding, hover tint, and selected-row
+  // treatment layer on via className overrides — `<TableRow>` already
+  // paints the base hover/selected styles; we upgrade hover to
+  // `surface/90` + a gold ring on selected to keep dense admin dashboards
+  // legible (the shadcn default `muted/50` is too subtle under warm-gold
+  // accents). The sticky-frost header lives on `<TableHeader>` — that is
+  // the sanctioned frost use site per `globals.css`.
+  //
+  // Per-column className passthrough via `meta.headerClassName` /
+  // `meta.cellClassName` lets callers shrink-wrap shrink-fit columns
+  // (badges, timestamps) using `w-0 whitespace-nowrap` while leaving
+  // textual columns fluid.
+  //
+  // Frame chrome is conditional: `frame="card"` (default, standalone use)
+  // wraps the table in the bordered card; `frame="none"` (used by
+  // `<FilterableDataTable>`) skips the wrapper because the parent
+  // organism owns the unified Premium Frame around toolbar + body +
+  // pagination.
+  //
+  // VirtualizedBody and CardListView intentionally do NOT use these
+  // primitives — a virtualized grid requires absolute-positioned
+  // `<div role="row">` (a real `<tbody>` can't host `transform:
+  // translateY(...)`), and card-list renders `<ul>/<li>`.
   const rowPadding =
     density === "compact" ? "px-3 py-1.5" : density === "spacious" ? "px-4 py-3" : "px-4 py-2";
+  const colSpan = table.getVisibleLeafColumns().length;
 
   return (
-    <div className="border-border-subtle bg-card overflow-x-auto rounded-xl border shadow-xs">
-      <table className="w-full border-collapse text-left text-sm">
-        {/* Sticky frost header — backdrop-blur variant of the warm canvas.
-            This IS the sanctioned "data-table header" frost use site per
-            globals.css. The composited bg is opaque enough to read clearly
-            even over a scrolled row set. */}
-        <thead className="sticky top-0 z-[1] bg-[color:var(--frost-bg-sm)] [backdrop-filter:var(--frost-blur-sm)]">
+    <div
+      data-slot="data-table-standard"
+      className={cn(
+        "overflow-x-auto",
+        frame === "card" ? "border-border-subtle bg-card rounded-xl border shadow-xs" : null,
+      )}
+    >
+      <Table className="border-collapse text-left">
+        <TableHeader className="sticky top-0 z-[1] bg-[color:var(--frost-bg-sm)] [backdrop-filter:var(--frost-blur-sm)]">
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="border-border-subtle border-b">
+            <TableRow
+              key={headerGroup.id}
+              className="border-border-subtle border-b hover:bg-transparent"
+            >
               {headerGroup.headers.map((header) => {
                 const canSort = header.column.getCanSort();
                 const sort = header.column.getIsSorted();
+                const headerClassName = header.column.columnDef.meta?.headerClassName;
                 return (
-                  <th
+                  <TableHead
                     key={header.id}
                     scope="col"
                     className={cn(
-                      "text-foreground-subtle text-[11px] font-medium tracking-wider whitespace-nowrap uppercase",
+                      "text-foreground-subtle h-auto text-[11px] font-medium tracking-wider uppercase",
                       rowPadding,
+                      headerClassName,
                     )}
                   >
                     {header.isPlaceholder ? null : canSort ? (
@@ -415,50 +540,87 @@ function StandardBody<TData>({
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </span>
                     )}
-                  </th>
+                  </TableHead>
                 );
               })}
-            </tr>
+            </TableRow>
           ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr
-              key={row.id}
-              data-state={row.getIsSelected() ? "selected" : undefined}
-              onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-              onKeyDown={
-                onRowClick
-                  ? (event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onRowClick(row.original);
-                      }
-                    }
-                  : undefined
-              }
-              tabIndex={onRowClick ? 0 : undefined}
-              role={onRowClick ? "button" : undefined}
-              // Hover tint bumped from 60% to 90% surface with a gold
-              // accent on selected rows — the selected state is the one
-              // the eye must lock onto in a dense dashboard.
-              className={cn(
-                "border-border-subtle border-b transition-colors duration-[var(--duration-micro)] last:border-b-0",
-                "hover:bg-surface/90 data-[state=selected]:bg-brand-primary/10 data-[state=selected]:ring-brand-primary/20 data-[state=selected]:ring-1 data-[state=selected]:ring-inset",
-                onRowClick
-                  ? "focus-visible:outline-ring cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
-                  : undefined,
-              )}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className={cn("text-foreground text-sm", rowPadding)}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.map((row) => {
+            const isExpanded = row.getIsExpanded();
+            // When `renderSubComponent` is set and the caller hasn't
+            // provided a whole-row click handler, the row itself becomes
+            // the expand-toggle affordance — saves every caller from
+            // wiring a chevron column + explicit click handler. Matches
+            // the same behavior in `CardListView` (mobile).
+            const rowActivate: (() => void) | undefined = onRowClick
+              ? () => onRowClick(row.original)
+              : renderSubComponent && row.getCanExpand()
+                ? () => row.toggleExpanded()
+                : undefined;
+            const interactive = Boolean(rowActivate);
+            return (
+              <React.Fragment key={row.id}>
+                <TableRow
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  data-expanded={isExpanded || undefined}
+                  onClick={rowActivate}
+                  onKeyDown={
+                    rowActivate
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            rowActivate();
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={interactive ? 0 : undefined}
+                  role={interactive ? "button" : undefined}
+                  aria-expanded={renderSubComponent ? isExpanded : undefined}
+                  className={cn(
+                    "border-border-subtle transition-colors duration-[var(--duration-micro)]",
+                    // Override the base `hover:bg-muted/50` from `table.tsx`
+                    // with a stronger `surface/90` + a brand-tinted selected
+                    // state. The ring-inset gives selected rows a 1px gold
+                    // outline that stays visible on hover.
+                    "hover:bg-surface/90 data-[state=selected]:bg-brand-primary/10 data-[state=selected]:ring-brand-primary/20 data-[state=selected]:ring-1 data-[state=selected]:ring-inset",
+                    // Expanded parent row drops its own bottom border so the
+                    // sub-row reads as one block visually.
+                    isExpanded ? "border-b-0" : null,
+                    interactive
+                      ? "focus-visible:outline-ring cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                      : undefined,
+                  )}
+                >
+                  {row.getVisibleCells().map((cell) => {
+                    const cellClassName = cell.column.columnDef.meta?.cellClassName;
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn("text-foreground text-sm", rowPadding, cellClassName)}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+                {renderSubComponent && isExpanded ? (
+                  <TableRow data-slot="data-table-sub-row" className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={colSpan}
+                      className="bg-surface/40 border-border-subtle border-b px-4 py-3 whitespace-normal"
+                    >
+                      {renderSubComponent(row)}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </React.Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -466,14 +628,20 @@ function StandardBody<TData>({
 function VirtualizedBody<TData>({
   table,
   density,
+  frame,
   viewportClassName,
   onRowClick,
 }: Readonly<{
   table: TanstackTable<TData>;
   density: Density;
+  frame: "card" | "none";
   viewportClassName?: string;
   onRowClick?: (row: TData) => void;
 }>) {
+  // Virtualized body uses ARIA-table-via-roles on `<div>` because absolute
+  // positioning + `transform: translateY(...)` cannot live inside a real
+  // `<table>`. Sub-rows are NOT supported here (see `renderSubComponent`
+  // JSDoc — virtualization is auto-disabled when a sub-component is set).
   const rows = table.getRowModel().rows;
   const parentRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -492,7 +660,13 @@ function VirtualizedBody<TData>({
     density === "compact" ? "px-3 py-1.5" : density === "spacious" ? "px-4 py-3" : "px-4 py-2";
 
   return (
-    <div className="border-border bg-card overflow-hidden rounded-lg border">
+    <div
+      data-slot="data-table-virtualized"
+      className={cn(
+        "overflow-hidden",
+        frame === "card" ? "border-border bg-card rounded-lg border" : null,
+      )}
+    >
       <div
         role="row"
         className="bg-surface border-border-subtle grid border-b"
@@ -505,6 +679,7 @@ function VirtualizedBody<TData>({
             className={cn(
               "text-foreground-subtle text-xs font-medium tracking-wider uppercase",
               rowPadding,
+              col.columnDef.meta?.headerClassName,
             )}
           >
             {flexRender(col.columnDef.header, {
@@ -555,7 +730,11 @@ function VirtualizedBody<TData>({
                   <div
                     key={cell.id}
                     role="cell"
-                    className={cn("text-foreground flex items-center text-sm", rowPadding)}
+                    className={cn(
+                      "text-foreground flex items-center text-sm",
+                      rowPadding,
+                      cell.column.columnDef.meta?.cellClassName,
+                    )}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </div>
@@ -574,38 +753,64 @@ function CardListView<TData>({
   priority,
   enableSelection,
   onRowClick,
+  renderSubComponent,
 }: Readonly<{
   table: TanstackTable<TData>;
   priority: readonly string[];
   enableSelection: boolean;
   onRowClick?: (row: TData) => void;
+  renderSubComponent?: (row: Row<TData>) => React.ReactNode;
 }>) {
+  // When `renderSubComponent` is set, every card is expandable. The whole
+  // card surface becomes tappable to toggle expansion (so users don't need
+  // to hunt for a chevron). When a caller-provided `onRowClick` is ALSO
+  // set, expansion wins — `onRowClick` is suppressed on expandable cards
+  // because two conflicting whole-card click handlers would be ambiguous.
+  // Interactive inner elements (links, buttons) should `stopPropagation`.
   return (
     <ul className="flex flex-col gap-2">
       {table.getRowModel().rows.map((row) => {
         const visibleCells = row.getVisibleCells();
         const cellsById = new Map(visibleCells.map((cell) => [cell.column.id, cell]));
+        const canExpand = Boolean(renderSubComponent) && row.getCanExpand();
+        const isExpanded = row.getIsExpanded();
+        const activate = canExpand
+          ? () => row.toggleExpanded()
+          : onRowClick
+            ? () => onRowClick(row.original)
+            : undefined;
+        const interactive = Boolean(activate);
+
         return (
           <li
             key={row.id}
             data-slot="data-table-card"
             data-state={row.getIsSelected() ? "selected" : undefined}
-            onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+            data-expanded={isExpanded || undefined}
+            onClick={activate}
             onKeyDown={
-              onRowClick
+              activate
                 ? (event) => {
+                    // Only toggle when the keydown originated on the
+                    // card itself — not on a descendant input/button.
+                    // Without this guard, typing a space inside the
+                    // expanded sub-component's textarea bubbles up,
+                    // collapses the card, and swallows the keystroke.
+                    if (event.target !== event.currentTarget) return;
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      onRowClick(row.original);
+                      activate();
                     }
                   }
                 : undefined
             }
-            tabIndex={onRowClick ? 0 : undefined}
-            role={onRowClick ? "button" : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            role={interactive ? "button" : undefined}
+            aria-expanded={canExpand ? isExpanded : undefined}
             className={cn(
               "border-border bg-card data-[state=selected]:border-brand-primary/60 data-[state=selected]:bg-brand-primary/5 flex flex-col gap-2 rounded-lg border p-3",
-              onRowClick
+              isExpanded ? "border-brand-primary/40" : null,
+              interactive
                 ? "active:bg-surface/60 focus-visible:outline-ring cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                 : undefined,
             )}
@@ -635,6 +840,15 @@ function CardListView<TData>({
                 </div>
               );
             })}
+            {renderSubComponent && isExpanded ? (
+              <div
+                data-slot="data-table-card-sub"
+                onClick={(event) => event.stopPropagation()}
+                className="border-border-subtle bg-surface/40 -mx-3 mt-1 -mb-3 border-t px-3 py-3"
+              >
+                {renderSubComponent(row)}
+              </div>
+            ) : null}
           </li>
         );
       })}

@@ -1,4 +1,10 @@
+import { nav as announcementsNav } from "@/features/announcements/nav";
 import { nav as attendanceNav } from "@/features/attendance/nav";
+import { nav as auditNav } from "@/features/audit/nav";
+import { nav as incidentsNav } from "@/features/incidents/nav";
+import { nav as reportsNav } from "@/features/reports/nav";
+import { nav as settingsNav } from "@/features/settings/nav";
+import { nav as staffingNav } from "@/features/staffing/nav";
 
 import type { FeatureNav } from "./types";
 
@@ -16,4 +22,12 @@ import type { FeatureNav } from "./types";
  * only when its feature folder lands a `nav.ts`. Unimplemented routes
  * never surface in the UI.
  */
-export const FEATURE_NAV: readonly FeatureNav[] = [attendanceNav] as const;
+export const FEATURE_NAV: readonly FeatureNav[] = [
+  attendanceNav,
+  announcementsNav,
+  auditNav,
+  incidentsNav,
+  reportsNav,
+  settingsNav,
+  staffingNav,
+] as const;

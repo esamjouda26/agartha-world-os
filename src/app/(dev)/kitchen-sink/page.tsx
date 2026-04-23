@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Sparkles, TrendingUp, Users, Wallet } from "lucide-react";
 
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -162,7 +161,6 @@ export default function KitchenSinkPage() {
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="outline">dev only</Badge>
-            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -267,23 +265,6 @@ export default function KitchenSinkPage() {
           description="sonner-driven. success / error / queued / info / warning."
         >
           <ToastsDemo />
-        </Section>
-
-        <Section
-          number="8"
-          title="Theme toggle"
-          description="Cookie-persisted via NEXT_THEME (next-themes storageKey). The header toggle drives every section."
-        >
-          <div className="border-border bg-card flex items-center gap-4 rounded-lg border p-4">
-            <ThemeToggle />
-            <div>
-              <p className="text-sm font-medium">Toggle light ⇄ dark</p>
-              <p className="text-foreground-muted text-sm">
-                Each press writes the NEXT_THEME cookie + flips the .dark class on &lt;html&gt;. No
-                flash on reload (next-themes inline script).
-              </p>
-            </div>
-          </div>
         </Section>
 
         <Section

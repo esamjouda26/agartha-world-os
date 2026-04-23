@@ -2780,14 +2780,14 @@ Shared `IncidentLogPage` component — see Section 6 for full expansion. Mainten
 
 ### 3h. Shared Management Routes
 
-| Route                       | Page Title       | Domain                                                                               | minAccess | Data Tables / RPCs                                              | WF Ref |
-| --------------------------- | ---------------- | ------------------------------------------------------------------------------------ | --------- | --------------------------------------------------------------- | ------ |
-| `/management/reports`       | Report Generator | `reports`                                                                            | `r`       | `reports`, `report_executions`, `generate-report` Edge Function | WF-18  |
-| `/management/audit`         | Domain Audit Log | `reports`                                                                            | `r`       | `system_audit_log` (filtered by domain — see below)             | —      |
-| `/management/announcements` | Announcements    | `comms`                                                                              | `r`       | `announcements`, `announcement_targets`, `announcement_reads`   | WF-16  |
-| `/management/attendance`    | Attendance       | `hr`                                                                                 | `c`       | Shared `AttendancePage` (see Cross-Portal Shared Components)    | WF-5   |
-| `/management/staffing`      | Today's Crew     | any of `hr:r`, `pos:r`, `procurement:r`, `inventory_ops:r`, `ops:r`, `maintenance:r` | `r`       | `shift_schedules`, `v_shift_attendance`, `profiles`, `roles`    | —      |
-| `/management/settings`      | Settings         | —                                                                                    | —         | `profiles` (own), `rpc_update_own_avatar`                       | —      |
+| Route                       | Page Title       | Domain                                       | minAccess | Data Tables / RPCs                                                                             | WF Ref |
+| --------------------------- | ---------------- | -------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------- | ------ |
+| `/management/reports`       | Report Generator | `reports`                                    | `r`       | `reports`, `report_executions`, `generate-report` Edge Function                                | WF-18  |
+| `/management/audit`         | Domain Audit Log | `reports`                                    | `r`       | `system_audit_log` (filtered by domain — see below)                                            | —      |
+| `/management/announcements` | Announcements    | `comms`                                      | `r`       | `announcements`, `announcement_targets`, `announcement_reads`                                  | WF-16  |
+| `/management/attendance`    | Attendance       | `hr`                                         | `c`       | Shared `AttendancePage` (see Cross-Portal Shared Components)                                   | WF-5   |
+| `/management/staffing`      | Active Staff     | `reports:r` (every manager + admin; no crew) | `r`       | `rpc_get_active_staff` (SECURITY DEFINER wrapping `v_shift_attendance` + `profiles` + `roles`) | —      |
+| `/management/settings`      | Settings         | —                                            | —         | `profiles` (own), `rpc_update_own_avatar`                                                      | —      |
 
 ### `/management/reports`
 
@@ -2807,40 +2807,39 @@ Shared `AttendancePage` component — see Section 6 for full expansion. Identica
 
 ### `/management/staffing`
 
-WHO: Any manager holding `r` access on at least one of: `hr`, `pos`, `procurement`, `inventory_ops`, `ops`, `maintenance`.
-PURPOSE: Today's crew view with domain filter — single consolidated route replacing the former per-domain staffing pages.
+WHO: Every manager + admin (`reports:r`). No crew.
+PURPOSE: Live "who's on the floor right now" view — all staff currently clocked in and not yet clocked out.
 WORKFLOW: —
 
 LAYOUT:
 
-- Summary header: "On-site: {clocked_in}/{scheduled}" | "Late: {n}" | "No-show: {n}"
-- Domain filter tabs (nuqs `?domain=all|hr|pos|procurement|inventory_ops|ops|maintenance`). Default: `all` for `hr:r` holders; otherwise first domain the user holds `r` on.
-- Tabs are filtered at render time to the domains the caller actually holds `r` on — managers never see domains they cannot read.
-- Card grid of crew members scheduled today, filtered by the selected domain's role set. Per card: display_name, employee_id, role display_name, shift window, attendance status — color-coded (green = clocked in, amber = late, red = absent/no-show, grey = not yet started).
+- KPI strip: On-site now · Distinct roles · Showing (after filters).
+- Filter bar: role picker (`<SearchableSelect>` over active-set roles) + name / employee-ID search + Clear-all.
+- Responsive card grid (1 / 2 / 3 / 4 cols). Per card: avatar + display_name + employee_id + org_unit + role badge + "on-site for {duration}" + shift-window label.
 
 COMPONENTS:
 
-- `StaffingDomainTabs` — renders only the domains the caller is authorized for
-- `TodaysCrewGrid` — card grid (reuses the existing shared component, now parameterised by the domain selected in URL)
+- `ActiveStaffGrid` — shared component (renamed from `TodaysCrewGrid` in Phase 5 so the label matches the data).
 
 DATA LOADING:
 
-- RSC fetches: `shift_schedules` WHERE shift_date = TODAY JOIN `v_shift_attendance` JOIN `profiles` JOIN `roles`, filtered by the selected domain's role set (single query — no N+1).
-- Dehydrated React Query; filter param via nuqs; tag `hr:staffing`.
+- RSC fetches: `rpc_get_active_staff()` — SECURITY DEFINER RPC that bypasses Tier-4 `hr:r` RLS on the underlying shift/punch tables after checking `reports:r` internally. Returns a flat join of `v_shift_attendance` (filtered to `derived_status = 'in_progress'`, `shift_date = CURRENT_DATE`) + `profiles` + `roles` + `org_units`. Single round-trip.
+- Pattern C per ADR-0007: route wrapper resolves `rows` and injects into `<ActiveStaffGrid>`. The shared component never reads the JWT.
+- Client-side filtering only — the active-staff set is bounded (typically <200 at peak); server-side filtering becomes worthwhile at 10× scale.
 
 INTERACTIONS:
 
 - No mutations — read-only view.
-- Domain tab change updates `?domain=` and triggers React Query refetch.
 
 DOMAIN GATING:
 
-- Requires `r` on at least one of `hr`, `pos`, `procurement`, `inventory_ops`, `ops`, `maintenance`. The tab picker enforces per-domain visibility; selecting a domain the caller lacks is blocked at middleware (Gate 5) and component level.
-- Rationale for consolidation: the three legacy routes (`/management/pos/staffing`, `/management/procurement/staffing`, `/management/hr/staffing`) rendered the same UI with different filters. Collapsing to one route with a URL-scoped filter removes 3 route folders, 3 sidebar entries, and 3 data-fetcher duplicates.
+- Gate-5: `reports:r`. This is the single domain every manager + admin role holds and no crew role holds (confirmed across `role_domain_permissions` seed at init_schema.sql:775-869), making it the cleanest "managers + admins only" discriminator without needing `access_level` or per-domain-OR logic.
+- Rationale for consolidation: the three legacy routes (`/management/pos/staffing`, `/management/procurement/staffing`, `/management/hr/staffing`) rendered the same UI with different filters. Collapsing to one route removes 3 route folders, 3 sidebar entries, and 3 data-fetcher duplicates.
+- Scope note: the original spec described per-domain tabs filtering today's full scheduled roster. Phase 5 simplified to "active staff right now" with role + name filters — a more useful live view for floor-running ops.
 
 TABLES TOUCHED:
 
-- SELECT: `shift_schedules`, `v_shift_attendance`, `profiles`, `roles`
+- SELECT (via `rpc_get_active_staff`): `v_shift_attendance`, `shift_schedules`, `staff_records`, `profiles`, `roles`, `org_units`.
 
 ### `/management/settings`
 
@@ -4040,41 +4039,41 @@ export default async function Page() {
 ### `SettingsPage`
 
 WHO: All authenticated staff (no domain gating)
-PURPOSE: Edit own profile information, avatar, and UI theme preference
+PURPOSE: View own profile (HR-governed fields are read-only), change avatar, toggle UI theme
 WORKFLOW: —
 
 LAYOUT:
 
-- Profile section: display_name (editable), email (read-only from `profiles.email`), employee_id (read-only)
-- Avatar section: current avatar, upload/change button
+- Profile section: display_name, email, employee_id — **all read-only**. HR-governed fields; the user contacts HR to change them (see `profiles_update` RLS gate on `hr:u` at [init_schema.sql:937-939](supabase/migrations/20260417064731_init_schema.sql#L937)).
+- Avatar section: current avatar + upload control (JPEG / PNG / WebP; 2 MB cap from `storage.buckets`).
 - Theme toggle: light/dark (persisted in localStorage), default: dark
 
 COMPONENTS:
 
-- `ProfileForm` — display_name edit
-- `AvatarUploader` — image upload + crop
-- `ThemeToggle` — light/dark switch
+- `SettingsForm` — profile card (read-only fields) + avatar uploader + theme toggle, all in one client leaf
+- `ThemeToggle` — reuses `@/components/shared/theme-toggle`
 
 DATA LOADING:
 
-- RSC fetches: `profiles` WHERE id = auth.uid() (own record only)
-- Direct props
+- RSC fetches: `profiles` WHERE id = auth.uid() (own record only) — wrapped with React `cache()` per ADR-0006
+- Pattern C: the route wrapper calls `resolveSettingsUser()` and injects the resolved `user` as an explicit prop
 
 INTERACTIONS:
 
-- Update display_name: Server Action → UPDATE `profiles` SET display_name → `revalidatePath`
-- Update avatar: upload to Supabase Storage → `rpc_update_own_avatar(p_avatar_url)` → UPDATE `profiles` SET avatar_url → `revalidatePath`
+- Update display_name: **NOT SUPPORTED.** HR-governed field; no self-service mutation. Any future change requires a new migration (either a `SECURITY DEFINER` RPC or a relaxed RLS policy) — never a raw `.update({ display_name })` from a Server Action.
+- Update avatar: upload to Supabase Storage (`avatars/{auth.uid()}/avatar.{ext}`) → `rpc_update_own_avatar(p_avatar_url)` (SECURITY DEFINER, bypasses the `hr:u` gate for this one column) → iterate `SETTINGS_ROUTER_PATHS` calling `revalidatePath(path, "page")`
 - Theme: client-side localStorage, no server mutation
 
 DOMAIN GATING:
 
-- None — all authenticated users can edit own profile
+- None — every authenticated staff member sees their own `/settings`. RLS (SELECT) + `rpc_update_own_avatar` (SECURITY DEFINER with `WHERE id = auth.uid()`) enforce identity server-side.
 
 TABLES TOUCHED:
 
 - SELECT: `profiles`
-- UPDATE: `profiles` (display_name, avatar_url via RPC)
+- UPDATE: `profiles` (avatar_url only, via `rpc_update_own_avatar`)
 - RPCs: `rpc_update_own_avatar(p_avatar_url)`
+- STORAGE: `avatars` bucket (`public=TRUE`, 2 MB, JPEG/PNG/WebP)
 
 ### `AnnouncementsPage`
 
@@ -4856,7 +4855,7 @@ Locale-segmented per i18n contract: actual paths are `src/app/[locale]/(admin)/l
 | `IncidentLogPage`   | `src/components/shared/incident-log-page.tsx`   |
 | `DomainReportsPage` | `src/components/shared/domain-reports-page.tsx` |
 | `DomainAuditTable`  | `src/components/shared/domain-audit-table.tsx`  |
-| `TodaysCrewGrid`    | `src/components/shared/todays-crew-grid.tsx`    |
+| `ActiveStaffGrid`   | `src/components/shared/active-staff-grid.tsx`   |
 | `LocationSelector`  | `src/components/shared/location-selector.tsx`   |
 
 ### Design System Primitives (`src/components/ui/` — FLAT, no subfolders, no `index.ts` barrel)
@@ -4882,21 +4881,20 @@ Locale-segmented per i18n contract: actual paths are `src/app/[locale]/(admin)/l
 
 Domain-specific hooks go to `src/features/<domain>/hooks/`, NOT `src/hooks/`.
 
-### `TodaysCrewGrid` (Reusable Domain Component)
+### `ActiveStaffGrid` (Reusable Domain Component)
 
-Used by the single consolidated `/management/staffing` route. Lives at `src/components/shared/todays-crew-grid.tsx`.
+Used by the single consolidated `/management/staffing` route. Lives at `src/components/shared/active-staff-grid.tsx`. Renamed from `TodaysCrewGrid` in Phase 5 so the label matches the data — it surfaces **staff currently on the floor** (clocked in, not yet clocked out), not a scheduled roster.
 
 Props:
 
-- `domainFilter: DomainKey | "all"` — resolved at render time from the `?domain=` nuqs URL param; component filters `shift_schedules` → `roles` by the selected domain's role set in a single JOIN (no per-row loop queries)
-- Data: `shift_schedules` WHERE shift_date = TODAY JOIN `v_shift_attendance` JOIN `profiles` JOIN `roles`, filtered by the domain's role set
-
-Layout unchanged from prior per-domain pages: summary header + color-coded crew card grid.
+- `rows: readonly ActiveStaffRow[]` — flat list resolved by the route wrapper via `rpc_get_active_staff()` (SECURITY DEFINER; checks `reports:r` internally, bypasses Tier-4 `hr:r` RLS on the underlying shift/punch tables).
+- Filtering is client-side over the injected prop (role picker + name / employee-ID search).
 
 Layout:
 
-- Summary header: "On-site: {clocked_in}/{scheduled}" | "Late: {n}" | "No-show: {n}"
-- Card grid: per card shows display_name, employee_id, role display_name, shift window, attendance status — color-coded (green = on time, amber = late with duration, red = absent/no-show, grey = not yet started)
+- KPI strip: On-site now · Distinct roles · Showing (after filters)
+- Filter bar: role picker (`<SearchableSelect>`) + name / employee-ID search + Clear-all.
+- Card grid (1 / 2 / 3 / 4 cols responsive) — per card: avatar + display_name + employee_id + org_unit + role badge + "on-site for" relative time + shift-window label.
 
 ### `LocationSelector` (Reusable Behavior Component)
 
@@ -5031,4 +5029,4 @@ src/features/[domain]/
 | `src/features/audit/`         | `*/audit`                                                                                                                      |
 | `src/features/announcements/` | `*/announcements`                                                                                                              |
 | `src/features/settings/`      | `*/settings`                                                                                                                   |
-| `src/features/staffing/`      | `*/staffing` (TodaysCrewGrid wrappers)                                                                                         |
+| `src/features/staffing/`      | `*/staffing` (ActiveStaffGrid wrappers)                                                                                        |
