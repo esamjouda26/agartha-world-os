@@ -1,7 +1,25 @@
 import { rbac as announcementsRbac } from "@/features/announcements/rbac";
 import { rbac as attendanceRbac } from "@/features/attendance/rbac";
+import { rbac as bookingRbac } from "@/features/booking/rbac";
+import { rbac as businessRbac } from "@/features/business/rbac";
+import { rbac as costsRbac } from "@/features/costs/rbac";
+import { rbac as guestsRbac } from "@/features/guests/rbac";
+import { rbac as workforceRbac } from "@/features/workforce/rbac";
+import { rbac as zonesRbac } from "@/features/zones/rbac";
+import { rbac as orgUnitsRbac } from "@/features/org-units/rbac";
+import { rbac as permissionsRbac } from "@/features/permissions/rbac";
+import { rbac as unitsRbac } from "@/features/units/rbac";
 import { rbac as auditRbac } from "@/features/audit/rbac";
+import { rbac as hrRbac } from "@/features/hr/rbac";
+import { rbac as inventoryRbac } from "@/features/inventory/rbac";
+import { rbac as maintenanceRbac } from "@/features/maintenance/rbac";
+import { rbac as marketingRbac } from "@/features/marketing/rbac";
+import { rbac as operationsRbac } from "@/features/operations/rbac";
+import { rbac as procurementRbac } from "@/features/procurement/rbac";
+import { rbac as iamRbac } from "@/features/iam/rbac";
 import { rbac as incidentsRbac } from "@/features/incidents/rbac";
+import { rbac as itRbac } from "@/features/it/rbac";
+import { rbac as posRbac } from "@/features/pos/rbac";
 import { rbac as reportsRbac } from "@/features/reports/rbac";
 import { rbac as staffingRbac } from "@/features/staffing/rbac";
 
@@ -36,9 +54,27 @@ const FEATURE_RBAC = [
   attendanceRbac,
   announcementsRbac,
   auditRbac,
+  bookingRbac,
+  businessRbac,
+  costsRbac,
+  guestsRbac,
+  hrRbac,
+  iamRbac,
   incidentsRbac,
+  inventoryRbac,
+  maintenanceRbac,
+  marketingRbac,
+  operationsRbac,
+  itRbac,
+  posRbac,
+  procurementRbac,
   reportsRbac,
   staffingRbac,
+  workforceRbac,
+  zonesRbac,
+  orgUnitsRbac,
+  permissionsRbac,
+  unitsRbac,
 ] as const;
 
 /**

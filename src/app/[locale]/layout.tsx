@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
+import { getMessages, setRequestLocale } from "next-intl/server";
 
 import { routing, type AppLocale } from "@/i18n/routing";
 
@@ -19,5 +19,9 @@ export default async function LocaleLayout({
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale as AppLocale);
 
-  return <NextIntlClientProvider>{children}</NextIntlClientProvider>;
+  // Pass messages so client components using useTranslations() have
+  // translations available during SSR (required by next-intl v3+).
+  const messages = await getMessages();
+
+  return <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>;
 }

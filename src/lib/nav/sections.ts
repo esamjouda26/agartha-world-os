@@ -12,6 +12,7 @@ import type { NavSectionSpec, FeatureNavItem } from "./types";
 export const NAV_SECTIONS: readonly NavSectionSpec[] = [
   // ── Admin ──
   { portal: "admin", id: "it", labelKey: "nav.admin.it", label: "IT", order: 10 },
+  { portal: "admin", id: "system", labelKey: "nav.admin.system", label: "System", order: 15 },
   { portal: "admin", id: "business", labelKey: "nav.admin.business", label: "Business", order: 20 },
   { portal: "admin", id: "shared", labelKey: "nav.admin.shared", label: "Shared", order: 90 },
 
