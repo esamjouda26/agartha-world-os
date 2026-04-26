@@ -47,9 +47,9 @@ const FORM_ERROR_COPY: Partial<Record<ErrorCode, { title: string; description: s
       "Please wait a minute before trying again. If you're locked out, contact HR or your manager.",
   },
   FORBIDDEN: {
-    title: "Account inactive",
+    title: "Account locked",
     description:
-      "Your account isn't permitted to sign in from this device. Contact HR if you believe this is an error.",
+      "Your account has been suspended or terminated. Contact HR or your manager for assistance.",
   },
   INTERNAL: {
     title: "Something went wrong",
@@ -97,6 +97,27 @@ export function LoginForm({ nextPath }: Readonly<{ nextPath?: string }>) {
       }
       return;
     }
+    // New staff must set their password before accessing the portal
+    if (!result.data.passwordSet) {
+      router.replace(`/${locale}/auth/set-password` as never);
+      router.refresh();
+      return;
+    }
+
+    // Gate on employment_status per WF-0
+    const statusRoute: Record<string, string> = {
+      pending: "/auth/not-started",
+      on_leave: "/auth/on-leave",
+      suspended: "/auth/access-revoked",
+      terminated: "/auth/access-revoked",
+    };
+    const statusRedirect = statusRoute[result.data.employmentStatus];
+    if (statusRedirect) {
+      router.replace(`/${locale}${statusRedirect}` as never);
+      router.refresh();
+      return;
+    }
+
     const target =
       nextPath && nextPath.startsWith("/")
         ? nextPath
@@ -135,6 +156,9 @@ export function LoginForm({ nextPath }: Readonly<{ nextPath?: string }>) {
                     type="email"
                     autoComplete="email"
                     inputMode="email"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
                     placeholder={t("emailPlaceholder")}
                     className="pl-9"
                     data-testid="login-email"

@@ -32,7 +32,12 @@ function pickLimiter(email: string) {
   return testLimiter;
 }
 
-type LoginData = Readonly<{ accessLevel: "admin" | "manager" | "crew" | null }>;
+type EmploymentStatus = "active" | "pending" | "on_leave" | "suspended" | "terminated";
+type LoginData = Readonly<{
+  accessLevel: "admin" | "manager" | "crew" | null;
+  passwordSet: boolean;
+  employmentStatus: EmploymentStatus;
+}>;
 
 async function clientKey(email: string): Promise<string> {
   const hdr = await headers();
@@ -69,6 +74,14 @@ export async function loginAction(input: LoginInput): Promise<ServerActionResult
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.session) {
     log.info({ email, err: error?.message }, "login failed");
+
+    // Supabase Auth returns a specific error when the user is banned
+    // (i.e. suspended/terminated via admin_lock_account).
+    const isBanned = error?.message?.toLowerCase().includes("banned");
+    if (isBanned) {
+      return fail("FORBIDDEN");
+    }
+
     // Do NOT attribute the error to a specific field. Marking the email
     // field red implies the email was the problem, when in reality
     // either input could be — and leaking which one narrows an
@@ -81,6 +94,18 @@ export async function loginAction(input: LoginInput): Promise<ServerActionResult
     (data.session.user.app_metadata as { access_level?: LoginData["accessLevel"] } | undefined)
       ?.access_level ?? null;
 
-  log.info({ userId: data.session.user.id, accessLevel }, "login ok");
-  return ok({ accessLevel });
+  // Check profile status flags (new provisioned staff, employment gate)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("password_set, employment_status")
+    .eq("id", data.session.user.id)
+    .maybeSingle();
+  const passwordSet = profile?.password_set !== false; // null or true → treated as set
+  const employmentStatus = (profile?.employment_status ?? "active") as EmploymentStatus;
+
+  log.info(
+    { userId: data.session.user.id, accessLevel, passwordSet, employmentStatus },
+    "login ok",
+  );
+  return ok({ accessLevel, passwordSet, employmentStatus });
 }
