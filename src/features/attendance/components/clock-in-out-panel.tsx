@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { motion, slideUp, usePrefersReducedMotion, motionOrStill } from "@/lib/motion";
 import type { TodayShift } from "@/features/attendance/types";
@@ -79,7 +79,7 @@ export function ClockInOutPanel({ shift, todayIso, selectedDateIso }: Props) {
           onClockOut={() => setDialogKind("clock-out")}
         />
       ) : (
-        <EmptyState
+        <EmptyStateCta
           variant="first-use"
           title={isTodayView ? "You're not scheduled today" : "No shift on this date"}
           description={

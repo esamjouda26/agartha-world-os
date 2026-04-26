@@ -9,18 +9,14 @@ import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { HR_ROUTER_PATHS } from "@/features/hr/cache-tags";
 import { ATTENDANCE_ROUTER_PATHS } from "@/features/attendance/cache-tags";
-import {
-  CLARIFICATION_RATE_LIMIT_TOKENS,
-  CLARIFICATION_RATE_LIMIT_WINDOW,
-} from "@/features/attendance/constants";
-import { rejectClarificationSchema } from "@/features/attendance/schemas/clock";
-import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
+import { rejectClarificationSchema } from "@/features/hr/schemas/attendance-management";
 
 const limiter = createRateLimiter({
-  tokens: CLARIFICATION_RATE_LIMIT_TOKENS,
-  window: CLARIFICATION_RATE_LIMIT_WINDOW,
-  prefix: "attendance-clarification-reject",
+  tokens: 10,
+  window: "1 m",
+  prefix: "hr-clarification-reject",
 });
 
 /**
@@ -28,8 +24,8 @@ const limiter = createRateLimiter({
  * `hr_note`. Staff may resubmit via `submitClarificationAction`, which
  * flips the row back to `pending_review`.
  *
- * Wraps `rpc_reject_exception_clarification`. Intended consumer:
- * `/management/hr/attendance/queue` row action (Phase 7).
+ * Wraps `rpc_reject_exception_clarification`. Consumer:
+ * `/management/hr/attendance/queue`
  */
 export async function rejectClarificationAction(
   input: unknown,
@@ -61,17 +57,18 @@ export async function rejectClarificationAction(
   });
 
   if (error) {
-    const mapped = mapClockRpcError(error.message);
-    return fail(mapped.code);
+    if (error.message.includes("EXCEPTION_NOT_FOUND")) return fail("NOT_FOUND");
+    if (error.message.includes("FORBIDDEN")) return fail("FORBIDDEN");
+    if (error.message.includes("STALE_JWT")) return fail("DEPENDENCY_FAILED");
+    return fail("INTERNAL");
   }
 
-  for (const path of ATTENDANCE_ROUTER_PATHS) {
-    revalidatePath(path, "page");
-  }
+  for (const path of HR_ROUTER_PATHS) revalidatePath(path, "page");
+  for (const path of ATTENDANCE_ROUTER_PATHS) revalidatePath(path, "page");
 
   after(async () => {
     const log = loggerWith({
-      feature: "attendance",
+      feature: "hr",
       event: "reject_clarification",
       user_id: user.id,
     });

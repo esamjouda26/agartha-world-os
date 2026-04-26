@@ -2,7 +2,7 @@ import "server-only";
 
 import { format } from "date-fns";
 
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { PageHeader } from "@/components/ui/page-header";
 import { isValidIsoDate, monthStartIsoLocal, parseIsoDateLocal, todayIsoLocal } from "@/lib/date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -144,7 +144,7 @@ export function StaffRecordNotLinkedEmptyState() {
         description="Clock in, review exceptions, and check your monthly stats."
         data-testid="attendance-page-header"
       />
-      <EmptyState
+      <EmptyStateCta
         variant="first-use"
         title="Staff record not linked"
         description="Your profile isn't linked to an employee record yet. Contact HR so your shifts, clock actions, and exceptions can appear here."

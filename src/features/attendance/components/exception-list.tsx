@@ -20,7 +20,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { PaginationBar } from "@/components/ui/pagination-bar";
@@ -415,7 +415,7 @@ export function ExceptionList({ rows, staffRecordId }: Props) {
 
   if (rows.length === 0) {
     return (
-      <EmptyState
+      <EmptyStateCta
         variant="first-use"
         title="No exceptions on record"
         description="Any late arrivals, early departures, or absences will appear here automatically."

@@ -1,0 +1,110 @@
+import type { FeatureNav } from "@/lib/nav/types";
+
+/**
+ * Nav declarations for the HR feature — ADR-0004.
+ *
+ * Only top-level sidebar items live here. Sub-routes
+ * (`/management/hr/[id]`, `/management/hr/shifts`, etc.) are
+ * reachable via in-page navigation, not sidebar items.
+ */
+export const nav: FeatureNav = {
+  featureId: "hr",
+  items: [
+    {
+      id: "management-hr",
+      portal: "management",
+      path: "/management/hr",
+      section: "domains",
+      order: 100,
+      iconName: "Users",
+      labelKey: "nav.mgmt.hr",
+      label: "HR",
+      requires: { domain: "hr", access: "c" },
+    },
+    {
+      id: "management-hr-shifts",
+      portal: "management",
+      path: "/management/hr/shifts",
+      section: "domains",
+      order: 100,
+      iconName: "CalendarClock",
+      labelKey: "nav.mgmt.hr.shifts",
+      label: "Shift Scheduling",
+      requires: { domain: "hr", access: "r" },
+    },
+    {
+      id: "management-hr-ledger",
+      portal: "management",
+      path: "/management/hr/attendance/ledger",
+      section: "domains",
+      order: 100,
+      iconName: "CalendarCheck",
+      labelKey: "nav.mgmt.hr.ledger",
+      label: "Attendance Ledger",
+      requires: { domain: "hr", access: "r" },
+    },
+    {
+      id: "management-hr-leaves",
+      portal: "management",
+      path: "/management/hr/attendance/leaves",
+      section: "domains",
+      order: 100,
+      iconName: "ClipboardList",
+      labelKey: "nav.mgmt.hr.leaves",
+      label: "Leave Management",
+      requires: { domain: "hr", access: "r" },
+    },
+    {
+      id: "management-hr-queue",
+      portal: "management",
+      path: "/management/hr/attendance/queue",
+      section: "domains",
+      order: 100,
+      iconName: "Inbox",
+      labelKey: "nav.mgmt.hr.queue",
+      label: "Discrepancy Queue",
+      requires: { domain: "hr", access: "r" },
+    },
+    {
+      id: "crew-schedule",
+      portal: "crew",
+      path: "/crew/schedule",
+      section: "shared",
+      order: 100,
+      iconName: "CalendarDays",
+      labelKey: "nav.crew.schedule",
+      label: "Schedule",
+      requires: { domain: "hr", access: "r" },
+    },
+    {
+      id: "admin-leave",
+      portal: "admin",
+      path: "/admin/leave",
+      section: "shared",
+      order: 100,
+      iconName: "Calendar",
+      labelKey: "nav.admin.leave",
+      label: "Leave",
+    },
+    {
+      id: "mgmt-leave",
+      portal: "management",
+      path: "/management/leave",
+      section: "shared",
+      order: 100,
+      iconName: "Calendar",
+      labelKey: "nav.mgmt.leave",
+      label: "Leave",
+    },
+    {
+      id: "crew-leave",
+      portal: "crew",
+      path: "/crew/leave",
+      section: "shared",
+      order: 100,
+      iconName: "Calendar",
+      labelKey: "nav.crew.leave",
+      label: "Leave",
+    },
+  ],
+} as const;

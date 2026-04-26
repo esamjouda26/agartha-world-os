@@ -1,18 +1,14 @@
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Link } from "@/i18n/navigation";
+import type { Route } from "next";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 
 export default function CrewAttendanceNotFound() {
   return (
-    <EmptyState
+    <EmptyStateCta
       variant="first-use"
       title="Attendance record not found"
       description="The attendance entry you're looking for is unavailable. Return to the attendance home and pick today's shift."
-      action={
-        <Button asChild>
-          <Link href="/crew/attendance">Back to Attendance</Link>
-        </Button>
-      }
+      ctaLabel="Back to Attendance"
+      href={"/crew/attendance" as Route}
       data-testid="attendance-not-found"
     />
   );

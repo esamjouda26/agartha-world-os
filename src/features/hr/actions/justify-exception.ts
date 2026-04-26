@@ -9,18 +9,14 @@ import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { HR_ROUTER_PATHS } from "@/features/hr/cache-tags";
 import { ATTENDANCE_ROUTER_PATHS } from "@/features/attendance/cache-tags";
-import {
-  CLARIFICATION_RATE_LIMIT_TOKENS,
-  CLARIFICATION_RATE_LIMIT_WINDOW,
-} from "@/features/attendance/constants";
-import { justifyExceptionSchema } from "@/features/attendance/schemas/clock";
-import { mapClockRpcError } from "@/features/attendance/utils/error-mapping";
+import { justifyExceptionSchema } from "@/features/hr/schemas/attendance-management";
 
 const limiter = createRateLimiter({
-  tokens: CLARIFICATION_RATE_LIMIT_TOKENS,
-  window: CLARIFICATION_RATE_LIMIT_WINDOW,
-  prefix: "attendance-exception-justify",
+  tokens: 10,
+  window: "1 m",
+  prefix: "hr-exception-justify",
 });
 
 /**
@@ -29,9 +25,8 @@ const limiter = createRateLimiter({
  * from `pending_review` (invoked from the queue in response to a
  * staff submission). `hr_note` stores the justification.
  *
- * Wraps `rpc_justify_exception`. Intended consumers:
+ * Wraps `rpc_justify_exception`. Consumers:
  * `/management/hr/attendance/queue` + `/management/hr/attendance/ledger`
- * row actions (Phase 7).
  */
 export async function justifyExceptionAction(
   input: unknown,
@@ -63,17 +58,18 @@ export async function justifyExceptionAction(
   });
 
   if (error) {
-    const mapped = mapClockRpcError(error.message);
-    return fail(mapped.code);
+    if (error.message.includes("EXCEPTION_NOT_FOUND")) return fail("NOT_FOUND");
+    if (error.message.includes("FORBIDDEN")) return fail("FORBIDDEN");
+    if (error.message.includes("STALE_JWT")) return fail("DEPENDENCY_FAILED");
+    return fail("INTERNAL");
   }
 
-  for (const path of ATTENDANCE_ROUTER_PATHS) {
-    revalidatePath(path, "page");
-  }
+  for (const path of HR_ROUTER_PATHS) revalidatePath(path, "page");
+  for (const path of ATTENDANCE_ROUTER_PATHS) revalidatePath(path, "page");
 
   after(async () => {
     const log = loggerWith({
-      feature: "attendance",
+      feature: "hr",
       event: "justify_exception",
       user_id: user.id,
     });

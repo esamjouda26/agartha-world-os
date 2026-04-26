@@ -155,7 +155,7 @@ describe("attendance Server Actions — cache-invalidation contract (ADR-0006)",
 
   it("rejectClarificationAction invalidates the attendance router paths surgically", async () => {
     const { rejectClarificationAction } =
-      await import("@/features/attendance/actions/reject-clarification");
+      await import("@/features/hr/actions/reject-clarification");
     const result = await rejectClarificationAction({
       exceptionId: "00000000-0000-4000-8000-0000000000a2",
       reason: "Documentation insufficient — please attach MC.",
@@ -165,8 +165,7 @@ describe("attendance Server Actions — cache-invalidation contract (ADR-0006)",
   });
 
   it("justifyExceptionAction invalidates the attendance router paths surgically", async () => {
-    const { justifyExceptionAction } =
-      await import("@/features/attendance/actions/justify-exception");
+    const { justifyExceptionAction } = await import("@/features/hr/actions/justify-exception");
     const result = await justifyExceptionAction({
       exceptionId: "00000000-0000-4000-8000-0000000000a3",
       reason: "Medical certificate verified.",
