@@ -5480,6 +5480,17 @@ export type Database = {
           staff_record_id: string
         }[]
       }
+      rpc_get_maintenance_sponsors: {
+        Args: never
+        Returns: {
+          staff_record_id: string
+          profile_id: string
+          display_name: string
+          employee_id: string
+          role_display_name: string
+          org_unit_name: string
+        }[]
+      }
       rpc_get_available_slots: {
         Args: {
           p_date: string

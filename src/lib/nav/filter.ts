@@ -60,7 +60,14 @@ function meetsRequires(
   domains: Record<string, readonly string[]> | undefined,
 ): boolean {
   if (!item.requires) return true; // always-visible shared items
-  return holdsDomain(domains, item.requires.domain, item.requires.access);
+  if (holdsDomain(domains, item.requires.domain, item.requires.access)) {
+    return true;
+  }
+  // Cross-domain surfaces: pass when the user holds any alternate.
+  return (
+    item.requires.additionalDomains?.some((alt) => holdsDomain(domains, alt.domain, alt.access)) ??
+    false
+  );
 }
 
 function isExcludedByAccessLevel(item: FeatureNavItem, accessLevel: AccessLevel): boolean {

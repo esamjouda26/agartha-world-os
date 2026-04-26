@@ -29,8 +29,17 @@ export type FeatureNavItem = Readonly<{
   /**
    * Domain + access required to see this item. Omit for always-visible
    * shared routes (Settings, Attendance, etc.).
+   *
+   * `additionalDomains` (optional) widens visibility — the item shows when
+   * the user holds the primary `{domain, access}` OR any listed alternate.
+   * Used for cross-domain surfaces (e.g. material categories shared by
+   * `procurement` and `pos`).
    */
-  requires?: Readonly<{ domain: string; access: DomainAccess }>;
+  requires?: Readonly<{
+    domain: string;
+    access: DomainAccess;
+    additionalDomains?: ReadonlyArray<{ domain: string; access: DomainAccess }>;
+  }>;
   /**
    * Hide the item when the user's `access_level` is in this list. Used
    * for the IT-admin vs Business-admin persona split.

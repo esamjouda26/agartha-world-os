@@ -53,6 +53,13 @@ export function brandLocaleStripped(value: string): LocaleStrippedPath {
  *
  * `pattern` MUST use URLPattern pathname syntax — not regex. Supported
  * tokens: `:id`, `:id?`, `/*`, `{/*}?`. Compiled once at module load.
+ *
+ * `additionalDomains` (optional) widens Gate 5 to pass when the JWT
+ * carries the requested access on EITHER the primary `{domain, access}`
+ * OR any of the listed alternates. Used for surfaces that are shared
+ * between two domains at the same access tier (e.g. material categories
+ * are co-owned by `procurement` and `pos`). The RLS-parity CI gate
+ * accepts a match against any listed domain.
  */
 export type RouteRequirement = Readonly<{
   pattern: string;
@@ -60,11 +67,16 @@ export type RouteRequirement = Readonly<{
   access: DomainAccess;
   /**
    * Primary table(s) whose RLS policies must mirror this route's
-   * `{domain, access}`. An empty array means the feature's access is
-   * enforced via `SECURITY DEFINER` RPCs only — justify that choice in
-   * the feature's JSDoc.
+   * `{domain, access}` (or any `additionalDomains` entry). An empty array
+   * means the feature's access is enforced via `SECURITY DEFINER` RPCs
+   * only — justify that choice in the feature's JSDoc.
    */
   primaryTables: readonly string[];
+  /**
+   * Optional OR-list. When present, Gate 5 passes if the JWT satisfies
+   * EITHER `{domain, access}` OR any `{domain, access}` here.
+   */
+  additionalDomains?: readonly { domain: DomainCode; access: DomainAccess }[];
   /** Reserved for Gate 6 (MFA) reintroduction — see ADR-0002. */
   mfaRequired?: boolean;
 }>;

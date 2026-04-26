@@ -71,8 +71,20 @@ export function ResponsivePortalShell({
   const overflowItems = hasOverflow ? flatItems.slice(visibleCount) : [];
 
   const isActive = React.useCallback(
-    (href: string) => pathname === href || pathname.startsWith(`${href}/`),
-    [pathname],
+    (href: string) => {
+      if (pathname === href) return true;
+      if (!pathname.startsWith(`${href}/`)) return false;
+      // Suppress parent highlight when a more-specific sibling is active.
+      // e.g. /management/hr should NOT highlight when /management/hr/shifts is current.
+      const hasDeeperMatch = flatItems.some(
+        (other) =>
+          other.href !== href &&
+          other.href.startsWith(`${href}/`) &&
+          pathname.startsWith(other.href),
+      );
+      return !hasDeeperMatch;
+    },
+    [pathname, flatItems],
   );
 
   const labelFor = React.useCallback(

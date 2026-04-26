@@ -202,9 +202,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   if (!isSharedBypass(pathWithoutLocale)) {
     const requirement = resolveRouteRequirement(pathWithoutLocale);
     if (requirement) {
-      const { domain, access } = requirement;
-      const ok = hasDomainAccess(appMetadata.domains, domain, access as DomainAccess);
-      if (!ok) {
+      const { domain, access, additionalDomains } = requirement;
+      const primaryOk = hasDomainAccess(appMetadata.domains, domain, access as DomainAccess);
+      const alternateOk =
+        !primaryOk && additionalDomains
+          ? additionalDomains.some((alt) =>
+              hasDomainAccess(appMetadata.domains, alt.domain, alt.access),
+            )
+          : false;
+      if (!primaryOk && !alternateOk) {
         // 403 redirect to portal landing with flash toast hint per §7.
         const landing = portalRootForAccessLevel(accessLevel);
         return redirectTo(request, locale, landing, { denied: `${domain}:${access}` });

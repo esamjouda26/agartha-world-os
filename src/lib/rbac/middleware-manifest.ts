@@ -139,6 +139,7 @@ export const SHARED_BYPASS_PREFIXES: readonly string[] = [
   // /admin/audit   — Gate 5 (reports:r) via audit/rbac.ts
   // /admin/announcements — Gate 5 (comms:c) via announcements/rbac.ts
   "/admin/attendance",
+  "/admin/leave",
   "/admin/settings",
   // ── Management ──
   // /management/reports — Gate 5 (reports:r) via reports/rbac.ts
@@ -146,6 +147,7 @@ export const SHARED_BYPASS_PREFIXES: readonly string[] = [
   // /management/announcements — Gate 5 (comms:c) via announcements/rbac.ts
   // /management/staffing — Gate 5 (reports:r) via staffing/rbac.ts
   "/management/attendance",
+  "/management/leave",
   "/management/settings",
   // ── Crew ──
   "/crew/attendance",

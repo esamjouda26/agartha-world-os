@@ -55,6 +55,14 @@ export type StatusTabBarProps = Readonly<{
    *   `natural`  — tabs size to their content (desktop default)
    */
   fill?: "stretch" | "natural";
+  /**
+   * URL-update mode. Default `true` (client-only update) is correct for
+   * section navigators where each panel filters already-loaded data
+   * client-side. Set `false` for tab bars that gate server-side queries
+   * (e.g., status filter with cursor pagination per status) so each click
+   * triggers an RSC refetch with the new searchParams.
+   */
+  shallow?: boolean;
   className?: string;
   "data-testid"?: string;
   onValueChange?: (value: string) => void;
@@ -77,6 +85,7 @@ export function StatusTabBar({
   panelIdPrefix,
   size = "comfortable",
   fill = "stretch",
+  shallow = true,
   className,
   "data-testid": testId,
   onValueChange,
@@ -84,7 +93,9 @@ export function StatusTabBar({
   const fallback = defaultValue ?? tabs[0]?.value ?? "";
   const [active, setActive] = useQueryState(
     paramKey,
-    parseAsString.withDefault(fallback).withOptions({ clearOnDefault: true, history: "replace" }),
+    parseAsString
+      .withDefault(fallback)
+      .withOptions({ clearOnDefault: true, history: "replace", shallow }),
   );
   const reduced = usePrefersReducedMotion();
 

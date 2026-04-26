@@ -7,6 +7,7 @@ import { ShellWithPalette } from "@/components/shared/shell-with-palette";
 import { listVisibleAnnouncements } from "@/features/announcements/queries/list-visible";
 import { resolveUnreadAnnouncementCount } from "@/features/announcements/queries/unread-count";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { gateEmploymentStatus } from "@/lib/auth/gate-employment-status";
 import { filterNavForUser } from "@/lib/nav/filter";
 import type { AccessLevel } from "@/lib/rbac/types";
 
@@ -23,6 +24,7 @@ export default async function CrewLayout({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect(`/${locale}/auth/login`);
+  await gateEmploymentStatus(user.id, locale);
 
   const appMetadata = (user.app_metadata ?? {}) as {
     access_level?: AccessLevel;

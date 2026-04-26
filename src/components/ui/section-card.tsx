@@ -16,7 +16,8 @@ import { Card, CardContent, type CardProps } from "@/components/ui/card";
  */
 
 type SectionCardOwnProps = Readonly<{
-  title: React.ReactNode;
+  /** Required when headless is false (default). Ignored when headless. */
+  title?: React.ReactNode;
   description?: React.ReactNode;
   /** Right-aligned slot next to the title (button, link, toggle). */
   action?: React.ReactNode;

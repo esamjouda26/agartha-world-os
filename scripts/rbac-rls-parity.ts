@@ -114,10 +114,19 @@ function main(): void {
         );
         continue;
       }
-      const hasMatch = tablePolicies.some((p) => policyMatchesDomain(p, req.domain, req.access));
+      const candidates: ReadonlyArray<{ domain: string; access: "c" | "r" | "u" | "d" }> = [
+        { domain: req.domain, access: req.access },
+        ...(req.additionalDomains ?? []),
+      ];
+      const hasMatch = candidates.some((cand) =>
+        tablePolicies.some((p) => policyMatchesDomain(p, cand.domain, cand.access)),
+      );
       if (!hasMatch) {
+        const candList = candidates
+          .map((c) => `domains->'${c.domain}' ? '${c.access}'`)
+          .join(" OR ");
         mismatches.push(
-          `  DRIFT  ${featureId} · ${patternSource}: table "${table}" has no policy matching domains->'${req.domain}' ? '${req.access}' for ${ACCESS_TO_SQL_CMD[req.access]}`,
+          `  DRIFT  ${featureId} · ${patternSource}: table "${table}" has no policy matching ${candList} for ${ACCESS_TO_SQL_CMD[req.access]}`,
         );
       }
     }

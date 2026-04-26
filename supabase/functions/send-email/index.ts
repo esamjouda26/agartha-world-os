@@ -28,6 +28,8 @@ interface StaffInviteRequest {
   staff_record_id: string;
   work_email: string;
   role_id: string;
+  display_name: string;
+  employee_id: string;
   iam_request_id?: string;
 }
 
@@ -131,7 +133,7 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
-  const senderEmail = Deno.env.get("SENDER_EMAIL") ?? "AgarthaOS <noreply@agartha.com>";
+  const senderEmail = Deno.env.get("SENDER_EMAIL") ?? "AgarthaOS <onboarding@resend.dev>";
   const appUrl = Deno.env.get("APP_URL") ?? "https://app.agartha.com";
 
   if (!resendApiKey) {
@@ -226,33 +228,36 @@ Deno.serve(async (req: Request) => {
   // ── Flow 2: Staff Invite ─────────────────────────────────────────────────
 
   if (body.type === "staff_invite") {
-    const { staff_record_id, work_email, role_id, iam_request_id } = body;
+    const { staff_record_id, work_email, role_id, display_name, employee_id, iam_request_id } = body;
 
-    if (!staff_record_id || !work_email || !role_id) {
+    if (!staff_record_id || !work_email || !role_id || !display_name || !employee_id) {
       return jsonResponse(
-        { error: "staff_record_id, work_email, and role_id are required" },
+        { error: "staff_record_id, work_email, role_id, display_name, and employee_id are required" },
         400
       );
     }
 
     // Authorization: caller must have system:d (admin-only gate per R21)
+    // Skip auth check if the caller is the service role (trusted server-side call)
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user: caller } } = await admin.auth.getUser(token);
-      if (!caller) {
-        return jsonResponse({ error: "Invalid token" }, 401);
-      }
-      const domains = caller.app_metadata?.domains as Record<string, string[]> | undefined;
-      if (!domains?.system?.includes("d")) {
-        return jsonResponse({ error: "Forbidden: system:d domain required" }, 403);
+      if (token !== serviceKey) {
+        const { data: { user: caller } } = await admin.auth.getUser(token);
+        if (!caller) {
+          return jsonResponse({ error: "Invalid token" }, 401);
+        }
+        const domains = caller.app_metadata?.domains as Record<string, string[]> | undefined;
+        if (!domains?.system?.includes("d")) {
+          return jsonResponse({ error: "Forbidden: system:d domain required" }, 403);
+        }
       }
     }
 
-    // Fetch staff record for personal_email and legal_name
+    // Fetch staff record for personal_email (recipient of the invite)
     const { data: staffRecord, error: srErr } = await admin
       .from("staff_records")
-      .select("personal_email, legal_name")
+      .select("personal_email")
       .eq("id", staff_record_id)
       .single();
 
@@ -270,7 +275,7 @@ Deno.serve(async (req: Request) => {
       password: tempPassword,
       email_confirm: true,
       user_metadata: {
-        display_name: staffRecord.legal_name,
+        display_name,
       },
     });
 
@@ -287,6 +292,8 @@ Deno.serve(async (req: Request) => {
       .update({
         staff_record_id,
         role_id,
+        employee_id,
+        display_name,
         employment_status: "pending",
         password_set: false,
         updated_at: new Date().toISOString(),
@@ -303,7 +310,7 @@ Deno.serve(async (req: Request) => {
       <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px;">
         <h2 style="color: #1a1a2e; margin-bottom: 8px;">Welcome to AgarthaOS</h2>
         <p style="color: #555; margin-bottom: 24px;">
-          Hi ${staffRecord.legal_name}, your staff account has been created. Use the credentials
+          Hi ${display_name}, your staff account has been created. Use the credentials
           below to log in for the first time:
         </p>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">

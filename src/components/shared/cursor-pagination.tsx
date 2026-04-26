@@ -203,6 +203,7 @@ export function CursorPagination({
         pageSize={effectivePageSize}
         onPageSizeChange={handlePageSizeChange}
         pageSizeOptions={pageSizeOptions}
+        className="flex-1"
         {...(testId ? { "data-testid": `${testId}-bar` } : {})}
       />
       {showResetToHead && !isAtHead ? (
