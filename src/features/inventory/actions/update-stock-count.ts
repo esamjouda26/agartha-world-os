@@ -66,67 +66,38 @@ export async function updateStockCountAction(
   const appMeta = (user.app_metadata ?? {}) as {
     domains?: Record<string, string[]>;
   };
-  if (!appMeta.domains?.["inventory_ops"]?.includes("u"))
-    return fail("FORBIDDEN");
+  if (!appMeta.domains?.["inventory_ops"]?.includes("u")) return fail("FORBIDDEN");
 
   // Step 3: Rate limit
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  // Step 4: Verify reconciliation belongs to user and is active
-  const { data: reconciliation, error: recFetchError } = await supabase
-    .from("inventory_reconciliations")
-    .select("id")
-    .eq("id", parsed.data.reconciliation_id)
-    .eq("assigned_to", user.id)
-    .in("status", ["pending", "in_progress"])
-    .maybeSingle();
-  if (recFetchError) return fail("INTERNAL");
-  if (!reconciliation) return fail("NOT_FOUND");
-
-  // Step 5: Fetch all items (including system_qty for comparison — server only)
-  const { data: allItems, error: itemsFetchError } = await supabase
-    .from("inventory_reconciliation_items")
-    .select("id, system_qty, physical_qty")
-    .eq("reconciliation_id", parsed.data.reconciliation_id);
-  if (itemsFetchError) return fail("INTERNAL");
-
-  // Build a lookup of submitted physical quantities
-  const submittedMap = new Map<string, number>();
-  for (const item of parsed.data.items) {
-    submittedMap.set(item.item_id, item.physical_qty);
+  // Steps 4–7: Atomic close via rpc_complete_stock_count — applies
+  // physical_qty per item, recomputes discrepancy across the FULL set
+  // (effective = submitted ?? existing), and transitions status inside a
+  // single transaction (CLAUDE.md §4 transactional boundary).
+  const { data: rpcResult, error: rpcError } = await supabase.rpc("rpc_complete_stock_count", {
+    p_reconciliation_id: parsed.data.reconciliation_id,
+    p_items: parsed.data.items.map((i) => ({
+      item_id: i.item_id,
+      physical_qty: i.physical_qty,
+    })),
+    p_actor_id: user.id,
+  });
+  if (rpcError) {
+    if (rpcError.message.includes("reconciliation_not_found")) return fail("NOT_FOUND");
+    if (rpcError.message.includes("forbidden_not_assignee")) return fail("FORBIDDEN");
+    if (rpcError.message.includes("invalid_state")) return fail("CONFLICT");
+    if (rpcError.message.includes("item_not_found")) return fail("NOT_FOUND");
+    return fail("INTERNAL");
   }
 
-  // Step 6: Update physical_qty for submitted items
-  for (const item of parsed.data.items) {
-    const { error: updateError } = await supabase
-      .from("inventory_reconciliation_items")
-      .update({ physical_qty: item.physical_qty })
-      .eq("id", item.item_id)
-      .eq("reconciliation_id", parsed.data.reconciliation_id);
-    if (updateError) return fail("INTERNAL");
-  }
-
-  // Step 7: Determine final state by comparing all physical to system quantities
-  // Use the submitted values for items we just updated; existing values for others.
-  let discrepancyFound = false;
-  for (const item of allItems ?? []) {
-    const effectivePhysical = submittedMap.has(item.id)
-      ? (submittedMap.get(item.id) as number)
-      : item.physical_qty;
-    if (effectivePhysical !== item.system_qty) {
-      discrepancyFound = true;
-      break;
-    }
-  }
-
-  const newStatus = discrepancyFound ? "pending_review" : "completed";
-
-  const { error: statusError } = await supabase
-    .from("inventory_reconciliations")
-    .update({ status: newStatus, discrepancy_found: discrepancyFound })
-    .eq("id", parsed.data.reconciliation_id);
-  if (statusError) return fail("INTERNAL");
+  const result = rpcResult as unknown as {
+    discrepancy_found: boolean;
+    new_status: "pending_review" | "completed";
+  };
+  const discrepancyFound = result.discrepancy_found;
+  const newStatus = result.new_status;
 
   // Step 8: Invalidate router cache
   for (const path of INVENTORY_ROUTER_PATHS) {

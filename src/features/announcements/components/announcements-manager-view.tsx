@@ -5,7 +5,6 @@ import { useQueryState, parseAsStringEnum } from "nuqs";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { StatusTabBar } from "@/components/ui/status-tab-bar";
 
@@ -46,7 +45,7 @@ export function AnnouncementsManagerView({
   staff,
   canDelete,
 }: AnnouncementsManagerViewProps) {
-  const [status, setStatus] = useQueryState(
+  const [status] = useQueryState(
     "status",
     parseAsStringEnum([...VIEW_MODES]).withDefault("published"),
   );

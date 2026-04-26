@@ -61,11 +61,12 @@ const EXPECTATIONS: readonly Expected[] = [
     bypass: false,
     resolved: { domain: "comms", access: "c" },
   },
+  // ── Phase 5/6/7 features — registered Gate-5 surfaces ──
+  { path: "/admin/iam", bypass: false, resolved: { domain: "hr", access: "r" } },
+  { path: "/management/hr", bypass: false, resolved: { domain: "hr", access: "c" } },
+  { path: "/crew/pos", bypass: false, resolved: { domain: "pos", access: "c" } },
   // ── Unmatched (no feature yet — middleware lets them through to Next's 404) ──
-  { path: "/admin/iam", bypass: false, resolved: null },
   { path: "/admin/does-not-exist", bypass: false, resolved: null },
-  { path: "/management/hr", bypass: false, resolved: null },
-  { path: "/crew/pos", bypass: false, resolved: null },
   { path: "/totally-unmatched", bypass: false, resolved: null },
 ];
 

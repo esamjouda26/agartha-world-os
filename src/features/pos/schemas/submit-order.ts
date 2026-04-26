@@ -16,6 +16,12 @@ export const submitOrderSchema = z.object({
   posPointId: z.string().min(1),
   items: z.array(submitOrderItemSchema).min(1, "Cart cannot be empty"),
   paymentMethod: z.enum(["cash", "card", "face_pay", "digital_wallet"]),
+  /**
+   * Idempotency key — required per CLAUDE.md §2 ("POS order ... MUST accept
+   * p_idempotency_key UUID"). Generated client-side per submission attempt
+   * so retries (network drop, double-tap) collapse to one order.
+   */
+  idempotencyKey: z.guid(),
 });
 
 export type SubmitOrderSchema = z.infer<typeof submitOrderSchema>;

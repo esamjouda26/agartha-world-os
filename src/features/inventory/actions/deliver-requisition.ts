@@ -60,41 +60,31 @@ export async function deliverRequisitionAction(
   const appMeta = (user.app_metadata ?? {}) as {
     domains?: Record<string, string[]>;
   };
-  if (!appMeta.domains?.["inventory_ops"]?.includes("u"))
-    return fail("FORBIDDEN");
+  if (!appMeta.domains?.["inventory_ops"]?.includes("u")) return fail("FORBIDDEN");
 
   // Step 3: Rate limit
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  // Step 4: Verify the requisition exists, is in_progress, and belongs to user
-  const { data: requisition, error: reqFetchError } = await supabase
-    .from("material_requisitions")
-    .select("id")
-    .eq("id", parsed.data.requisition_id)
-    .eq("status", "in_progress")
-    .eq("assigned_to", user.id)
-    .maybeSingle();
-  if (reqFetchError) return fail("INTERNAL");
-  if (!requisition) return fail("NOT_FOUND");
-
-  // Step 5: Update delivered_qty on each item
-  for (const item of parsed.data.items) {
-    const { error: itemError } = await supabase
-      .from("material_requisition_items")
-      .update({ delivered_qty: item.delivered_qty })
-      .eq("id", item.item_id)
-      .eq("requisition_id", parsed.data.requisition_id);
-    if (itemError) return fail("INTERNAL");
+  // Steps 4–6: Atomic close via rpc_complete_delivery — locks the parent
+  // row, validates ownership + state, applies delivered_qty per item, and
+  // transitions status → 'completed' inside a single transaction
+  // (CLAUDE.md §4 transactional boundary).
+  const { error: rpcError } = await supabase.rpc("rpc_complete_delivery", {
+    p_requisition_id: parsed.data.requisition_id,
+    p_items: parsed.data.items.map((i) => ({
+      item_id: i.item_id,
+      delivered_qty: i.delivered_qty,
+    })),
+    p_actor_id: user.id,
+  });
+  if (rpcError) {
+    if (rpcError.message.includes("requisition_not_found")) return fail("NOT_FOUND");
+    if (rpcError.message.includes("forbidden_not_assignee")) return fail("FORBIDDEN");
+    if (rpcError.message.includes("invalid_state")) return fail("CONFLICT");
+    if (rpcError.message.includes("item_not_found")) return fail("NOT_FOUND");
+    return fail("INTERNAL");
   }
-
-  // Step 6: Mark requisition completed
-  const { error: completeError } = await supabase
-    .from("material_requisitions")
-    .update({ status: "completed" })
-    .eq("id", parsed.data.requisition_id)
-    .eq("assigned_to", user.id);
-  if (completeError) return fail("INTERNAL");
 
   // Step 7: Invalidate router cache
   for (const path of INVENTORY_ROUTER_PATHS) {
@@ -107,10 +97,7 @@ export async function deliverRequisitionAction(
       event: "deliver_requisition",
       user_id: user.id,
     });
-    log.info(
-      { requisitionId: parsed.data.requisition_id },
-      "deliverRequisitionAction completed",
-    );
+    log.info({ requisitionId: parsed.data.requisition_id }, "deliverRequisitionAction completed");
   });
 
   return ok({ requisitionId: parsed.data.requisition_id });

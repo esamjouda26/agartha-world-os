@@ -5381,7 +5381,10 @@ export type Database = {
         Args: { p_leave_request_id: string }
         Returns: undefined
       }
-      rpc_checkin_booking: { Args: { p_booking_id: string }; Returns: Json }
+      rpc_checkin_booking: {
+        Args: { p_booking_id: string; p_idempotency_key: string }
+        Returns: Json
+      }
       rpc_clock_in: {
         Args: {
           p_gps?: Json
@@ -5399,6 +5402,20 @@ export type Database = {
           p_source?: Database["public"]["Enums"]["punch_source"]
         }
         Returns: Json
+      }
+      rpc_complete_delivery: {
+        Args: { p_actor_id: string; p_items: Json; p_requisition_id: string }
+        Returns: string
+      }
+      rpc_complete_stock_count: {
+        Args: { p_actor_id: string; p_items: Json; p_reconciliation_id: string }
+        Returns: Database["public"]["CompositeTypes"]["stock_count_result"]
+        SetofOptions: {
+          from: "*"
+          to: "stock_count_result"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       rpc_confirm_password_set: { Args: never; Returns: undefined }
       rpc_confirm_slot_override: {
@@ -5443,6 +5460,28 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_create_leave_request: {
+        Args: {
+          p_actor_id: string
+          p_end_date: string
+          p_leave_type_id: string
+          p_reason: string
+          p_requested_days: number
+          p_start_date: string
+        }
+        Returns: string
+      }
+      rpc_create_requisition: {
+        Args: {
+          p_created_by: string
+          p_from_location_id: string
+          p_idempotency_key: string
+          p_items: Json
+          p_requester_remark: string
+          p_to_location_id: string
+        }
+        Returns: string
+      }
       rpc_erase_subject: {
         Args: { p_booking_id: string; p_reason?: string }
         Returns: Json
@@ -5480,17 +5519,6 @@ export type Database = {
           staff_record_id: string
         }[]
       }
-      rpc_get_maintenance_sponsors: {
-        Args: never
-        Returns: {
-          staff_record_id: string
-          profile_id: string
-          display_name: string
-          employee_id: string
-          role_display_name: string
-          org_unit_name: string
-        }[]
-      }
       rpc_get_available_slots: {
         Args: {
           p_date: string
@@ -5504,6 +5532,17 @@ export type Database = {
       rpc_get_booking_identity: {
         Args: { p_booking_ref: string; p_ip_address?: unknown }
         Returns: Json
+      }
+      rpc_get_maintenance_sponsors: {
+        Args: never
+        Returns: {
+          display_name: string
+          employee_id: string
+          org_unit_name: string
+          profile_id: string
+          role_display_name: string
+          staff_record_id: string
+        }[]
       }
       rpc_get_unread_announcement_count: { Args: never; Returns: number }
       rpc_justify_exception: {
@@ -5543,6 +5582,10 @@ export type Database = {
           target_slot_time: string
         }[]
       }
+      rpc_receive_po_items: {
+        Args: { p_actor_id: string; p_items: Json; p_po_id: string }
+        Returns: string
+      }
       rpc_reject_exception_clarification: {
         Args: { p_exception_id: string; p_reason: string }
         Returns: Json
@@ -5572,6 +5615,19 @@ export type Database = {
         Returns: undefined
       }
       rpc_run_monthly_accruals: { Args: never; Returns: number }
+      rpc_schedule_reconciliation: {
+        Args: {
+          p_assigned_to: string
+          p_created_by: string
+          p_idempotency_key: string
+          p_items: Json
+          p_location_id: string
+          p_manager_remark: string
+          p_scheduled_date: string
+          p_scheduled_time: string
+        }
+        Returns: string
+      }
       rpc_search_bookings_by_email: { Args: { p_email: string }; Returns: Json }
       rpc_submit_exception_clarification: {
         Args: {
@@ -5595,6 +5651,27 @@ export type Database = {
       rpc_update_own_avatar: {
         Args: { p_avatar_url: string }
         Returns: undefined
+      }
+      rpc_upsert_promo_code: {
+        Args: {
+          p_actor_id: string
+          p_campaign_id: string
+          p_code: string
+          p_description: string
+          p_discount_type: Database["public"]["Enums"]["discount_type"]
+          p_discount_value: number
+          p_id: string
+          p_max_uses: number
+          p_min_group_size: number
+          p_status: Database["public"]["Enums"]["lifecycle_status"]
+          p_tier_ids: string[]
+          p_valid_days_mask: number
+          p_valid_from: string
+          p_valid_time_end: string
+          p_valid_time_start: string
+          p_valid_to: string
+        }
+        Returns: string
       }
       rpc_validate_promo_code: {
         Args: {
@@ -5628,6 +5705,7 @@ export type Database = {
       }
       submit_pos_order: {
         Args: {
+          p_idempotency_key: string
           p_items: Json
           p_payment_method: string
           p_pos_point_id: string
@@ -5762,7 +5840,11 @@ export type Database = {
       vehicle_status: "active" | "maintenance" | "retired"
     }
     CompositeTypes: {
-      [_ in never]: never
+      stock_count_result: {
+        reconciliation_id: string | null
+        discrepancy_found: boolean | null
+        new_status: string | null
+      }
     }
   }
 }

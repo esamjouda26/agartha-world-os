@@ -5,6 +5,8 @@ import "server-only";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 
+import { z } from "zod";
+
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
@@ -21,6 +23,8 @@ const limiter = createRateLimiter({
   prefix: "pos-complete-order",
 });
 
+const inputSchema = z.object({ orderId: z.guid() });
+
 /**
  * Mark a POS order as completed from the KDS view.
  * UPDATE orders SET status = 'completed', completed_at = NOW()
@@ -30,7 +34,14 @@ const limiter = createRateLimiter({
 export async function completeOrderAction(
   orderId: string,
 ): Promise<ServerActionResult<{ orderId: string }>> {
-  if (!orderId) return fail("VALIDATION_FAILED");
+  const parsed = inputSchema.safeParse({ orderId });
+  if (!parsed.success) {
+    const fields: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fields[issue.path.join(".") || "form"] = issue.message;
+    }
+    return fail("VALIDATION_FAILED", fields);
+  }
 
   const supabase = await createSupabaseServerClient();
 
@@ -51,7 +62,7 @@ export async function completeOrderAction(
   const { error } = await supabase
     .from("orders")
     .update({ status: "completed", completed_at: now, updated_by: user.id })
-    .eq("id", orderId)
+    .eq("id", parsed.data.orderId)
     .eq("status", "preparing");
 
   if (error) return fail("INTERNAL");
@@ -63,8 +74,8 @@ export async function completeOrderAction(
 
   after(async () => {
     const log = loggerWith({ feature: "pos", event: "complete_order", user_id: user.id });
-    log.info({ orderId }, "completeOrderAction completed");
+    log.info({ orderId: parsed.data.orderId }, "completeOrderAction completed");
   });
 
-  return ok({ orderId });
+  return ok({ orderId: parsed.data.orderId });
 }

@@ -45,10 +45,7 @@ import { useUrlString } from "@/components/shared/url-state-helpers";
 import { FilterChip } from "@/components/ui/filter-chip";
 
 import { createDraftPos } from "@/features/procurement/actions/create-draft-pos";
-import type {
-  ReorderDashboardData,
-  ReorderRow,
-} from "@/features/procurement/types";
+import type { ReorderDashboardData, ReorderRow } from "@/features/procurement/types";
 
 // ── Props ──────────────────────────────────────────────────────────────
 
@@ -81,15 +78,13 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
   const searchFilter = useUrlString("q");
 
   // ── Local state ──────────────────────────────────────────────
-  const [reorderAmts, setReorderAmts] = React.useState<Record<string, number>>(
-    () => {
-      const initial: Record<string, number> = {};
-      for (const r of rows) {
-        initial[r.materialId] = r.reorderAmt;
-      }
-      return initial;
-    },
-  );
+  const [reorderAmts, setReorderAmts] = React.useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    for (const r of rows) {
+      initial[r.materialId] = r.reorderAmt;
+    }
+    return initial;
+  });
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -102,9 +97,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
 
     // Supplier filter
     if (supplierFilter.value) {
-      result = result.filter(
-        (r) => r.defaultSupplierId === supplierFilter.value,
-      );
+      result = result.filter((r) => r.defaultSupplierId === supplierFilter.value);
     }
 
     // Category filter
@@ -114,9 +107,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
 
     // Below reorder only toggle
     if (belowOnlyFilter.value === "1") {
-      result = result.filter(
-        (r) => (reorderAmts[r.materialId] ?? r.reorderAmt) > 0,
-      );
+      result = result.filter((r) => (reorderAmts[r.materialId] ?? r.reorderAmt) > 0);
     }
 
     // Search filter
@@ -141,9 +132,9 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
 
   const hasActiveFilters = Boolean(
     supplierFilter.value ||
-      categoryFilter.value ||
-      belowOnlyFilter.value === "1" ||
-      searchFilter.value,
+    categoryFilter.value ||
+    belowOnlyFilter.value === "1" ||
+    searchFilter.value,
   );
 
   const resetAll = (): void => {
@@ -156,18 +147,12 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
   // ── Filter-reactive KPIs ──────────────────────────────────────
   const filteredKpis = React.useMemo(() => {
     const source = hasActiveFilters ? filteredRows : rows;
-    const belowReorder = source.filter(
-      (r) => (reorderAmts[r.materialId] ?? r.reorderAmt) > 0,
-    );
+    const belowReorder = source.filter((r) => (reorderAmts[r.materialId] ?? r.reorderAmt) > 0);
     const uniqueSuppliers = new Set(
-      belowReorder
-        .filter((r) => r.defaultSupplierId)
-        .map((r) => r.defaultSupplierId),
+      belowReorder.filter((r) => r.defaultSupplierId).map((r) => r.defaultSupplierId),
     );
     const estimatedValue = belowReorder.reduce(
-      (sum, r) =>
-        sum +
-        (reorderAmts[r.materialId] ?? r.reorderAmt) * (r.costPrice ?? 0),
+      (sum, r) => sum + (reorderAmts[r.materialId] ?? r.reorderAmt) * (r.costPrice ?? 0),
       0,
     );
 
@@ -180,10 +165,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
 
   // Rows that need ordering (reorder_amt > 0) from filtered set
   const needsOrdering = React.useMemo(
-    () =>
-      filteredRows.filter(
-        (r) => (reorderAmts[r.materialId] ?? r.reorderAmt) > 0,
-      ),
+    () => filteredRows.filter((r) => (reorderAmts[r.materialId] ?? r.reorderAmt) > 0),
     [filteredRows, reorderAmts],
   );
 
@@ -230,10 +212,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
 
   // Group selected by supplier for dialog preview
   const supplierGroups = React.useMemo(() => {
-    const groups = new Map<
-      string,
-      { supplierName: string; items: ReorderRow[] }
-    >();
+    const groups = new Map<string, { supplierName: string; items: ReorderRow[] }>();
     for (const r of selectedRows) {
       const key = r.defaultSupplierId ?? "__no_supplier__";
       if (!groups.has(key)) {
@@ -286,8 +265,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
   const chips: React.ReactNode[] = [];
   if (supplierFilter.value) {
     const name =
-      uniqueSuppliers.find(([id]) => id === supplierFilter.value)?.[1] ??
-      supplierFilter.value;
+      uniqueSuppliers.find(([id]) => id === supplierFilter.value)?.[1] ?? supplierFilter.value;
     chips.push(
       <FilterChip
         key="supplier"
@@ -300,8 +278,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
   }
   if (categoryFilter.value) {
     const name =
-      categories.find((c) => c.id === categoryFilter.value)?.name ??
-      categoryFilter.value;
+      categories.find((c) => c.id === categoryFilter.value)?.name ?? categoryFilter.value;
     chips.push(
       <FilterChip
         key="category"
@@ -331,18 +308,14 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
         id: "select",
         header: () => (
           <Checkbox
-            checked={
-              needsOrdering.length > 0 &&
-              selected.size === needsOrdering.length
-            }
+            checked={needsOrdering.length > 0 && selected.size === needsOrdering.length}
             onCheckedChange={toggleAll}
             aria-label="Select all"
             data-testid="reorder-select-all"
           />
         ),
         cell: ({ row }) => {
-          const amt =
-            reorderAmts[row.original.materialId] ?? row.original.reorderAmt;
+          const amt = reorderAmts[row.original.materialId] ?? row.original.reorderAmt;
           if (amt <= 0) return <span className="block size-4" />;
           return (
             <Checkbox
@@ -362,9 +335,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
         accessorKey: "materialName",
         header: "Material",
         cell: ({ row }) => (
-          <span className="text-foreground font-medium">
-            {row.original.materialName}
-          </span>
+          <span className="text-foreground font-medium">{row.original.materialName}</span>
         ),
       },
       {
@@ -509,9 +480,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
               type="number"
               min={0}
               value={amt}
-              onChange={(e) =>
-                handleReorderAmtChange(r.materialId, e.target.value)
-              }
+              onChange={(e) => handleReorderAmtChange(r.materialId, e.target.value)}
               className="h-7 w-20 text-right tabular-nums"
               data-testid={`reorder-qty-${r.materialId}`}
             />
@@ -523,14 +492,11 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
         },
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [reorderAmts, selected, needsOrdering],
   );
 
   // Items with no supplier warning
-  const noSupplierSelectedCount = selectedRows.filter(
-    (r) => !r.defaultSupplierId,
-  ).length;
+  const noSupplierSelectedCount = selectedRows.filter((r) => !r.defaultSupplierId).length;
 
   return (
     <div className="flex flex-col gap-6" data-testid="reorder-dashboard">
@@ -608,9 +574,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
               <>
                 <Select
                   value={supplierFilter.value ?? "__all__"}
-                  onValueChange={(next) =>
-                    supplierFilter.set(next === "__all__" ? null : next)
-                  }
+                  onValueChange={(next) => supplierFilter.set(next === "__all__" ? null : next)}
                 >
                   <SelectTrigger
                     className="h-10 min-w-[10rem] sm:w-auto"
@@ -630,9 +594,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
                 </Select>
                 <Select
                   value={categoryFilter.value ?? "__all__"}
-                  onValueChange={(next) =>
-                    categoryFilter.set(next === "__all__" ? null : next)
-                  }
+                  onValueChange={(next) => categoryFilter.set(next === "__all__" ? null : next)}
                 >
                   <SelectTrigger
                     className="h-10 min-w-[10rem] sm:w-auto"
@@ -651,14 +613,12 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
                   </SelectContent>
                 </Select>
                 <label
-                  className="flex items-center gap-2 whitespace-nowrap text-sm"
+                  className="flex items-center gap-2 text-sm whitespace-nowrap"
                   data-testid="reorder-filter-below-toggle"
                 >
                   <Switch
                     checked={belowOnlyFilter.value === "1"}
-                    onCheckedChange={(checked) =>
-                      belowOnlyFilter.set(checked ? "1" : null)
-                    }
+                    onCheckedChange={(checked) => belowOnlyFilter.set(checked ? "1" : null)}
                     aria-label="Show only items below reorder point"
                   />
                   Below reorder only
@@ -671,12 +631,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
         table={{
           data: filteredRows,
           columns,
-          mobileFieldPriority: [
-            "materialName",
-            "onHand",
-            "effectiveStock",
-            "reorderQty",
-          ],
+          mobileFieldPriority: ["materialName", "onHand", "effectiveStock", "reorderQty"],
           getRowId: (row) => row.materialId,
         }}
         hasActiveFilters={hasActiveFilters}
@@ -699,8 +654,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
             </DialogTitle>
             <DialogDescription>
               {supplierGroups.size} draft PO
-              {supplierGroups.size > 1 ? "s" : ""} will be created, grouped by
-              default supplier.
+              {supplierGroups.size > 1 ? "s" : ""} will be created, grouped by default supplier.
             </DialogDescription>
           </DialogHeader>
 
@@ -711,8 +665,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
                 <AlertTriangle className="mr-1 inline-block size-3.5" />
                 {noSupplierSelectedCount} selected item
                 {noSupplierSelectedCount > 1 ? "s" : ""} ha
-                {noSupplierSelectedCount > 1 ? "ve" : "s"} no default supplier
-                and will be skipped.
+                {noSupplierSelectedCount > 1 ? "ve" : "s"} no default supplier and will be skipped.
               </div>
             )}
 
@@ -720,10 +673,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="reorder-location">Receiving Location *</Label>
               <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger
-                  id="reorder-location"
-                  data-testid="reorder-location-select"
-                >
+                <SelectTrigger id="reorder-location" data-testid="reorder-location-select">
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
@@ -740,9 +690,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
             <div className="border-border-subtle divide-border-subtle divide-y rounded-lg border">
               {Array.from(supplierGroups.entries()).map(([key, group]) => (
                 <div key={key} className="flex flex-col gap-1 px-3 py-2">
-                  <span className="text-foreground text-sm font-medium">
-                    {group.supplierName}
-                  </span>
+                  <span className="text-foreground text-sm font-medium">{group.supplierName}</span>
                   <span className="text-foreground-muted text-xs">
                     {group.items.length} item
                     {group.items.length > 1 ? "s" : ""} ·{" "}
@@ -765,9 +713,7 @@ export function ReorderDashboardView({ data }: ReorderDashboardViewProps) {
               onClick={handleCreateDraftPos}
               data-testid="reorder-confirm-create"
             >
-              {submitting && (
-                <Loader2 aria-hidden className="size-4 animate-spin" />
-              )}
+              {submitting && <Loader2 aria-hidden className="size-4 animate-spin" />}
               Create {supplierGroups.size} Draft PO
               {supplierGroups.size > 1 ? "s" : ""}
             </Button>

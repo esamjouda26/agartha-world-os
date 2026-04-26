@@ -28,10 +28,12 @@ export const submitDisposalSchema = z
       error: "A valid disposal reason is required",
     }),
     notes: z.string().optional(),
-    photo_proof_url: z
-      .string()
-      .url("Photo proof must be a valid URL")
-      .optional(),
+    /**
+     * Storage object path inside the `operations` bucket (NOT a signed URL).
+     * Convention: `${user.id}/disposals/${uuid}.${ext}` per RLS at
+     * init_schema.sql:7060. Optional — UI permits skipping.
+     */
+    photo_proof_url: z.string().min(1).optional(),
     explode_bom: z.boolean(),
     bom_id: z.string().min(1).nullable(),
     /** Optional cost center for departmental waste attribution (WF-12). */

@@ -86,10 +86,7 @@ export async function createRequisition(
       event: "manager_create_requisition",
       user_id: user.id,
     });
-    log.error(
-      { code: catErr.code, message: catErr.message },
-      "category resolution failed",
-    );
+    log.error({ code: catErr.code, message: catErr.message }, "category resolution failed");
     return fail("INTERNAL");
   }
   const consumableMap = new Map<string, boolean>();
@@ -115,19 +112,18 @@ export async function createRequisition(
 
   const idempotencyKey = d.idempotencyKey ?? crypto.randomUUID();
 
-  // 6. Call rpc_create_requisition
-  const { data: reqId, error: rpcErr } = await supabase.rpc(
-    // @ts-expect-error: Database types not yet synced with remote migrations
-    "rpc_create_requisition",
-    {
-      p_from_location_id: d.fromLocationId,
-      p_to_location_id: d.toLocationId,
-      p_requester_remark: d.requesterRemark,
-      p_created_by: user.id,
-      p_items: itemRows,
-      p_idempotency_key: idempotencyKey,
-    },
-  );
+  // 6. Call rpc_create_requisition. Generated RPC types over-restrict
+  // NULL-accepting parameters (Supabase type generator emits non-null
+  // types for SQL params without explicit NOT NULL). Cast nullable
+  // args to satisfy the strict signature.
+  const { data: reqId, error: rpcErr } = await supabase.rpc("rpc_create_requisition", {
+    p_from_location_id: d.fromLocationId,
+    p_to_location_id: d.toLocationId,
+    p_requester_remark: (d.requesterRemark ?? null) as string,
+    p_created_by: user.id,
+    p_items: itemRows,
+    p_idempotency_key: idempotencyKey,
+  });
 
   if (rpcErr || !reqId) {
     const log = loggerWith({
@@ -135,16 +131,13 @@ export async function createRequisition(
       event: "manager_create_requisition",
       user_id: user.id,
     });
-    
+
     if (rpcErr?.message === "duplicate_transaction") {
       log.warn("idempotency_conflict");
       return fail("RATE_LIMITED");
     }
 
-    log.error(
-      { code: rpcErr?.code, message: rpcErr?.message },
-      "rpc_create_requisition failed",
-    );
+    log.error({ code: rpcErr?.code, message: rpcErr?.message }, "rpc_create_requisition failed");
     return fail("INTERNAL");
   }
 
@@ -159,10 +152,7 @@ export async function createRequisition(
       event: "manager_create_requisition",
       user_id: user.id,
     });
-    log.info(
-      { requisition_id: reqId, item_count: d.items.length },
-      "createRequisition completed",
-    );
+    log.info({ requisition_id: reqId, item_count: d.items.length }, "createRequisition completed");
   });
 
   return ok({ requisitionId: reqId as string });

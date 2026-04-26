@@ -91,10 +91,7 @@ export async function scheduleReconciliation(
       event: "schedule_reconciliation",
       user_id: user.id,
     });
-    log.error(
-      { code: stockErr.code, message: stockErr.message },
-      "stock snapshot failed",
-    );
+    log.error({ code: stockErr.code, message: stockErr.message }, "stock snapshot failed");
     return fail("INTERNAL");
   }
   const systemQtyByMaterial = new Map<string, number>();
@@ -110,21 +107,20 @@ export async function scheduleReconciliation(
 
   const idempotencyKey = d.idempotencyKey ?? crypto.randomUUID();
 
-  // 6. Call rpc_schedule_reconciliation
-  const { data: reconId, error: rpcErr } = await supabase.rpc(
-    // @ts-expect-error: Database types not yet synced with remote migrations
-    "rpc_schedule_reconciliation",
-    {
-      p_location_id: d.locationId,
-      p_scheduled_date: d.scheduledDate,
-      p_scheduled_time: d.scheduledTime,
-      p_assigned_to: d.assignedToId,
-      p_manager_remark: d.managerRemark,
-      p_created_by: user.id,
-      p_items: itemRows,
-      p_idempotency_key: idempotencyKey,
-    },
-  );
+  // 6. Call rpc_schedule_reconciliation. Generated RPC types over-restrict
+  // NULL-accepting parameters (Supabase type generator emits non-null
+  // types for SQL params without explicit NOT NULL). Cast nullable args
+  // to satisfy the strict signature.
+  const { data: reconId, error: rpcErr } = await supabase.rpc("rpc_schedule_reconciliation", {
+    p_location_id: d.locationId,
+    p_scheduled_date: d.scheduledDate,
+    p_scheduled_time: d.scheduledTime,
+    p_assigned_to: d.assignedToId,
+    p_manager_remark: (d.managerRemark ?? null) as string,
+    p_created_by: user.id,
+    p_items: itemRows,
+    p_idempotency_key: idempotencyKey,
+  });
 
   if (rpcErr || !reconId) {
     if (rpcErr?.message === "fk_violation") {
@@ -132,13 +128,13 @@ export async function scheduleReconciliation(
         form: "Selected location or runner is no longer available.",
       });
     }
-    
+
     const log = loggerWith({
       feature: "inventory",
       event: "schedule_reconciliation",
       user_id: user.id,
     });
-    
+
     if (rpcErr?.message === "duplicate_transaction") {
       log.warn("idempotency_conflict");
       return fail("RATE_LIMITED");

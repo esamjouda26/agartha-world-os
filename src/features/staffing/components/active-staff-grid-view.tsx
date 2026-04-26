@@ -4,8 +4,6 @@ import * as React from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import { Users } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterChip } from "@/components/ui/filter-chip";

@@ -27,12 +27,11 @@ const limiter = createRateLimiter({
 
 /**
  * Submit POS order — 8-step Server Action pipeline (prompt.md).
- * Calls submit_pos_order(p_pos_point_id, p_items, p_payment_method).
- * RPC grep: init_schema.sql:5806
+ * Calls submit_pos_order(p_pos_point_id, p_items, p_payment_method, p_idempotency_key).
  *
  * Server-side price lookup in the RPC prevents client-side price tampering.
- * No idempotency key required here — duplicate order submissions are acceptable
- * (crew can re-ring a separate order if the first one fails or is lost).
+ * Idempotency key required per CLAUDE.md §2 — duplicate submissions
+ * (network drop, double-tap) collapse to a single order.
  */
 export async function submitOrderAction(
   input: unknown,
@@ -66,9 +65,13 @@ export async function submitOrderAction(
     p_pos_point_id: parsed.data.posPointId,
     p_items: parsed.data.items as unknown as Json,
     p_payment_method: parsed.data.paymentMethod,
+    p_idempotency_key: parsed.data.idempotencyKey,
   });
 
   if (error) {
+    if (error.message.includes("duplicate_transaction")) {
+      return fail("CONFLICT", { form: "This order was already submitted." });
+    }
     if (error.message.includes("MATERIAL_NOT_FOUND_OR_INACTIVE")) return fail("NOT_FOUND");
     if (error.message.includes("POS_POINT_NOT_FOUND")) return fail("NOT_FOUND");
     if (error.message.includes("Forbidden")) return fail("FORBIDDEN");

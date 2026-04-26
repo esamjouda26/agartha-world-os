@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { addDays, isAfter, isBefore, startOfDay, endOfDay, endOfWeek, startOfWeek } from "date-fns";
+import { isAfter, isBefore, startOfDay, endOfDay, endOfWeek } from "date-fns";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -25,9 +25,7 @@ import type {
  *                COUNT purchase_order_items
  */
 export const getPurchaseOrdersList = cache(
-  async (
-    client: SupabaseClient<Database>,
-  ): Promise<PurchaseOrderListData> => {
+  async (client: SupabaseClient<Database>): Promise<PurchaseOrderListData> => {
     // ── 1. Parallel fetches ───────────────────────────────────────
     const [posResult, suppliersResult, locationsResult] = await Promise.all([
       client
@@ -102,17 +100,14 @@ export const getPurchaseOrdersList = cache(
 
       // Delivery indicator
       let deliveryIndicator: DeliveryIndicator = "none";
-      const isOpen =
-        status === "sent" || status === "partially_received";
+      const isOpen = status === "sent" || status === "partially_received";
 
       if (isOpen && po.expected_delivery_date) {
         const dueDate = startOfDay(new Date(po.expected_delivery_date));
         if (isBefore(dueDate, today)) {
           deliveryIndicator = "overdue";
           overdueCount++;
-        } else if (
-          !isAfter(dueDate, endOfDay(weekEnd))
-        ) {
+        } else if (!isAfter(dueDate, endOfDay(weekEnd))) {
           deliveryIndicator = "due_soon";
           dueThisWeekCount++;
         } else {
@@ -121,11 +116,7 @@ export const getPurchaseOrdersList = cache(
       }
 
       // KPI: open PO value (draft + sent + partially_received)
-      if (
-        status === "draft" ||
-        status === "sent" ||
-        status === "partially_received"
-      ) {
+      if (status === "draft" || status === "sent" || status === "partially_received") {
         openPoValue += totalValue;
       }
 

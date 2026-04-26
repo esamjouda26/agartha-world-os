@@ -215,3 +215,16 @@ export const MOVEMENTS_LEDGER_KPI_MAX_ROWS = 10_000;
 export const MOVEMENT_TYPE_CRUD_RATE_TOKENS = 20;
 export const MOVEMENT_TYPE_CRUD_RATE_WINDOW = "60 s" as const;
 
+/**
+ * Disposal photo-proof upload constraints — match the `operations` storage
+ * bucket per [frontend_spec.md:66](../../../frontend_spec.md#L66) (10 MB cap;
+ * but write-off photos are images only). Enforced client-side; server-side
+ * MIME signature check happens at the `cron-image-pipeline` Edge Function.
+ */
+export const DISPOSAL_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+export const DISPOSAL_PHOTO_ALLOWED_MIME = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+] as const;

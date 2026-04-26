@@ -55,30 +55,22 @@ export async function createLeaveRequestAction(
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("staff_record_id")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile?.staff_record_id) return fail("FORBIDDEN");
-
-  const { data, error } = await supabase
-    .from("leave_requests")
-    .insert({
-      staff_record_id: profile.staff_record_id,
-      leave_type_id: parsed.data.leaveTypeId,
-      start_date: parsed.data.startDate,
-      end_date: parsed.data.endDate,
-      requested_days: parsed.data.requestedDays,
-      reason: parsed.data.reason ?? null,
-      status: "pending",
-      created_by: user.id,
-    })
-    .select("id")
-    .single();
+  // Atomic insert via rpc_create_leave_request — resolves staff_record_id
+  // from the actor inside the same transaction (CLAUDE.md §4 transactional
+  // boundary). The exclusion constraint on overlapping date ranges raises
+  // 'overlap_with_existing'.
+  const { data: leaveRequestId, error } = await supabase.rpc("rpc_create_leave_request", {
+    p_leave_type_id: parsed.data.leaveTypeId,
+    p_start_date: parsed.data.startDate,
+    p_end_date: parsed.data.endDate,
+    p_requested_days: parsed.data.requestedDays,
+    p_reason: (parsed.data.reason ?? null) as string,
+    p_actor_id: user.id,
+  });
 
   if (error) {
-    if (error.code === "23P01") return fail("CONFLICT"); // exclusion constraint (overlapping dates)
+    if (error.message.includes("staff_record_not_linked")) return fail("FORBIDDEN");
+    if (error.message.includes("overlap_with_existing")) return fail("CONFLICT");
     return fail("INTERNAL");
   }
 
@@ -88,10 +80,10 @@ export async function createLeaveRequestAction(
 
   after(async () => {
     loggerWith({ feature: "hr", event: "create_leave_request", user_id: user.id }).info(
-      { leaveRequestId: data.id },
+      { leaveRequestId },
       "createLeaveRequestAction completed",
     );
   });
 
-  return ok({ leaveRequestId: data.id });
+  return ok({ leaveRequestId: leaveRequestId as string });
 }

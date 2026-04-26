@@ -2,6 +2,8 @@
 
 import "server-only";
 
+import { z } from "zod";
+
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,6 +19,10 @@ const limiter = createRateLimiter({
   prefix: "booking-search",
 });
 
+const inputSchema = z.object({
+  email: z.string().trim().min(1, "Email is required").email("Enter a valid email"),
+});
+
 /**
  * Search bookings by email.
  * RPC: rpc_search_bookings_by_email(p_email)
@@ -25,8 +31,13 @@ const limiter = createRateLimiter({
 export async function searchBookingsByEmailAction(
   email: string,
 ): Promise<ServerActionResult<ReadonlyArray<BookingSearchResult>>> {
-  if (!email.trim()) {
-    return fail("VALIDATION_FAILED", { email: "Email is required" });
+  const parsed = inputSchema.safeParse({ email });
+  if (!parsed.success) {
+    const fields: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fields[issue.path.join(".") || "form"] = issue.message;
+    }
+    return fail("VALIDATION_FAILED", fields);
   }
 
   const supabase = await createSupabaseServerClient();
@@ -42,7 +53,7 @@ export async function searchBookingsByEmailAction(
   if (!lim.success) return fail("RATE_LIMITED");
 
   const { data, error } = await supabase.rpc("rpc_search_bookings_by_email", {
-    p_email: email,
+    p_email: parsed.data.email,
   });
 
   if (error) return fail("INTERNAL");

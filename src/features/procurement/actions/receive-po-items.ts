@@ -70,24 +70,24 @@ export async function receivePoItemsAction(
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  // Step 4: Verify the PO exists and is in a receivable state
-  const { data: po, error: poFetchError } = await supabase
-    .from("purchase_orders")
-    .select("id, status")
-    .eq("id", parsed.data.po_id)
-    .in("status", ["sent", "partially_received"])
-    .maybeSingle();
-  if (poFetchError) return fail("INTERNAL");
-  if (!po) return fail("NOT_FOUND");
-
-  // Step 5: Update received_qty for each item
-  for (const item of parsed.data.items) {
-    const { error: updateError } = await supabase
-      .from("purchase_order_items")
-      .update({ received_qty: item.received_qty })
-      .eq("id", item.item_id)
-      .eq("po_id", parsed.data.po_id);
-    if (updateError) return fail("INTERNAL");
+  // Steps 4–5: Atomic receive via rpc_receive_po_items — locks the parent
+  // PO row, validates state, applies received_qty deltas inside a single
+  // transaction (CLAUDE.md §4 transactional boundary). The
+  // trg_po_receive_goods_movement trigger posts goods_movement entries
+  // per delta as before.
+  const { error: rpcError } = await supabase.rpc("rpc_receive_po_items", {
+    p_po_id: parsed.data.po_id,
+    p_items: parsed.data.items.map((i) => ({
+      item_id: i.item_id,
+      received_qty: i.received_qty,
+    })),
+    p_actor_id: user.id,
+  });
+  if (rpcError) {
+    if (rpcError.message.includes("po_not_found")) return fail("NOT_FOUND");
+    if (rpcError.message.includes("invalid_state")) return fail("CONFLICT");
+    if (rpcError.message.includes("item_not_found")) return fail("NOT_FOUND");
+    return fail("INTERNAL");
   }
 
   // Step 6: Invalidate router cache

@@ -5,10 +5,7 @@ import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/types/database";
-import type {
-  ReconciliationRow,
-  StockCountItemView,
-} from "@/features/inventory/types";
+import type { ReconciliationRow, StockCountItemView } from "@/features/inventory/types";
 
 /**
  * Loads inventory reconciliations assigned to the calling user with status
@@ -36,7 +33,18 @@ export const getStockCounts = cache(
          discrepancy_found,
          crew_remark,
          locations(id, name),
-         inventory_reconciliation_items(id, material_id, physical_qty, materials(name, base_unit_id, units:units!materials_base_unit_id_fkey(abbreviation)))`,
+         inventory_reconciliation_items(
+           id,
+           material_id,
+           physical_qty,
+           materials(
+             name,
+             base_unit_id,
+             category_id,
+             material_categories(id, name),
+             units:units!materials_base_unit_id_fkey(abbreviation)
+           )
+         )`,
       )
       .eq("assigned_to", userId)
       .in("status", ["pending", "in_progress"])
@@ -51,16 +59,18 @@ export const getStockCounts = cache(
         const mat = item.materials as unknown as {
           name: string;
           base_unit_id: string;
+          category_id: string | null;
+          material_categories: { id: string; name: string } | null;
           units: { abbreviation: string } | null;
         } | null;
         return {
           id: item.id,
           materialId: item.material_id,
           materialName: mat?.name ?? "",
-          // Surface the unit abbreviation rather than the FK id so UI renders
-          // without a secondary lookup.
           baseUnit: mat?.units?.abbreviation ?? "",
           physicalQty: item.physical_qty,
+          categoryId: mat?.material_categories?.id ?? mat?.category_id ?? null,
+          categoryName: mat?.material_categories?.name ?? "Uncategorized",
         };
       });
 

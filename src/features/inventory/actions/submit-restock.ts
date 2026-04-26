@@ -29,10 +29,11 @@ const limiter = createRateLimiter({
 /**
  * Creates a material requisition with line items.
  *
- * from_location_id is resolved server-side: we query all active locations and
- * pick the first one that is NOT the to_location. In production this would
- * resolve from a facility warehouse config table; for the current phase this
- * deterministic fallback is safe and avoids hardcoding.
+ * from_location_id resolution (operational_workflows.md:1087 —
+ * "from_location_id = warehouse"): we look up the canonical "Warehouse"
+ * location seeded at init_schema.sql:1202. Crew restock requests always
+ * pull from that source — falling back to "first non-target location"
+ * (the prior heuristic) was brittle whenever new locations were added.
  *
  * movement_type_code per line:
  *   - '201' = consumable goods issue (is_consumable = true)
@@ -61,26 +62,27 @@ export async function submitRestockAction(
   const appMeta = (user.app_metadata ?? {}) as {
     domains?: Record<string, string[]>;
   };
-  if (!appMeta.domains?.["inventory_ops"]?.includes("c"))
-    return fail("FORBIDDEN");
+  if (!appMeta.domains?.["inventory_ops"]?.includes("c")) return fail("FORBIDDEN");
 
   // Step 3: Rate limit
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  // Step 4: Resolve from_location_id — first active location that is not the
-  // to_location. This acts as the warehouse/source location.
-  const { data: locationsRaw, error: locError } = await supabase
+  // Step 4: Resolve from_location_id — the canonical Warehouse location
+  // (seed.sql:1202). Crew can never restock-from-self.
+  const { data: warehouse, error: locError } = await supabase
     .from("locations")
     .select("id")
+    .eq("name", "Warehouse")
     .eq("is_active", true)
-    .order("name");
+    .maybeSingle();
   if (locError) return fail("INTERNAL");
-
-  const fromLocation = (locationsRaw ?? []).find(
-    (l) => l.id !== parsed.data.to_location_id,
-  );
-  if (!fromLocation) return fail("NOT_FOUND");
+  if (!warehouse) return fail("NOT_FOUND", { form: "Warehouse location is not configured." });
+  if (warehouse.id === parsed.data.to_location_id) {
+    return fail("VALIDATION_FAILED", {
+      to_location_id: "Cannot restock the warehouse from itself.",
+    });
+  }
 
   // Step 5: Resolve movement_type_code for each item
   const materialIds = parsed.data.items.map((i) => i.material_id);
@@ -105,16 +107,17 @@ export async function submitRestockAction(
 
   const idempotencyKey = parsed.data.idempotencyKey ?? crypto.randomUUID();
 
-  const { data: requisitionId, error: rpcError } = await supabase.rpc(
-    "rpc_create_requisition" as any,
-    {
-      p_from_location_id: fromLocation.id,
-      p_to_location_id: parsed.data.to_location_id,
-      p_requester_remark: parsed.data.requester_remark ?? null,
-      p_items: itemsInsert,
-      p_idempotency_key: idempotencyKey,
-    },
-  );
+  // Generated RPC types over-restrict NULL-accepting parameters (Supabase
+  // type generator emits non-null types for SQL params without explicit
+  // NOT NULL). Cast nullable args to match the strict signature.
+  const { data: requisitionId, error: rpcError } = await supabase.rpc("rpc_create_requisition", {
+    p_from_location_id: warehouse.id,
+    p_to_location_id: parsed.data.to_location_id,
+    p_requester_remark: (parsed.data.requester_remark ?? null) as string,
+    p_created_by: user.id,
+    p_items: itemsInsert,
+    p_idempotency_key: idempotencyKey,
+  });
 
   if (rpcError) {
     if (rpcError.code === "23505" && rpcError.message.includes("duplicate_transaction")) {
@@ -137,5 +140,5 @@ export async function submitRestockAction(
     log.info({ requisitionId }, "submitRestockAction completed");
   });
 
-  return ok({ requisitionId });
+  return ok({ requisitionId: requisitionId as string });
 }

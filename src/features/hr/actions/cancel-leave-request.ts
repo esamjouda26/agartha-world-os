@@ -5,6 +5,8 @@ import "server-only";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 
+import { z } from "zod";
+
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
@@ -13,6 +15,8 @@ import { HR_ROUTER_PATHS } from "@/features/hr/cache-tags";
 
 const limiter = createRateLimiter({ tokens: 10, window: "60 s", prefix: "leave-cancel" });
 
+const inputSchema = z.object({ leaveRequestId: z.guid() });
+
 /**
  * Cancel own pending leave request via rpc_cancel_leave_request.
  * init_schema.sql:5967 — rpc_cancel_leave_request(p_leave_request_id).
@@ -20,7 +24,14 @@ const limiter = createRateLimiter({ tokens: 10, window: "60 s", prefix: "leave-c
 export async function cancelLeaveRequestAction(
   leaveRequestId: string,
 ): Promise<ServerActionResult<{ leaveRequestId: string }>> {
-  if (!leaveRequestId) return fail("VALIDATION_FAILED");
+  const parsed = inputSchema.safeParse({ leaveRequestId });
+  if (!parsed.success) {
+    const fields: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fields[issue.path.join(".") || "form"] = issue.message;
+    }
+    return fail("VALIDATION_FAILED", fields);
+  }
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -34,7 +45,7 @@ export async function cancelLeaveRequestAction(
   if (!lim.success) return fail("RATE_LIMITED");
 
   const { error } = await supabase.rpc("rpc_cancel_leave_request", {
-    p_leave_request_id: leaveRequestId,
+    p_leave_request_id: parsed.data.leaveRequestId,
   });
 
   if (error) {
@@ -50,10 +61,10 @@ export async function cancelLeaveRequestAction(
 
   after(async () => {
     loggerWith({ feature: "hr", event: "cancel_leave_request", user_id: user.id }).info(
-      { leaveRequestId },
+      { leaveRequestId: parsed.data.leaveRequestId },
       "cancelLeaveRequestAction completed",
     );
   });
 
-  return ok({ leaveRequestId });
+  return ok({ leaveRequestId: parsed.data.leaveRequestId });
 }

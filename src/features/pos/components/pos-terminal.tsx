@@ -10,13 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FormSection } from "@/components/ui/form-section";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -80,7 +74,7 @@ function Catalog({ categories, onSelectItem }: CatalogProps) {
                 type="button"
                 data-testid={`pos-catalog-item-${item.materialId}`}
                 onClick={() => onSelectItem(item)}
-                className="flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:bg-accent active:scale-95 min-h-[44px]"
+                className="border-border bg-card hover:bg-accent flex min-h-[44px] flex-col overflow-hidden rounded-xl border text-left transition-colors active:scale-95"
               >
                 {item.imageUrl ? (
                   <div className="relative h-28 w-full">
@@ -93,19 +87,19 @@ function Catalog({ categories, onSelectItem }: CatalogProps) {
                     />
                   </div>
                 ) : (
-                  <div className="h-28 w-full bg-muted flex items-center justify-center">
-                    <span className="text-2xl text-muted-foreground">🛒</span>
+                  <div className="bg-muted flex h-28 w-full items-center justify-center">
+                    <span className="text-muted-foreground text-2xl">🛒</span>
                   </div>
                 )}
                 <div className="p-3">
-                  <p className="text-sm font-medium leading-tight">
+                  <p className="text-sm leading-tight font-medium">
                     {item.displayName ?? item.materialName}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-primary">
+                  <p className="text-primary mt-1 text-sm font-semibold">
                     {formatPrice(item.sellingPrice)}
                   </p>
                   {item.modifierGroups.length > 0 && (
-                    <p className="mt-0.5 text-xs text-muted-foreground">Customisable</p>
+                    <p className="text-muted-foreground mt-0.5 text-xs">Customisable</p>
                   )}
                 </div>
               </button>
@@ -130,7 +124,7 @@ type CartProps = Readonly<{
 function Cart({ lines, onIncrement, onDecrement, onRemove, subtotal }: CartProps) {
   if (lines.length === 0) {
     return (
-      <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex h-24 items-center justify-center text-sm">
         Cart is empty
       </div>
     );
@@ -141,11 +135,11 @@ function Cart({ lines, onIncrement, onDecrement, onRemove, subtotal }: CartProps
       {lines.map((line) => (
         <div
           key={line.key}
-          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3"
+          className="border-border bg-card flex items-start gap-3 rounded-xl border p-3"
           data-testid={`pos-cart-line-${line.key}`}
         >
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{line.materialName}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{line.materialName}</p>
             {line.selectedModifiers.length > 0 && (
               <div className="mt-0.5 flex flex-wrap gap-1">
                 {line.selectedModifiers.map((m) => (
@@ -155,12 +149,10 @@ function Cart({ lines, onIncrement, onDecrement, onRemove, subtotal }: CartProps
                 ))}
               </div>
             )}
-            <p className="mt-1 text-sm font-semibold text-primary">
-              {formatPrice(line.lineTotal)}
-            </p>
+            <p className="text-primary mt-1 text-sm font-semibold">{formatPrice(line.lineTotal)}</p>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               variant="outline"
               size="icon"
@@ -185,7 +177,7 @@ function Cart({ lines, onIncrement, onDecrement, onRemove, subtotal }: CartProps
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive"
+              className="text-destructive hover:text-destructive h-8 w-8"
               onClick={() => onRemove(line.key)}
               data-testid={`pos-cart-remove-${line.key}`}
               aria-label={`Remove ${line.materialName} from cart`}
@@ -196,9 +188,9 @@ function Cart({ lines, onIncrement, onDecrement, onRemove, subtotal }: CartProps
         </div>
       ))}
 
-      <div className="flex justify-between border-t border-border pt-3">
-        <span className="font-medium text-sm">Subtotal</span>
-        <span className="font-bold text-base">{formatPrice(subtotal)}</span>
+      <div className="border-border flex justify-between border-t pt-3">
+        <span className="text-sm font-medium">Subtotal</span>
+        <span className="text-base font-bold">{formatPrice(subtotal)}</span>
       </div>
     </div>
   );
@@ -234,7 +226,12 @@ function ModifierSelector({ item, open, onClose, onConfirm }: ModifierSelectorPr
   // bind the narrowed value explicitly.
   const activeItem = item;
 
-  function toggleOption(group: CatalogModifierGroup, optId: string, optName: string, delta: number) {
+  function toggleOption(
+    group: CatalogModifierGroup,
+    optId: string,
+    optName: string,
+    delta: number,
+  ) {
     setSelections((prev) => {
       const current = prev[group.id] ?? [];
       const exists = current.some((s) => s.optionId === optId);
@@ -290,7 +287,7 @@ function ModifierSelector({ item, open, onClose, onConfirm }: ModifierSelectorPr
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
         <SheetHeader className="mb-4">
           <SheetTitle className="text-lg font-semibold">{displayName}</SheetTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Base price: {formatPrice(activeItem.sellingPrice)}
           </p>
         </SheetHeader>
@@ -304,11 +301,9 @@ function ModifierSelector({ item, open, onClose, onConfirm }: ModifierSelectorPr
             return (
               <div key={group.id} className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{group.displayName}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {isRadio
-                      ? "Choose 1"
-                      : `Choose ${group.minSelections}–${group.maxSelections}`}
+                  <span className="text-sm font-medium">{group.displayName}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {isRadio ? "Choose 1" : `Choose ${group.minSelections}–${group.maxSelections}`}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -319,10 +314,8 @@ function ModifierSelector({ item, open, onClose, onConfirm }: ModifierSelectorPr
                         key={opt.id}
                         type="button"
                         data-testid={`pos-modifier-option-${opt.id}`}
-                        onClick={() =>
-                          toggleOption(group, opt.id, opt.name, opt.priceDelta)
-                        }
-                        className={`flex flex-col items-start rounded-xl border p-3 text-left transition-colors min-h-[44px] ${
+                        onClick={() => toggleOption(group, opt.id, opt.name, opt.priceDelta)}
+                        className={`flex min-h-[44px] flex-col items-start rounded-xl border p-3 text-left transition-colors ${
                           selected
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border bg-card hover:bg-accent"
@@ -330,7 +323,7 @@ function ModifierSelector({ item, open, onClose, onConfirm }: ModifierSelectorPr
                       >
                         <span className="text-sm font-medium">{opt.name}</span>
                         {opt.priceDelta !== 0 && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-muted-foreground text-xs">
                             {opt.priceDelta > 0 ? "+" : ""}
                             {formatPrice(opt.priceDelta)}
                           </span>
@@ -340,17 +333,17 @@ function ModifierSelector({ item, open, onClose, onConfirm }: ModifierSelectorPr
                   })}
                 </div>
                 {err && groupSelected.length > 0 && (
-                  <p className="text-xs text-destructive">{err}</p>
+                  <p className="text-destructive text-xs">{err}</p>
                 )}
               </div>
             );
           })}
         </div>
 
-        <SheetFooter className="sticky bottom-0 bg-background pt-4 pb-2">
+        <SheetFooter className="bg-background sticky bottom-0 pt-4 pb-2">
           <Button
             type="button"
-            className="w-full min-h-[48px] text-base font-semibold"
+            className="min-h-[48px] w-full text-base font-semibold"
             onClick={handleConfirm}
             disabled={!allValid}
             data-testid="pos-modifier-confirm"
@@ -396,7 +389,11 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
       if (existing) {
         return prev.map((l) =>
           l.key === key
-            ? { ...l, quantity: l.quantity + 1, lineTotal: (l.quantity + 1) * (l.basePrice + modTotal) }
+            ? {
+                ...l,
+                quantity: l.quantity + 1,
+                lineTotal: (l.quantity + 1) * (l.basePrice + modTotal),
+              }
             : l,
         );
       }
@@ -422,7 +419,9 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
           ? {
               ...l,
               quantity: l.quantity + 1,
-              lineTotal: (l.quantity + 1) * (l.basePrice + l.selectedModifiers.reduce((s, m) => s + m.priceDelta, 0)),
+              lineTotal:
+                (l.quantity + 1) *
+                (l.basePrice + l.selectedModifiers.reduce((s, m) => s + m.priceDelta, 0)),
             }
           : l,
       ),
@@ -435,7 +434,13 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
         if (l.key !== key) return [l];
         if (l.quantity <= 1) return [];
         const modTotal = l.selectedModifiers.reduce((s, m) => s + m.priceDelta, 0);
-        return [{ ...l, quantity: l.quantity - 1, lineTotal: (l.quantity - 1) * (l.basePrice + modTotal) }];
+        return [
+          {
+            ...l,
+            quantity: l.quantity - 1,
+            lineTotal: (l.quantity - 1) * (l.basePrice + modTotal),
+          },
+        ];
       }),
     );
   }
@@ -456,6 +461,7 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
           modifiers: l.selectedModifiers.map((m) => m.optionId),
         })),
         paymentMethod,
+        idempotencyKey: crypto.randomUUID(),
       });
       if (result.success) {
         toastSuccess("Order submitted successfully!");
@@ -478,9 +484,9 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
 
       {/* Sticky cart FAB — bottom 100px band (crew mobile contract) */}
       {totalQty > 0 && (
-        <div className="fixed bottom-[72px] left-0 right-0 px-4 z-40 md:relative md:bottom-auto md:px-0 md:pt-2">
+        <div className="fixed right-0 bottom-[72px] left-0 z-40 px-4 md:relative md:bottom-auto md:px-0 md:pt-2">
           <Button
-            className="w-full min-h-[52px] text-base font-semibold shadow-lg"
+            className="min-h-[52px] w-full text-base font-semibold shadow-lg"
             onClick={() => setCartOpen(true)}
             data-testid="pos-view-cart-button"
           >
@@ -547,7 +553,7 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
             </div>
 
             <Button
-              className="w-full min-h-[52px] text-base font-semibold"
+              className="min-h-[52px] w-full text-base font-semibold"
               onClick={handleCheckout}
               disabled={isSubmitting || cartLines.length === 0}
               data-testid="pos-checkout-button"

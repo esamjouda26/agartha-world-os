@@ -13,6 +13,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={resolvedTheme}
       className="toaster group"
       richColors
+      // Mobile crew portals dock a 72px BottomTabBar to the viewport bottom
+      // (sticky-action-bar.tsx default offset). Default sonner position is
+      // bottom-right which overlaps that bar. mobileOffset bumps the stack
+      // above it (72px nav + 16px breathing room) on the ≤600px breakpoint;
+      // desktop keeps the default bottom-right anchor.
+      mobileOffset={{ bottom: "88px", left: "16px", right: "16px" }}
       icons={{
         success: <CircleCheck className="size-4" />,
         info: <Info className="size-4" />,

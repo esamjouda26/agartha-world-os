@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
@@ -22,17 +23,15 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { StickyActionBar, StickyActionBarSpacer } from "@/components/ui/sticky-action-bar";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
 import { submitRestockAction } from "@/features/inventory/actions/submit-restock";
-import { submitRestockSchema, type SubmitRestockInput } from "@/features/inventory/schemas/submit-restock";
 import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+  submitRestockSchema,
+  type SubmitRestockInput,
+} from "@/features/inventory/schemas/submit-restock";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import type { RestockContext, MaterialOption, RequisitionRow } from "@/features/inventory/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -59,15 +58,27 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
   });
 
   const [isPending, setIsPending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<SubmitRestockInput | null>(null);
 
-  const handleSubmit = async (values: SubmitRestockInput) => {
+  // First click on Submit only validates + opens the confirm dialog —
+  // the actual mutation runs in `handleConfirm` to enforce a deliberate
+  // "yes, send this requisition" interaction (frontend_spec.md confirmation
+  // contract for crew mutations).
+  const handleValidated = (values: SubmitRestockInput) => {
+    setPendingValues(values);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingValues) return;
     setIsPending(true);
     try {
       const payload = {
-        ...values,
-        requester_remark: values.requester_remark || undefined,
+        ...pendingValues,
+        requester_remark: pendingValues.requester_remark || undefined,
       };
-      
+
       const result = await submitRestockAction(payload);
       if (result.success) {
         toastSuccess("Restock request submitted.");
@@ -77,19 +88,26 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
           requester_remark: "",
           idempotencyKey: crypto.randomUUID(),
         });
+        setConfirmOpen(false);
+        setPendingValues(null);
         onSubmitted();
       } else {
         toastError(result);
         if (result.fields) {
           for (const [field, message] of Object.entries(result.fields)) {
-            form.setError(field as any, { type: "server", message });
+            form.setError(field as never, { type: "server", message });
           }
         }
+        setConfirmOpen(false);
       }
     } finally {
       setIsPending(false);
     }
   };
+
+  const itemCount = pendingValues?.items.length ?? 0;
+  const totalQty =
+    pendingValues?.items.reduce((sum, item) => sum + (Number(item.requested_qty) || 0), 0) ?? 0;
 
   return (
     <FormSection
@@ -99,7 +117,7 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
     >
       <FormProvider {...form}>
         <form
-          onSubmit={form.handleSubmit(handleSubmit)}
+          onSubmit={form.handleSubmit(handleValidated)}
           className="flex flex-col gap-5"
           data-testid="restock-form"
           aria-busy={isPending}
@@ -129,7 +147,11 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
                         Select location…
                       </SelectItem>
                       {context.locations.map((loc) => (
-                        <SelectItem key={loc.id} value={loc.id} data-testid={`restock-location-${loc.id}`}>
+                        <SelectItem
+                          key={loc.id}
+                          value={loc.id}
+                          data-testid={`restock-location-${loc.id}`}
+                        >
                           {loc.name}
                         </SelectItem>
                       ))}
@@ -172,7 +194,11 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
                               Select material…
                             </SelectItem>
                             {context.materials.map((m: MaterialOption) => (
-                              <SelectItem key={m.id} value={m.id} data-testid={`restock-material-option-${m.id}`}>
+                              <SelectItem
+                                key={m.id}
+                                value={m.id}
+                                data-testid={`restock-material-option-${m.id}`}
+                              >
                                 {m.name}
                               </SelectItem>
                             ))}
@@ -188,8 +214,10 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
                   control={form.control}
                   name={`items.${idx}.requested_qty`}
                   render={({ field: qField }) => (
-                    <FormItem className="w-20 space-y-1 shrink-0">
-                      <Label htmlFor={`restock-qty-${idx}`} className="sr-only">Qty</Label>
+                    <FormItem className="w-20 shrink-0 space-y-1">
+                      <Label htmlFor={`restock-qty-${idx}`} className="sr-only">
+                        Qty
+                      </Label>
                       <FormControl>
                         <Input
                           {...qField}
@@ -212,7 +240,7 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-[44px] w-11 text-destructive shrink-0"
+                    className="text-destructive h-[44px] w-11 shrink-0"
                     onClick={() => remove(idx)}
                     data-testid={`restock-remove-line-${idx}`}
                     aria-label="Remove item"
@@ -222,12 +250,12 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
                 )}
               </div>
             ))}
-            
+
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="self-start min-h-[40px] gap-1.5"
+              className="min-h-[40px] gap-1.5 self-start"
               onClick={() => append({ material_id: "", requested_qty: 1 })}
               disabled={isPending}
               data-testid="restock-add-line"
@@ -261,17 +289,48 @@ function RestockForm({ context, onSubmitted }: RestockFormProps) {
             )}
           />
 
-          {/* Submit */}
-          <Button
-            type="submit"
-            className="w-full min-h-[52px] text-base font-semibold"
-            disabled={isPending}
-            data-testid="restock-submit"
-          >
-            {isPending ? "Submitting…" : "Request Restock"}
-          </Button>
+          {/* Spacer keeps the last field visible above the sticky bar on mobile. */}
+          <StickyActionBarSpacer />
+
+          {/* Submit — anchored to the bottom-100px band on mobile per Phase 8
+              crew-portal contract; collapses to inline at md+. */}
+          <StickyActionBar data-testid="restock-submit-bar">
+            <Button
+              type="submit"
+              className="min-h-[52px] w-full text-base font-semibold"
+              disabled={isPending}
+              data-testid="restock-submit"
+            >
+              {isPending ? "Submitting…" : "Request Restock"}
+            </Button>
+          </StickyActionBar>
         </form>
       </FormProvider>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(next) => {
+          if (!next && isPending) return;
+          setConfirmOpen(next);
+        }}
+        intent="info"
+        title="Send this restock request?"
+        description="The warehouse team will be notified once you confirm."
+        confirmLabel={isPending ? "Submitting…" : "Send request"}
+        pending={isPending}
+        onConfirm={handleConfirm}
+        data-testid="restock-confirm-dialog"
+      >
+        <ul className="text-foreground-muted ml-4 list-disc text-sm">
+          <li>
+            <span className="text-foreground font-medium">{itemCount}</span> line
+            {itemCount === 1 ? "" : "s"}
+          </li>
+          <li>
+            <span className="text-foreground font-medium">{totalQty}</span> total units
+          </li>
+        </ul>
+      </ConfirmDialog>
     </FormSection>
   );
 }
@@ -295,23 +354,21 @@ function RecentRequestsList({ requisitions }: RecentRequestsListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2" aria-label="Recent restock requests" data-testid="restock-recent-list">
+    <div
+      className="flex flex-col gap-2"
+      aria-label="Recent restock requests"
+      data-testid="restock-recent-list"
+    >
       {requisitions.map((req) => (
-        <SectionCard
-          key={req.id}
-          headless
-          data-testid={`restock-recent-${req.id}`}
-        >
-          <div className="flex flex-col gap-1 py-3 px-4">
+        <SectionCard key={req.id} headless data-testid={`restock-recent-${req.id}`}>
+          <div className="flex flex-col gap-1 px-4 py-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-foreground-muted font-mono">{req.id.slice(0, 8).toUpperCase()}</span>
-              <StatusBadge
-                status={req.status ?? "pending"}
-              />
+              <span className="text-foreground-muted font-mono text-xs">
+                {req.id.slice(0, 8).toUpperCase()}
+              </span>
+              <StatusBadge status={req.status ?? "pending"} />
             </div>
-            {req.toLocationName && (
-              <p className="text-sm">→ {req.toLocationName}</p>
-            )}
+            {req.toLocationName && <p className="text-sm">→ {req.toLocationName}</p>}
             <MetadataList
               layout="inline"
               items={[
@@ -340,12 +397,16 @@ export function RestockView({ context }: RestockViewProps) {
 
   return (
     <div className="flex flex-col gap-6 p-4" data-testid="restock-page">
-
       <RestockForm context={context} onSubmitted={handleSubmitted} />
 
       <Separator />
 
-      <FormSection title="Recent Requests" divider={false} data-testid="restock-recent-section" key={refreshKey}>
+      <FormSection
+        title="Recent Requests"
+        divider={false}
+        data-testid="restock-recent-section"
+        key={refreshKey}
+      >
         <RecentRequestsList requisitions={context.ownRecentRequisitions} />
       </FormSection>
     </div>

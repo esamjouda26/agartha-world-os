@@ -8,8 +8,7 @@ import type { Database } from "@/types/database";
 
 // ── Raw table row types ───────────────────────────────────────────────────
 
-export type MaterialRequisition =
-  Database["public"]["Tables"]["material_requisitions"]["Row"];
+export type MaterialRequisition = Database["public"]["Tables"]["material_requisitions"]["Row"];
 export type MaterialRequisitionInsert =
   Database["public"]["Tables"]["material_requisitions"]["Insert"];
 
@@ -29,21 +28,16 @@ export type WriteOffInsert = Database["public"]["Tables"]["write_offs"]["Insert"
 
 export type Material = Database["public"]["Tables"]["materials"]["Row"];
 export type Location = Database["public"]["Tables"]["locations"]["Row"];
-export type StockBalanceCache =
-  Database["public"]["Tables"]["stock_balance_cache"]["Row"];
-export type MaterialCategory =
-  Database["public"]["Tables"]["material_categories"]["Row"];
-export type BillOfMaterials =
-  Database["public"]["Tables"]["bill_of_materials"]["Row"];
-export type MaterialValuation =
-  Database["public"]["Tables"]["material_valuation"]["Row"];
+export type StockBalanceCache = Database["public"]["Tables"]["stock_balance_cache"]["Row"];
+export type MaterialCategory = Database["public"]["Tables"]["material_categories"]["Row"];
+export type BillOfMaterials = Database["public"]["Tables"]["bill_of_materials"]["Row"];
+export type MaterialValuation = Database["public"]["Tables"]["material_valuation"]["Row"];
 export type LocationAllowedCategory =
   Database["public"]["Tables"]["location_allowed_categories"]["Row"];
 
 // ── Enum types ────────────────────────────────────────────────────────────
 
-export type InventoryTaskStatus =
-  Database["public"]["Enums"]["inventory_task_status"];
+export type InventoryTaskStatus = Database["public"]["Enums"]["inventory_task_status"];
 export type DisposalReason = Database["public"]["Enums"]["disposal_reason"];
 export type MaterialType = Database["public"]["Enums"]["material_type"];
 
@@ -127,6 +121,9 @@ export type StockCountItemView = Readonly<{
   materialName: string;
   baseUnit: string;
   physicalQty: number;
+  /** Material category — surfaced for UI grouping per frontend_spec. */
+  categoryId: string | null;
+  categoryName: string;
 }>;
 
 /**
@@ -563,11 +560,7 @@ export type WriteOffListData = Readonly<{
  * `inventory_task_status` for reconciliations, so all four tabs are
  * meaningful (unlike requisitions which dropped Awaiting Review).
  */
-export type ReconciliationStatusFilter =
-  | "active"
-  | "pending_review"
-  | "completed"
-  | "cancelled";
+export type ReconciliationStatusFilter = "active" | "pending_review" | "completed" | "cancelled";
 
 /** Counts per tab badge. */
 export type ReconciliationStatusCounts = Readonly<{

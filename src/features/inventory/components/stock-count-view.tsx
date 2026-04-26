@@ -14,13 +14,11 @@ import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
 import { updateStockCountAction } from "@/features/inventory/actions/update-stock-count";
-import { updateStockCountSchema, type UpdateStockCountInput } from "@/features/inventory/schemas/update-stock-count";
 import {
-  FormField,
-  FormItem,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+  updateStockCountSchema,
+  type UpdateStockCountInput,
+} from "@/features/inventory/schemas/update-stock-count";
+import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/form";
 import type { ReconciliationRow, StockCountItemView } from "@/features/inventory/types";
 
 function ReconciliationCard({ rec }: Readonly<{ rec: ReconciliationRow }>) {
@@ -52,7 +50,7 @@ function ReconciliationCard({ rec }: Readonly<{ rec: ReconciliationRow }>) {
         toastError(result);
         if (result.fields) {
           for (const [field, message] of Object.entries(result.fields)) {
-            form.setError(field as any, { type: "server", message });
+            form.setError(field as never, { type: "server", message });
           }
         }
       }
@@ -76,52 +74,90 @@ function ReconciliationCard({ rec }: Readonly<{ rec: ReconciliationRow }>) {
     >
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} aria-busy={isPending}>
-          {/* Blind count — system_qty intentionally withheld per WF-11 spec */}
-          <ul className="flex flex-col gap-3" aria-label="Items to count">
-            {fields.map((field, idx) => {
+          {/* Blind count — system_qty intentionally withheld per WF-11 spec.
+              Items grouped by material category so the runner can sweep the
+              shelf section by section (frontend_spec.md WF-11 grouping). */}
+          {(() => {
+            // Group items by category, preserving the field-array order so the
+            // RHF index stays stable across renders.
+            const groups = new Map<
+              string,
+              { name: string; entries: Array<{ idx: number; item: StockCountItemView }> }
+            >();
+            fields.forEach((field, idx) => {
               const item = rec.items.find((i) => i.id === field.item_id);
-              if (!item) return null;
+              if (!item) return;
+              const key = item.categoryId ?? "__uncategorized__";
+              const existing = groups.get(key);
+              if (existing) {
+                existing.entries.push({ idx, item });
+              } else {
+                groups.set(key, { name: item.categoryName, entries: [{ idx, item }] });
+              }
+            });
+            const sortedGroups = Array.from(groups.entries()).sort(([, a], [, b]) =>
+              a.name.localeCompare(b.name),
+            );
 
-              return (
-                <li key={field.id} className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0 pt-3">
-                    <p className="text-sm font-medium truncate">{item.materialName}</p>
-                    <p className="text-xs text-foreground-muted">{item.baseUnit}</p>
-                  </div>
-                  <div className="shrink-0 w-24">
-                    <FormField
-                      control={form.control}
-                      name={`items.${idx}.physical_qty`}
-                      render={({ field: qField }) => (
-                        <FormItem className="space-y-1">
-                          <Label htmlFor={`count-qty-${item.id}`} className="sr-only">
-                            Physical count for {item.materialName}
-                          </Label>
-                          <FormControl>
-                            <Input
-                              {...qField}
-                              id={`count-qty-${item.id}`}
-                              type="number"
-                              min={0}
-                              onChange={(e) => qField.onChange(Number(e.target.value))}
-                              className="w-24 min-h-[44px] text-center"
-                              disabled={isPending}
-                              data-testid={`count-qty-${item.id}`}
+            return (
+              <div className="flex flex-col gap-5" aria-label="Items to count">
+                {sortedGroups.map(([catKey, group]) => (
+                  <section
+                    key={catKey}
+                    aria-label={`${group.name} items`}
+                    data-testid={`stock-count-category-${catKey}`}
+                  >
+                    <header className="border-border-subtle text-foreground-muted mb-2 flex items-center justify-between border-b pb-1 text-xs font-medium tracking-wide uppercase">
+                      <span>{group.name}</span>
+                      <span>
+                        {group.entries.length} item{group.entries.length === 1 ? "" : "s"}
+                      </span>
+                    </header>
+                    <ul className="flex flex-col gap-3">
+                      {group.entries.map(({ idx, item }) => (
+                        <li key={item.id} className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1 pt-3">
+                            <p className="truncate text-sm font-medium">{item.materialName}</p>
+                            <p className="text-foreground-muted text-xs">{item.baseUnit}</p>
+                          </div>
+                          <div className="w-24 shrink-0">
+                            <FormField
+                              control={form.control}
+                              name={`items.${idx}.physical_qty`}
+                              render={({ field: qField }) => (
+                                <FormItem className="space-y-1">
+                                  <Label htmlFor={`count-qty-${item.id}`} className="sr-only">
+                                    Physical count for {item.materialName}
+                                  </Label>
+                                  <FormControl>
+                                    <Input
+                                      {...qField}
+                                      id={`count-qty-${item.id}`}
+                                      type="number"
+                                      min={0}
+                                      onChange={(e) => qField.onChange(Number(e.target.value))}
+                                      className="min-h-[44px] w-24 text-center"
+                                      disabled={isPending}
+                                      data-testid={`count-qty-${item.id}`}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
                             />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            );
+          })()}
 
           <Button
             type="submit"
-            className="mt-5 w-full min-h-[48px] font-semibold gap-2"
+            className="mt-5 min-h-[48px] w-full gap-2 font-semibold"
             disabled={isPending}
             data-testid={`stock-count-submit-${rec.id}`}
           >

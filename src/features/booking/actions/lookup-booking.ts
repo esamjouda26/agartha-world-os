@@ -4,6 +4,8 @@ import "server-only";
 
 import { after } from "next/server";
 
+import { z } from "zod";
+
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
@@ -20,9 +22,12 @@ const limiter = createRateLimiter({
   prefix: "booking-lookup",
 });
 
-type LookupInput =
-  | { kind: "qr"; value: string }
-  | { kind: "ref"; value: string };
+const inputSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("qr"), value: z.string().trim().min(1, "QR code is required") }),
+  z.object({ kind: z.literal("ref"), value: z.string().trim().min(1, "Booking ref is required") }),
+]);
+
+type LookupInput = z.infer<typeof inputSchema>;
 
 /**
  * Look up a booking by QR code or booking ref.
@@ -32,8 +37,13 @@ type LookupInput =
 export async function lookupBookingAction(
   input: LookupInput,
 ): Promise<ServerActionResult<BookingLookupResult>> {
-  if (!input.value.trim()) {
-    return fail("VALIDATION_FAILED", { value: "Value is required" });
+  const parsed = inputSchema.safeParse(input);
+  if (!parsed.success) {
+    const fields: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fields[issue.path.join(".") || "form"] = issue.message;
+    }
+    return fail("VALIDATION_FAILED", fields);
   }
 
   const supabase = await createSupabaseServerClient();
@@ -49,9 +59,9 @@ export async function lookupBookingAction(
   if (!lim.success) return fail("RATE_LIMITED");
 
   const args =
-    input.kind === "qr"
-      ? { p_qr_code_ref: input.value }
-      : { p_booking_ref: input.value };
+    parsed.data.kind === "qr"
+      ? { p_qr_code_ref: parsed.data.value }
+      : { p_booking_ref: parsed.data.value };
 
   const { data, error } = await supabase.rpc("rpc_lookup_booking", args);
 
@@ -60,7 +70,7 @@ export async function lookupBookingAction(
 
   after(async () => {
     loggerWith({ feature: "booking", event: "lookup", user_id: user.id }).info(
-      { kind: input.kind },
+      { kind: parsed.data.kind },
       "lookupBookingAction completed",
     );
   });

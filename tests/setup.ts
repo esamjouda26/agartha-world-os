@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+import * as React from "react";
 
 // `server-only` is Next.js's tree-shake guard for server modules. It throws
 // on import outside RSC, which would crash Vitest whenever a unit test pulls
@@ -8,6 +9,40 @@ import { afterEach, vi } from "vitest";
 // Mocking it to a no-op lets the pure logic be tested in isolation without
 // loosening the production boundary.
 vi.mock("server-only", () => ({}));
+
+// `@/i18n/navigation` invokes `createNavigation(routing)` from next-intl at
+// module init. In Vitest under jsdom + Node's strict ESM resolver, the
+// transitive `import { redirect } from "next/navigation"` resolves to a
+// CJS interop that doesn't expose the names next-intl expects, crashing
+// any test tree that touches a component using `<Link>` or
+// `useRouter`. Stubbing the wrapper directly with a typed shim mirrors the
+// surface the app uses without evaluating next-intl in the test process.
+vi.mock("@/i18n/navigation", () => {
+  type LinkHref = string | { pathname: string };
+  type LinkProps = Omit<React.ComponentProps<"a">, "href"> & {
+    href: LinkHref;
+  };
+  const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(
+    function MockLink({ href, children, ...rest }, ref) {
+      const target = typeof href === "string" ? href : href.pathname;
+      return React.createElement("a", { ref, href: target, ...rest }, children);
+    },
+  );
+  return {
+    Link,
+    redirect: vi.fn(),
+    usePathname: vi.fn(() => "/"),
+    useRouter: vi.fn(() => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+      refresh: vi.fn(),
+      prefetch: vi.fn(),
+    })),
+    getPathname: vi.fn((opts: { href: string }) => opts.href),
+  };
+});
 
 // jsdom doesn't implement window.matchMedia. Several client hooks
 // (motion.ts's usePrefersReducedMotion, theme toggle, etc.) read it

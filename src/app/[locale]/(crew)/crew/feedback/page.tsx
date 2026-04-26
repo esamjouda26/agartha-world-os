@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { CrewPageHeader } from "@/components/shared/crew-page-header";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getFeedbackLocationName } from "@/features/marketing/queries/get-feedback-location";
 import { getRecentFeedback } from "@/features/marketing/queries/get-recent-feedback";
 import { FeedbackView } from "@/features/marketing/components/feedback-view";
 
@@ -17,16 +18,21 @@ export default async function CrewFeedbackPage({
 }: Readonly<{ params: Promise<{ locale: string }> }>) {
   const { locale } = await params;
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect(`/${locale}/auth/login`);
 
-  const recentFeedback = await getRecentFeedback(supabase, user.id);
+  const [recentFeedback, autoLocationName] = await Promise.all([
+    getRecentFeedback(supabase, user.id),
+    getFeedbackLocationName(supabase, user.id),
+  ]);
 
   return (
     <div className="flex h-full flex-col" data-testid="feedback-page">
       <CrewPageHeader title="Guest Feedback" subtitle="Capture what guests are saying in passing" />
       <div className="flex-1 overflow-y-auto">
-        <FeedbackView initialFeedback={recentFeedback} />
+        <FeedbackView initialFeedback={recentFeedback} autoLocationName={autoLocationName} />
       </div>
     </div>
   );

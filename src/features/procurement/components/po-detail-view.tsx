@@ -3,17 +3,7 @@
 import * as React from "react";
 import { useForm, FormProvider, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Send,
-  CheckCircle,
-  XCircle,
-  Edit,
-  Plus,
-  Trash2,
-  Mail,
-  Phone,
-  Package,
-} from "lucide-react";
+import { Send, CheckCircle, XCircle, Edit, Plus, Trash2, Mail, Phone, Package } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toastSuccess, toastError } from "@/components/ui/toast-helpers";
@@ -31,13 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 
 import { DetailPageShell } from "@/components/shared/detail-page-shell";
 import { FormSheet } from "@/components/shared/form-sheet";
@@ -48,12 +32,8 @@ import type {
   PODetailData,
   PODetailLineItem,
   ReceivingHistoryRow,
-  PoStatus,
 } from "@/features/procurement/types";
-import {
-  PO_STATUS_LABELS,
-  PO_STATUS_TONES,
-} from "@/features/procurement/types";
+import { PO_STATUS_LABELS, PO_STATUS_TONES } from "@/features/procurement/types";
 import { updatePurchaseOrder } from "@/features/procurement/actions/update-purchase-order";
 import { addPoLineItem } from "@/features/procurement/actions/add-po-line-item";
 import { removePoLineItem } from "@/features/procurement/actions/remove-po-line-item";
@@ -162,13 +142,19 @@ export function PODetailView({ data, canWrite }: PODetailViewProps) {
         accessorKey: "receivedQty",
         header: "Received",
         cell: ({ row }) => (
-            <div className="flex items-center gap-2">
-              <ProgressBar value={row.original.receivedQty} max={row.original.expectedQty} size="sm" className="w-16" />
-              <span className="text-foreground-muted tabular-nums text-xs">
-                {row.original.receivedQty.toLocaleString()} / {row.original.expectedQty.toLocaleString()}
-              </span>
-            </div>
-          ),
+          <div className="flex items-center gap-2">
+            <ProgressBar
+              value={row.original.receivedQty}
+              max={row.original.expectedQty}
+              size="sm"
+              className="w-16"
+            />
+            <span className="text-foreground-muted text-xs tabular-nums">
+              {row.original.receivedQty.toLocaleString()} /{" "}
+              {row.original.expectedQty.toLocaleString()}
+            </span>
+          </div>
+        ),
         meta: { headerClassName: "w-0 whitespace-nowrap", cellClassName: "w-0 whitespace-nowrap" },
       },
       {
@@ -247,7 +233,7 @@ export function PODetailView({ data, canWrite }: PODetailViewProps) {
         id: "items",
         header: "Items",
         cell: ({ row }) => (
-          <ul className="text-foreground-muted text-sm space-y-0.5">
+          <ul className="text-foreground-muted space-y-0.5 text-sm">
             {row.original.items.map((gi, i) => (
               <li key={i}>
                 {gi.materialName}: {gi.quantity} {gi.unitAbbreviation}
@@ -319,17 +305,12 @@ export function PODetailView({ data, canWrite }: PODetailViewProps) {
       header={{
         title: `PO — ${data.supplierName}`,
         status: (
-          <StatusBadge
-            status={PO_STATUS_LABELS[data.status]}
-            tone={PO_STATUS_TONES[data.status]}
-          />
+          <StatusBadge status={PO_STATUS_LABELS[data.status]} tone={PO_STATUS_TONES[data.status]} />
         ),
         metadata: [
           {
             label: "Order Date",
-            value: data.orderDate
-              ? format(parseISO(data.orderDate), "dd MMM yyyy")
-              : "—",
+            value: data.orderDate ? format(parseISO(data.orderDate), "dd MMM yyyy") : "—",
           },
           {
             label: "Expected Delivery",
@@ -352,7 +333,7 @@ export function PODetailView({ data, canWrite }: PODetailViewProps) {
       data-testid="po-detail-shell"
     >
       {/* ── Supplier Contact Card ────────────────────────────────── */}
-      {(data.supplierContactEmail || data.supplierContactPhone) ? (
+      {data.supplierContactEmail || data.supplierContactPhone ? (
         <SectionCard
           title="Supplier Contact"
           description="Quick-access supplier contact details for delivery inquiries."
@@ -387,10 +368,7 @@ export function PODetailView({ data, canWrite }: PODetailViewProps) {
 
       {/* ── Notes ────────────────────────────────────────────────── */}
       {data.notes ? (
-        <SectionCard
-          title="Notes"
-          data-testid="po-detail-notes"
-        >
+        <SectionCard title="Notes" data-testid="po-detail-notes">
           <p className="text-foreground-muted text-sm whitespace-pre-wrap">{data.notes}</p>
         </SectionCard>
       ) : null}
@@ -633,7 +611,10 @@ function AddLineItemSheet({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Material *</FormLabel>
-                  <Select value={field.value || "__none__"} onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}>
+                  <Select
+                    value={field.value || "__none__"}
+                    onValueChange={(v) => field.onChange(v === "__none__" ? "" : v)}
+                  >
                     <FormControl>
                       <SelectTrigger data-testid="po-add-item-material">
                         <SelectValue placeholder="Select material" />

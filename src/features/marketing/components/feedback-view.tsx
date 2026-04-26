@@ -1,19 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "@/i18n/navigation";
 
 import { formatDistanceToNow } from "date-fns";
-import { ThumbsUp, Minus, ThumbsDown } from "lucide-react";
+import { MapPin, Minus, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { ChipInput } from "@/components/ui/chip-input";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FieldGroup } from "@/components/ui/field-group";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { MetadataList } from "@/components/ui/metadata-list";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { StickyActionBar, StickyActionBarSpacer } from "@/components/ui/sticky-action-bar";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
 import { submitFeedbackAction } from "@/features/marketing/actions/submit-feedback";
@@ -40,9 +41,18 @@ const SENTIMENT_TONE: Record<SurveySentiment, StatusTone> = {
 
 // ── Local: GuestFeedbackForm ──────────────────────────────────────────────────
 
-type GuestFeedbackFormProps = Readonly<{ onSubmitted: () => void }>;
+type GuestFeedbackFormProps = Readonly<{
+  onSubmitted: () => void;
+  /**
+   * Auto-detected location resolved from the caller's
+   * `staff_records.org_unit_id → locations.org_unit_id` chain. Displayed as
+   * read-only context only — `survey_responses` has no location column
+   * (frontend_spec.md:3004).
+   */
+  autoLocationName: string | null;
+}>;
 
-function GuestFeedbackForm({ onSubmitted }: GuestFeedbackFormProps) {
+function GuestFeedbackForm({ onSubmitted, autoLocationName }: GuestFeedbackFormProps) {
   const [sentiment, setSentiment] = useState<SurveySentiment>("positive");
   const [feedbackText, setFeedbackText] = useState("");
   const [keywords, setKeywords] = useState<readonly string[]>([]);
@@ -79,7 +89,25 @@ function GuestFeedbackForm({ onSubmitted }: GuestFeedbackFormProps) {
       description="Capture what guests are saying to improve the experience."
       data-testid="feedback-form-section"
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5" data-testid="feedback-form" aria-busy={isPending}>
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-5"
+        data-testid="feedback-form"
+        aria-busy={isPending}
+      >
+        {/* Auto-detected location — displayed read-only per frontend_spec.md:3004.
+            Not stored on survey_responses (no location column). */}
+        {autoLocationName ? (
+          <div
+            className="border-border-subtle bg-surface/40 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+            data-testid="feedback-auto-location"
+          >
+            <MapPin aria-hidden className="text-foreground-muted size-4" />
+            <span className="text-foreground-muted">Captured at</span>
+            <span className="text-foreground font-medium">{autoLocationName}</span>
+          </div>
+        ) : null}
+
         {/* Sentiment segmented control */}
         <FieldGroup legend="Guest sentiment" data-testid="feedback-sentiment-group">
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Guest sentiment">
@@ -91,7 +119,7 @@ function GuestFeedbackForm({ onSubmitted }: GuestFeedbackFormProps) {
                 aria-checked={sentiment === opt.value}
                 onClick={() => setSentiment(opt.value)}
                 disabled={isPending}
-                className={`flex flex-col items-center justify-center rounded-xl border py-3 gap-1 min-h-[60px] transition-colors text-sm font-medium disabled:opacity-50 ${
+                className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl border py-3 text-sm font-medium transition-colors disabled:opacity-50 ${
                   sentiment === opt.value
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-card hover:bg-accent"
@@ -120,7 +148,7 @@ function GuestFeedbackForm({ onSubmitted }: GuestFeedbackFormProps) {
             data-testid="feedback-text"
             aria-describedby="feedback-text-hint"
           />
-          <p id="feedback-text-hint" className="text-xs text-foreground-muted">
+          <p id="feedback-text-hint" className="text-foreground-muted text-xs">
             Minimum 10 characters
           </p>
         </FieldGroup>
@@ -142,7 +170,9 @@ function GuestFeedbackForm({ onSubmitted }: GuestFeedbackFormProps) {
         </FieldGroup>
 
         {/* Rating */}
-        <FieldGroup legend={`Guest mood rating (optional) — ${score !== null ? `${score}/10` : "Not set"}`}>
+        <FieldGroup
+          legend={`Guest mood rating (optional) — ${score !== null ? `${score}/10` : "Not set"}`}
+        >
           <input
             id="feedback-score"
             type="range"
@@ -150,18 +180,19 @@ function GuestFeedbackForm({ onSubmitted }: GuestFeedbackFormProps) {
             max={10}
             value={score ?? 5}
             onChange={(e) => setScore(Number(e.target.value))}
-            className="w-full accent-primary disabled:opacity-50"
+            className="accent-primary w-full disabled:opacity-50"
             disabled={isPending}
             data-testid="feedback-score"
             aria-label="Guest mood rating 1 to 10"
           />
-          <div className="flex justify-between text-xs text-foreground-muted">
-            <span>1</span><span>10</span>
+          <div className="text-foreground-muted flex justify-between text-xs">
+            <span>1</span>
+            <span>10</span>
           </div>
           {score !== null && (
             <button
               type="button"
-              className="self-start text-xs text-foreground-muted hover:text-foreground underline"
+              className="text-foreground-muted hover:text-foreground self-start text-xs underline"
               onClick={() => setScore(null)}
               data-testid="feedback-clear-score"
             >
@@ -183,23 +214,30 @@ function GuestFeedbackForm({ onSubmitted }: GuestFeedbackFormProps) {
           />
         </FieldGroup>
 
-        {/* Submit — FormSubmitButton requires RHF context, use standard Button
-            since this form uses raw useState (not react-hook-form). */}
-        <button
-          type="submit"
-          disabled={isPending || feedbackText.length < 10}
-          className="w-full min-h-[52px] text-base font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors flex items-center justify-center gap-2"
-          data-testid="feedback-submit"
-        >
-          {isPending ? (
-            <>
-              <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Submitting…
-            </>
-          ) : (
-            "Submit Feedback"
-          )}
-        </button>
+        {/* Spacer keeps the last field visible above the sticky bar on mobile. */}
+        <StickyActionBarSpacer />
+
+        {/* Submit — FormSubmitButton requires RHF context; this form uses raw
+            useState (not react-hook-form), so we render a plain button.
+            Wrapped in <StickyActionBar> so the primary CTA pins to the
+            bottom-100px band on mobile per Phase 8 crew-portal contract. */}
+        <StickyActionBar data-testid="feedback-submit-bar">
+          <button
+            type="submit"
+            disabled={isPending || feedbackText.length < 10}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl text-base font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50"
+            data-testid="feedback-submit"
+          >
+            {isPending ? (
+              <>
+                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Submitting…
+              </>
+            ) : (
+              "Submit Feedback"
+            )}
+          </button>
+        </StickyActionBar>
       </form>
     </FormSection>
   );
@@ -224,26 +262,24 @@ function RecentFeedbackList({ feedback }: RecentFeedbackListProps) {
   return (
     <div className="flex flex-col gap-2" data-testid="recent-feedback-list">
       {feedback.map((item) => (
-        <SectionCard
-          key={item.id}
-          headless
-          data-testid={`feedback-item-${item.id}`}
-        >
-          <div className="flex flex-col gap-1.5 py-3 px-4">
+        <SectionCard key={item.id} headless data-testid={`feedback-item-${item.id}`}>
+          <div className="flex flex-col gap-1.5 px-4 py-3">
             <MetadataList
               layout="inline"
               items={[
                 ...(item.sentiment
-                  ? [{
-                      label: "Sentiment",
-                      value: (
-                        <StatusBadge
-                          status={item.sentiment}
-                          tone={SENTIMENT_TONE[item.sentiment]}
-                          label={item.sentiment}
-                        />
-                      ),
-                    }]
+                  ? [
+                      {
+                        label: "Sentiment",
+                        value: (
+                          <StatusBadge
+                            status={item.sentiment}
+                            tone={SENTIMENT_TONE[item.sentiment]}
+                            label={item.sentiment}
+                          />
+                        ),
+                      },
+                    ]
                   : []),
                 ...(item.overallScore !== null
                   ? [{ label: "Score", value: `${item.overallScore}/10` }]
@@ -255,7 +291,7 @@ function RecentFeedbackList({ feedback }: RecentFeedbackListProps) {
               ]}
             />
             {item.feedbackText && (
-              <p className="text-sm text-foreground-muted line-clamp-2">{item.feedbackText}</p>
+              <p className="text-foreground-muted line-clamp-2 text-sm">{item.feedbackText}</p>
             )}
           </div>
         </SectionCard>
@@ -266,24 +302,20 @@ function RecentFeedbackList({ feedback }: RecentFeedbackListProps) {
 
 // ── Main: FeedbackView ────────────────────────────────────────────────────────
 
-type FeedbackViewProps = Readonly<{ initialFeedback: ReadonlyArray<RecentFeedbackRow> }>;
+type FeedbackViewProps = Readonly<{
+  initialFeedback: ReadonlyArray<RecentFeedbackRow>;
+  autoLocationName: string | null;
+}>;
 
-export function FeedbackView({ initialFeedback }: FeedbackViewProps) {
-  const [feedback] = useState<ReadonlyArray<RecentFeedbackRow>>(initialFeedback);
-
-  // After a new submission the RSC revalidates, but since we're client-side
-  // we re-use initialFeedback; the page will reflect changes on next navigation.
-  // The onSubmitted callback is a no-op here since the list is RSC-initialised.
-  function handleSubmitted() {
-    // RSC cache will be invalidated by the server action; next navigation refreshes list.
-  }
+export function FeedbackView({ initialFeedback, autoLocationName }: FeedbackViewProps) {
+  const router = useRouter();
 
   return (
     <div className="flex flex-col gap-6 p-4" data-testid="feedback-page">
-      <GuestFeedbackForm onSubmitted={handleSubmitted} />
+      <GuestFeedbackForm onSubmitted={() => router.refresh()} autoLocationName={autoLocationName} />
 
       <FormSection title="Recent Submissions" divider data-testid="feedback-recent-section">
-        <RecentFeedbackList feedback={feedback} />
+        <RecentFeedbackList feedback={initialFeedback} />
       </FormSection>
     </div>
   );
