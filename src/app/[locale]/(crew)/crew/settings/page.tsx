@@ -10,7 +10,6 @@ import { resolveSettingsUser } from "@/features/settings/queries/resolve-setting
  * resolved context as explicit props into `<SettingsPage>`.
  */
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Settings",

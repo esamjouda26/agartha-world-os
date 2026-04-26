@@ -4,7 +4,8 @@ import * as React from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Upload } from "lucide-react";
+import { useLocale } from "next-intl";
+import { Loader2, Upload, LogOut } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { useServerErrors } from "@/hooks/use-server-errors";
 import type { ServerActionResult } from "@/lib/errors";
 
 import { updateAvatarAction } from "@/features/settings/actions/update-avatar";
+import { logoutAction } from "@/features/auth/actions/logout";
 import {
   AVATAR_ALLOWED_MIME,
   AVATAR_MAX_BYTES,
@@ -76,6 +78,39 @@ function ServerErrorBridge({
 }: Readonly<{ result: ServerActionResult<unknown> | undefined }>) {
   useServerErrors(result);
   return null;
+}
+
+function LogoutButton() {
+  const [isPending, startTransition] = React.useTransition();
+  const locale = useLocale();
+
+  const handleLogout = () => {
+    startTransition(async () => {
+      const result = await logoutAction();
+      if (result.success) {
+        window.location.href = `/${locale}/auth/login`;
+      } else {
+        toastError(result);
+      }
+    });
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={handleLogout}
+      disabled={isPending}
+      data-testid="settings-logout-btn"
+    >
+      {isPending ? (
+        <Loader2 aria-hidden className="size-4 animate-spin" />
+      ) : (
+        <LogOut aria-hidden className="size-4" />
+      )}
+      <span>Sign Out</span>
+    </Button>
+  );
 }
 
 /**
@@ -245,6 +280,22 @@ export function SettingsForm({ user }: SettingsFormProps) {
               <p className="text-foreground-muted text-xs">Default: dark.</p>
             </div>
             <ThemeToggle />
+          </CardContent>
+        </Card>
+
+        <Card data-testid="settings-session-card">
+          <CardHeader>
+            <CardTitle>Session</CardTitle>
+            <CardDescription>
+              Sign out of your account on this device.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <p className="text-foreground text-sm font-medium">Sign Out</p>
+              <p className="text-foreground-muted text-xs">End your current session.</p>
+            </div>
+            <LogoutButton />
           </CardContent>
         </Card>
       </div>

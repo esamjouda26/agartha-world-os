@@ -6,6 +6,7 @@ import { Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { KpiCard } from "@/components/ui/kpi-card";
@@ -186,22 +187,17 @@ export function ActiveStaffGridView({ rows }: ActiveStaffGridViewProps) {
       />
 
       {rows.length === 0 ? (
-        <EmptyState
+        <EmptyStateCta
           variant="first-use"
           title="No one is clocked in right now"
           description="When staff start their shifts, they'll appear here live."
           data-testid="staffing-empty-noone"
         />
       ) : visible.length === 0 ? (
-        <EmptyState
+        <EmptyStateCta
           variant="filtered-out"
           title="No staff match your filters"
           description="Try a different role or clear the search."
-          action={
-            <Button type="button" variant="outline" onClick={clearAll}>
-              Clear filters
-            </Button>
-          }
           data-testid="staffing-empty-filtered"
         />
       ) : (

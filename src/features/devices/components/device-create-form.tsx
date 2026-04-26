@@ -176,8 +176,8 @@ export function DeviceCreateForm({
               <FormItem>
                 <FormLabel>Zone</FormLabel>
                 <Select
-                  value={field.value ?? "none"}
-                  onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}
+                  value={field.value ?? "__none__"}
+                  onValueChange={(v) => field.onChange(v === "__none__" ? undefined : v)}
                   disabled={isPending}
                 >
                   <FormControl>
@@ -186,7 +186,7 @@ export function DeviceCreateForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {zones.map((z) => (
                       <SelectItem key={z.id} value={z.id}>
                         {z.name}
@@ -327,8 +327,8 @@ export function DeviceCreateForm({
               <FormItem>
                 <FormLabel>VLAN</FormLabel>
                 <Select
-                  value={field.value != null ? String(field.value) : "none"}
-                  onValueChange={(v) => field.onChange(v === "none" ? undefined : Number(v))}
+                  value={field.value != null ? String(field.value) : "__none__"}
+                  onValueChange={(v) => field.onChange(v === "__none__" ? undefined : Number(v))}
                   disabled={isPending}
                 >
                   <FormControl>
@@ -337,7 +337,7 @@ export function DeviceCreateForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {vlans.map((v) => (
                       <SelectItem key={v.vlanId} value={String(v.vlanId)}>
                         VLAN {v.vlanId} — {v.name}
@@ -418,8 +418,8 @@ export function DeviceCreateForm({
               <FormItem>
                 <FormLabel>Maintenance Vendor</FormLabel>
                 <Select
-                  value={field.value ?? "none"}
-                  onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}
+                  value={field.value ?? "__none__"}
+                  onValueChange={(v) => field.onChange(v === "__none__" ? undefined : v)}
                   disabled={isPending}
                 >
                   <FormControl>
@@ -428,7 +428,7 @@ export function DeviceCreateForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {vendors.map((v) => (
                       <SelectItem key={v.id} value={v.id}>
                         {v.name}

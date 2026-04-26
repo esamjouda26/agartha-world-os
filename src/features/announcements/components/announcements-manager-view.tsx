@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { StatusTabBar } from "@/components/ui/status-tab-bar";
 
 import { AnnouncementForm } from "@/features/announcements/components/announcement-form";
@@ -178,35 +179,22 @@ export function AnnouncementsManagerView({
 
       {visible.length === 0 ? (
         announcements.length === 0 ? (
-          <EmptyState
+          <EmptyStateCta
             variant="first-use"
             title="No announcements yet"
             description="Create your first announcement to let the right audience know what's changing."
-            action={
-              <Button type="button" onClick={() => setMode("create")}>
-                <Plus aria-hidden className="size-4" />
-                <span>Create announcement</span>
-              </Button>
-            }
+            ctaLabel="Create announcement"
+            onClick={() => setMode("create")}
             data-testid="announcements-empty-first-use"
           />
         ) : (
-          <EmptyState
+          <EmptyStateCta
             variant="filtered-out"
             title={status === "published" ? "No published announcements" : "No drafts"}
             description={
               status === "published"
                 ? "Switch to Drafts to see your in-progress items, or create a new announcement."
                 : "Everything you've authored is already published. Create a new one to start a draft."
-            }
-            action={
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStatus(status === "published" ? "drafts" : "published")}
-              >
-                {status === "published" ? "See drafts" : "See published"}
-              </Button>
             }
             data-testid="announcements-empty-filtered"
           />

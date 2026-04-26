@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
@@ -50,15 +50,13 @@ export function ScheduleList({ schedules, onEdit, onCreate }: ScheduleListProps)
           <CardDescription>No schedules yet.</CardDescription>
         </CardHeader>
         <CardContent>
-          <EmptyState
+          <EmptyStateCta
             variant="first-use"
             title="No scheduled reports"
             description="Set up a recurring report so it lands in recipients' inboxes on a cron schedule."
-            action={
-              <Button type="button" onClick={onCreate} data-testid="report-schedule-list-create">
-                New schedule
-              </Button>
-            }
+            ctaLabel="New schedule"
+            onClick={onCreate}
+            data-testid="report-schedule-empty"
           />
         </CardContent>
       </Card>

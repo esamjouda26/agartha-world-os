@@ -7,7 +7,7 @@ import { format, parseISO } from "date-fns";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Link } from "@/i18n/navigation";
 import { CursorPagination } from "@/components/shared/cursor-pagination";
@@ -174,7 +174,7 @@ export function DomainAuditView({ allowedEntityTypes, staff, page }: DomainAudit
 
   if (allowedEntityTypes.length === 0) {
     return (
-      <EmptyState
+      <EmptyStateCta
         variant="first-use"
         title="No audit scope for your domains"
         description="Ask an admin to grant you read access on the domain whose audit trail you need."

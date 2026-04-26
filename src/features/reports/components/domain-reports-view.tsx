@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 
 import { ExecutionHistoryTable } from "@/features/reports/components/execution-history-table";
 import { ReportGenerator } from "@/features/reports/components/report-generator";
@@ -41,7 +41,7 @@ export function DomainReportsView({
 
   if (allowedReportTypes.length === 0) {
     return (
-      <EmptyState
+      <EmptyStateCta
         variant="first-use"
         title="No reports available for your domains"
         description="Ask an admin to grant you read access on the domain whose reports you need."
