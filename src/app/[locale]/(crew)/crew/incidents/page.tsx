@@ -13,7 +13,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * `canResolve=false` hides every manager action.
  */
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Incidents",

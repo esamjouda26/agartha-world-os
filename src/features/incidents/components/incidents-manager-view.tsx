@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQueryState, parseAsStringEnum } from "nuqs";
 
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import {
   Sheet,
   SheetContent,
@@ -112,7 +112,7 @@ export function IncidentsManagerView({
           getRowId: (row) => row.id,
         }}
         emptyState={
-          <EmptyState
+          <EmptyStateCta
             variant={incidents.length === 0 ? "first-use" : "filtered-out"}
             title={
               incidents.length === 0

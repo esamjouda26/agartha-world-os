@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import {
   Sheet,
   SheetContent,
@@ -83,7 +83,7 @@ export function IncidentsCrewView({ incidents, allowedGroups, zones }: Incidents
           getRowId: (row) => row.id,
         }}
         emptyState={
-          <EmptyState
+          <EmptyStateCta
             variant="first-use"
             title="No incidents reported yet"
             description="Noticed something unsafe or unusual? Use the Report incident button above."

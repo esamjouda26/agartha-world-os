@@ -1,0 +1,5 @@
+"use client";
+import { ErrorState } from "@/components/ui/error-state";
+export default function Error({ error, reset }: Readonly<{ error: Error & { digest?: string }; reset: () => void }>) {
+  return <ErrorState error={error} reset={reset} title="Work orders unavailable" description="Couldn't load your maintenance work orders." data-testid="maintenance-orders-error" />;
+}

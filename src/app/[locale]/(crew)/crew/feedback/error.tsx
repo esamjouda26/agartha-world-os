@@ -1,0 +1,5 @@
+"use client";
+import { ErrorState } from "@/components/ui/error-state";
+export default function Error({ error, reset }: Readonly<{ error: Error & { digest?: string }; reset: () => void }>) {
+  return <ErrorState error={error} reset={reset} title="Feedback unavailable" description="Couldn't load the feedback form." data-testid="feedback-error" />;
+}

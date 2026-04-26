@@ -6,9 +6,12 @@ import dynamic from "next/dynamic";
 import { formatDistanceToNow } from "date-fns";
 import { MapPin, LogOut } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FormSection } from "@/components/ui/form-section";
+import { MetadataList } from "@/components/ui/metadata-list";
+import { SectionCard } from "@/components/ui/section-card";
 import { CardSkeleton } from "@/components/ui/skeleton-kit";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
 import { scanZoneAction } from "@/features/operations/actions/scan-zone";
 import { leaveZoneAction } from "@/features/operations/actions/leave-zone";
@@ -60,21 +63,28 @@ export function ZoneScanView({ initialContext }: ZoneScanViewProps) {
     <div className="flex flex-col gap-6 p-4" data-testid="zone-scan-view">
       {/* Current zone card */}
       {context.currentZone ? (
-        <div
-          className="border-primary/30 bg-primary/5 flex flex-col gap-3 rounded-2xl border p-4"
+        <SectionCard
+          title={
+            <span className="flex items-center gap-2">
+              <MapPin size={16} className="text-primary" />
+              <span className="text-primary font-semibold">{context.currentZone.zoneName}</span>
+            </span>
+          }
+          action={
+            <StatusBadge status="active" tone="success" label="Active" />
+          }
           data-testid="current-zone-card"
         >
-          <div className="flex items-center gap-2">
-            <MapPin size={16} className="text-primary" />
-            <span className="text-primary font-semibold">{context.currentZone.zoneName}</span>
-            <Badge variant="default" className="ml-auto text-xs">
-              Active
-            </Badge>
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Entered{" "}
-            {formatDistanceToNow(new Date(context.currentZone.scannedAt), { addSuffix: true })}
-          </p>
+          <MetadataList
+            layout="inline"
+            items={[
+              {
+                label: "Entered",
+                value: formatDistanceToNow(new Date(context.currentZone.scannedAt), { addSuffix: true }),
+              },
+            ]}
+            className="mb-3"
+          />
           <Button
             variant="outline"
             className="min-h-[48px] w-full gap-2 font-semibold"
@@ -85,48 +95,48 @@ export function ZoneScanView({ initialContext }: ZoneScanViewProps) {
             <LogOut size={16} />
             {isPending ? "Leaving…" : "Leave Zone"}
           </Button>
-        </div>
+        </SectionCard>
       ) : (
-        <div className="border-border bg-card text-muted-foreground rounded-2xl border p-4 text-center text-sm">
-          Not currently in any zone
-        </div>
+        <SectionCard
+          headless
+          className="text-center"
+          data-testid="no-zone-card"
+        >
+          <p className="text-foreground-muted text-sm py-4 px-4">Not currently in any zone</p>
+        </SectionCard>
       )}
 
       {/* QR Scanner */}
-      <section aria-labelledby="zone-scan-heading">
-        <h2
-          id="zone-scan-heading"
-          className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase"
-        >
-          Scan Zone QR
-        </h2>
+      <FormSection title="Scan Zone QR" data-testid="zone-scan-section">
         <QRScanner onScan={handleScan} disabled={isPending} />
-      </section>
+      </FormSection>
 
       {/* Recent entries */}
       {context.recentEntries.length > 0 && (
-        <section aria-labelledby="zone-history-heading">
-          <h2
-            id="zone-history-heading"
-            className="text-muted-foreground mb-3 text-sm font-semibold tracking-wider uppercase"
-          >
-            Recent Entries
-          </h2>
-          <ul className="flex flex-col gap-2" data-testid="zone-history-list">
+        <FormSection title="Recent Entries" divider data-testid="zone-history-section">
+          <div className="flex flex-col gap-2" data-testid="zone-history-list">
             {context.recentEntries.map((entry) => (
-              <li
+              <SectionCard
                 key={entry.id}
-                className="border-border bg-card flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm"
+                headless
                 data-testid={`zone-entry-${entry.id}`}
               >
-                <span className="font-medium">{entry.zoneName}</span>
-                <span className="text-muted-foreground text-xs">
-                  {formatDistanceToNow(new Date(entry.scannedAt), { addSuffix: true })}
-                </span>
-              </li>
+                <div className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="font-medium text-sm">{entry.zoneName}</span>
+                  <MetadataList
+                    layout="inline"
+                    items={[
+                      {
+                        label: "",
+                        value: formatDistanceToNow(new Date(entry.scannedAt), { addSuffix: true }),
+                      },
+                    ]}
+                  />
+                </div>
+              </SectionCard>
             ))}
-          </ul>
-        </section>
+          </div>
+        </FormSection>
       )}
     </div>
   );
