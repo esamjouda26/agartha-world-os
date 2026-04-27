@@ -1,3 +1,5 @@
+import "server-only";
+
 import { EXACT_BYPASSES, MIDDLEWARE_ROUTES, SHARED_BYPASS_PREFIXES } from "./middleware-manifest";
 import type { DomainAccess, LocaleStrippedPath, RouteRequirement } from "./types";
 
