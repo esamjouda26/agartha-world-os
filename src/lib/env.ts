@@ -106,11 +106,14 @@ if (isProductionRuntime) {
   if (!parsed.data.RESEND_API_KEY) missing.push("RESEND_API_KEY");
   if (!parsed.data.RESEND_FROM_EMAIL) missing.push("RESEND_FROM_EMAIL");
   if (missing.length > 0) {
+    // Warn instead of throwing — the middleware imports env.ts transitively
+    // so a throw here crashes ALL routes (MIDDLEWARE_INVOCATION_FAILED).
+    // The actual Server Actions / Route Handlers that need these vars
+    // already throw their own DEPENDENCY_FAILED errors at call time.
     console.error(
       `[env] Missing required production env vars: ${missing.join(", ")}. ` +
-        "Guest portal flows will fail. Set them in your Vercel project before deploying.",
+        "Guest portal payment/email flows will fail until these are set.",
     );
-    throw new Error(`Production env validation failed — missing: ${missing.join(", ")}`);
   }
 }
 
