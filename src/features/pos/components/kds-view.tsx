@@ -10,12 +10,16 @@ import { Button } from "@/components/ui/button";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FormSection } from "@/components/ui/form-section";
 import { MetadataList } from "@/components/ui/metadata-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
 import { completeOrderAction } from "@/features/pos/actions/complete-order";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { ACTIVE_ORDERS_QUERY_KEY, fetchActiveOrders } from "@/features/pos/queries/active-orders-query";
+import {
+  ACTIVE_ORDERS_QUERY_KEY,
+  fetchActiveOrders,
+} from "@/features/pos/queries/active-orders-query";
 import type { KdsOrder } from "@/features/pos/types";
 
 type KDSViewProps = Readonly<{ initialOrders: ReadonlyArray<KdsOrder> }>;
@@ -42,6 +46,7 @@ type KdsOrderCardProps = Readonly<{ order: KdsOrder }>;
 
 function KdsOrderCard({ order }: KdsOrderCardProps) {
   const elapsedLabel = useElapsedLabel(order.createdAt);
+  const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
   function handleComplete() {
@@ -49,6 +54,11 @@ function KdsOrderCard({ order }: KdsOrderCardProps) {
       const result = await completeOrderAction(order.id);
       if (result.success) {
         toastSuccess(`Order ${order.shortId} marked completed.`);
+        // Invalidate locally — never trust Realtime UPDATE alone. The
+        // postgres_changes UPDATE listener still fires for other connected
+        // KDS clients, but the actor's UI must not depend on it (network
+        // hiccup or publication misconfig would leave the order on screen).
+        queryClient.invalidateQueries({ queryKey: ACTIVE_ORDERS_QUERY_KEY });
       } else {
         toastError(result);
       }
@@ -58,11 +68,7 @@ function KdsOrderCard({ order }: KdsOrderCardProps) {
   return (
     <SectionCard
       headless
-      className={
-        order.isOverdue
-          ? "border-status-danger-border bg-status-danger-soft/30"
-          : ""
-      }
+      className={order.isOverdue ? "border-status-danger-border bg-status-danger-soft/30" : ""}
       data-testid={`kds-order-card-${order.id}`}
     >
       <div
@@ -97,7 +103,7 @@ function KdsOrderCard({ order }: KdsOrderCardProps) {
                 {item.quantity}× {item.materialName}
               </span>
               {item.modifiers.length > 0 && (
-                <span className="ml-1 text-foreground-muted text-xs">
+                <span className="text-foreground-muted ml-1 text-xs">
                   ({item.modifiers.map((m) => m.optionName).join(", ")})
                 </span>
               )}
@@ -106,7 +112,7 @@ function KdsOrderCard({ order }: KdsOrderCardProps) {
         </ul>
 
         <Button
-          className="mt-1 w-full min-h-[48px] font-semibold"
+          className="mt-1 min-h-[48px] w-full font-semibold"
           onClick={handleComplete}
           disabled={isPending}
           data-testid={`kds-complete-button-${order.id}`}
@@ -155,13 +161,9 @@ export function KDSView({ initialOrders }: KDSViewProps) {
           queryClient.invalidateQueries({ queryKey: ACTIVE_ORDERS_QUERY_KEY });
         },
       )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ACTIVE_ORDERS_QUERY_KEY });
-        },
-      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders" }, () => {
+        queryClient.invalidateQueries({ queryKey: ACTIVE_ORDERS_QUERY_KEY });
+      })
       .subscribe();
 
     return () => {
@@ -174,19 +176,33 @@ export function KDSView({ initialOrders }: KDSViewProps) {
 
   if (orders.length === 0) {
     return (
-      <div className="p-4">
-        <EmptyStateCta
-          variant="first-use"
-          title="No active orders"
-          description="Preparing orders will appear here in real time."
-          data-testid="kds-empty-state"
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="Active Orders"
+          description="Live kitchen display — updates in real time"
+          density="compact"
+          data-testid="kds-page-header"
         />
+        <div className="p-4">
+          <EmptyStateCta
+            variant="first-use"
+            title="No active orders"
+            description="Preparing orders will appear here in real time."
+            data-testid="kds-empty-state"
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Active Orders"
+        description="Live kitchen display — updates in real time"
+        density="compact"
+        data-testid="kds-page-header"
+      />
       {overdueOrders.length > 0 && (
         <FormSection
           title={`⚠ Overdue (${overdueOrders.length})`}

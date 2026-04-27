@@ -28,11 +28,11 @@ ON CONFLICT (key) DO NOTHING;
 -- 2. LOCATIONS (5 — one per operational area)
 -- =============================================================================
 INSERT INTO public.locations (id, name, org_unit_id, is_active) VALUES
-    ('aa000000-0000-0000-0000-000000000001', 'Main Building',       (SELECT id FROM public.org_units WHERE code = 'ops'),       TRUE),
+    ('aa000000-0000-0000-0000-000000000001', 'Entrance',            (SELECT id FROM public.org_units WHERE code = 'ops'),       TRUE),
     ('aa000000-0000-0000-0000-000000000002', 'Central Warehouse',   (SELECT id FROM public.org_units WHERE code = 'logistics'), TRUE),
-    ('aa000000-0000-0000-0000-000000000003', 'F&B Kitchen',         (SELECT id FROM public.org_units WHERE code = 'fnb'),       TRUE),
+    ('aa000000-0000-0000-0000-000000000003', 'Cafe',                (SELECT id FROM public.org_units WHERE code = 'fnb'),       TRUE),
     ('aa000000-0000-0000-0000-000000000004', 'Gift Shop',           (SELECT id FROM public.org_units WHERE code = 'giftshop'),  TRUE),
-    ('aa000000-0000-0000-0000-000000000005', 'Experience Zone 1',   (SELECT id FROM public.org_units WHERE code = 'experiences'), TRUE)
+    ('aa000000-0000-0000-0000-000000000005', 'Agartha World',       (SELECT id FROM public.org_units WHERE code = 'experiences'), TRUE)
 ON CONFLICT (name) DO NOTHING;
 
 
@@ -81,11 +81,11 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO public.location_allowed_categories (location_id, category_id)
 SELECT l.id, c.id
 FROM public.locations l CROSS JOIN public.material_categories c
-WHERE (l.name = 'F&B Kitchen'          AND c.code IN ('beverages','prepared_meals','raw_ingredients','cleaning'))
+WHERE (l.name = 'Cafe'                 AND c.code IN ('beverages','prepared_meals','raw_ingredients','cleaning'))
    OR (l.name = 'Gift Shop'            AND c.code IN ('merchandise','cleaning'))
    OR (l.name = 'Central Warehouse'    AND c.code IN ('beverages','prepared_meals','raw_ingredients','merchandise','cleaning','uniforms'))
-   OR (l.name = 'Experience Zone 1'    AND c.code IN ('cleaning','uniforms'))
-   OR (l.name = 'Main Building'        AND c.code IN ('cleaning','uniforms'))
+   OR (l.name = 'Agartha World'        AND c.code IN ('cleaning','uniforms'))
+   OR (l.name = 'Entrance'             AND c.code IN ('cleaning','uniforms'))
 ON CONFLICT DO NOTHING;
 
 

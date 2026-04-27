@@ -14,6 +14,9 @@ import {
   Edit,
   Heart,
   Package,
+  ShieldAlert,
+  ShieldOff,
+  ShieldCheck,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { parseAsString, useQueryState } from "nuqs";
@@ -51,6 +54,7 @@ import type { StaffDetailData } from "@/features/hr/types/staff-detail";
 import {
   assignLeavePolicy,
   createTransferRequest,
+  createAccountActionRequest,
 } from "@/features/hr/actions/staff-detail-actions";
 
 // ── Status tones ────────────────────────────────────────────────────────
@@ -174,6 +178,10 @@ function ProfileTab({
 }>) {
   const { profile, attendanceSummary } = data;
   const [transferOpen, setTransferOpen] = React.useState(false);
+  const [accountAction, setAccountAction] = React.useState<{
+    action: "suspension" | "termination" | "reactivation";
+    staffRecordId: string;
+  } | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -289,15 +297,60 @@ function ProfileTab({
         title="Employment"
         action={
           canWrite ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTransferOpen(true)}
-              data-testid="hr-detail-transfer-btn"
-            >
-              <ArrowRightLeft aria-hidden className="size-3.5" />
-              Transfer
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTransferOpen(true)}
+                data-testid="hr-detail-transfer-btn"
+              >
+                <ArrowRightLeft aria-hidden className="size-3.5" />
+                Transfer
+              </Button>
+              {profile.employmentStatus === "active" || profile.employmentStatus === "on_leave" ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setAccountAction({ action: "suspension", staffRecordId: profile.id })
+                  }
+                  data-testid="hr-detail-suspend-btn"
+                >
+                  <ShieldAlert aria-hidden className="size-3.5" />
+                  Suspend
+                </Button>
+              ) : null}
+              {profile.employmentStatus === "active" ||
+              profile.employmentStatus === "on_leave" ||
+              profile.employmentStatus === "suspended" ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() =>
+                    setAccountAction({ action: "termination", staffRecordId: profile.id })
+                  }
+                  data-testid="hr-detail-terminate-btn"
+                >
+                  <ShieldOff aria-hidden className="size-3.5" />
+                  Terminate
+                </Button>
+              ) : null}
+              {profile.employmentStatus === "suspended" ||
+              profile.employmentStatus === "terminated" ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setAccountAction({ action: "reactivation", staffRecordId: profile.id })
+                  }
+                  data-testid="hr-detail-reactivate-btn"
+                >
+                  <ShieldCheck aria-hidden className="size-3.5" />
+                  Reactivate
+                </Button>
+              ) : null}
+            </div>
           ) : undefined
         }
         data-testid="hr-detail-employment"
@@ -399,6 +452,16 @@ function ProfileTab({
           staffRecordId={profile.id}
           currentRoleId={profile.roleId}
           availableRoles={data.availableRoles}
+        />
+      ) : null}
+
+      {/* Account Action Dialog (Suspend / Terminate / Reactivate) */}
+      {canWrite && accountAction ? (
+        <AccountActionDialog
+          actionType={accountAction.action}
+          staffRecordId={accountAction.staffRecordId}
+          staffName={profile.displayName ?? profile.legalName}
+          onClose={() => setAccountAction(null)}
         />
       ) : null}
     </div>
@@ -698,6 +761,123 @@ function TransferDialog({
             data-testid="hr-transfer-confirm"
           >
             {isPending ? "Creating…" : "Create Transfer Request"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Account Action Dialog (Suspend / Terminate / Reactivate) ────────────
+
+const ACCOUNT_ACTION_CONFIG: Record<
+  "suspension" | "termination" | "reactivation",
+  {
+    title: string;
+    descriptionFn: (name: string) => string;
+    icon: React.ReactNode;
+    variant: "destructive" | "default";
+    confirmLabel: string;
+  }
+> = {
+  suspension: {
+    title: "Request Suspension",
+    descriptionFn: (name) =>
+      `Create a suspension request for ${name}. This will be routed to IT for approval.`,
+    icon: <ShieldAlert aria-hidden className="size-4" />,
+    variant: "destructive",
+    confirmLabel: "Create Suspension Request",
+  },
+  termination: {
+    title: "Request Termination",
+    descriptionFn: (name) =>
+      `Create a termination request for ${name}. This will be routed to IT for approval.`,
+    icon: <ShieldOff aria-hidden className="size-4" />,
+    variant: "destructive",
+    confirmLabel: "Create Termination Request",
+  },
+  reactivation: {
+    title: "Request Reactivation",
+    descriptionFn: (name) =>
+      `Create a reactivation request for ${name}. This will be routed to IT for approval.`,
+    icon: <ShieldCheck aria-hidden className="size-4" />,
+    variant: "default",
+    confirmLabel: "Create Reactivation Request",
+  },
+};
+
+function AccountActionDialog({
+  actionType,
+  staffRecordId,
+  staffName,
+  onClose,
+}: Readonly<{
+  actionType: "suspension" | "termination" | "reactivation";
+  staffRecordId: string;
+  staffName: string;
+  onClose: () => void;
+}>) {
+  const config = ACCOUNT_ACTION_CONFIG[actionType];
+  const [hrRemark, setHrRemark] = React.useState("");
+  const [isPending, startTransition] = React.useTransition();
+
+  const handleConfirm = (): void => {
+    startTransition(async () => {
+      const result = await createAccountActionRequest({
+        staffRecordId,
+        actionType,
+        hrRemark: hrRemark.trim(),
+      });
+      if (result.success) {
+        toastSuccess("Request created", {
+          description: "Awaiting IT approval.",
+        });
+        onClose();
+      } else {
+        toastError(result);
+      }
+    });
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent data-testid="hr-detail-account-action-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {config.icon} {config.title}
+          </DialogTitle>
+          <DialogDescription>{config.descriptionFn(staffName)}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="hr-account-action-remark">HR Note *</Label>
+          <Textarea
+            id="hr-account-action-remark"
+            value={hrRemark}
+            onChange={(e) => setHrRemark(e.target.value)}
+            placeholder="Reason for this action…"
+            rows={3}
+            data-testid="hr-account-action-remark"
+          />
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            type="button"
+            variant={config.variant}
+            disabled={isPending || hrRemark.trim().length === 0}
+            onClick={handleConfirm}
+            data-testid="hr-account-action-confirm"
+          >
+            {isPending ? "Creating…" : config.confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

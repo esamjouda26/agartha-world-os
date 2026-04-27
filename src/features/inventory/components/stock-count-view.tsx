@@ -4,12 +4,15 @@ import { useState } from "react";
 import { useForm, useFieldArray, FormProvider, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
+import { useRouter } from "@/i18n/navigation";
+
 import { ClipboardCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
@@ -22,6 +25,7 @@ import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/f
 import type { ReconciliationRow, StockCountItemView } from "@/features/inventory/types";
 
 function ReconciliationCard({ rec }: Readonly<{ rec: ReconciliationRow }>) {
+  const router = useRouter();
   const form = useForm<UpdateStockCountInput>({
     resolver: zodResolver(updateStockCountSchema) as Resolver<UpdateStockCountInput>,
     defaultValues: {
@@ -46,6 +50,11 @@ function ReconciliationCard({ rec }: Readonly<{ rec: ReconciliationRow }>) {
       const result = await updateStockCountAction(values);
       if (result.success) {
         toastSuccess("Stock count submitted.");
+        // Refetch RSC so the reconciliation either disappears (status →
+        // completed) or re-renders with the new pending_review badge.
+        // The action calls revalidatePath server-side; router.refresh()
+        // tells the client to actually pick up the new RSC payload.
+        router.refresh();
       } else {
         toastError(result);
         if (result.fields) {
@@ -175,19 +184,33 @@ export function StockCountView({
 }: Readonly<{ reconciliations: ReadonlyArray<ReconciliationRow> }>) {
   if (reconciliations.length === 0) {
     return (
-      <div className="p-4">
-        <EmptyStateCta
-          variant="first-use"
-          title="No stock counts assigned"
-          description="Scheduled stock counts assigned to you will appear here."
-          data-testid="stock-count-empty"
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="Stock Count"
+          description="Blind count — enter physical quantities"
+          density="compact"
+          data-testid="stock-count-page-header"
         />
+        <div className="p-4">
+          <EmptyStateCta
+            variant="first-use"
+            title="No stock counts assigned"
+            description="Scheduled stock counts assigned to you will appear here."
+            data-testid="stock-count-empty"
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4" data-testid="stock-count-view">
+    <div className="flex flex-col gap-4" data-testid="stock-count-view">
+      <PageHeader
+        title="Stock Count"
+        description="Blind count — enter physical quantities"
+        density="compact"
+        data-testid="stock-count-page-header"
+      />
       {reconciliations.map((rec) => (
         <ReconciliationCard key={rec.id} rec={rec} />
       ))}

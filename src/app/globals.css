@@ -565,6 +565,26 @@
 }
 
 /* ============================================================================
+ * Mobile chrome offsets — single source of truth for where overlays land
+ * relative to the bottom-anchored crew shell (BottomTabBar 72px +
+ * StickyActionBar 76px when present). Sonner reads `--toast-mobile-bottom`
+ * via its mobileOffset prop in `@/components/ui/sonner.tsx`.
+ *
+ * The default value (88px) clears just the BottomTabBar with a 16px gap.
+ * When ANY descendant carries `[data-sticky-action-bar]` (mounted by
+ * `<StickyActionBar>` on mobile), the `:has()` cascade bumps the offset
+ * to 164px so toasts float above BOTH chrome layers — fully declarative,
+ * no JS lifecycle, automatically reactive to mount/unmount.
+ * ========================================================================== */
+:root {
+  --toast-mobile-bottom: 88px;
+}
+
+:root:has([data-sticky-action-bar="true"]) {
+  --toast-mobile-bottom: 164px;
+}
+
+/* ============================================================================
  * Base layer — body, focus ring, motion preference.
  * ========================================================================== */
 

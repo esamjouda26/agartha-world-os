@@ -12,6 +12,7 @@ import { FieldGroup } from "@/components/ui/field-group";
 import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { MetadataList } from "@/components/ui/metadata-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { StickyActionBar, StickyActionBarSpacer } from "@/components/ui/sticky-action-bar";
@@ -84,11 +85,7 @@ function GuestFeedbackForm({ onSubmitted, autoLocationName }: GuestFeedbackFormP
   }
 
   return (
-    <FormSection
-      title="Record Feedback"
-      description="Capture what guests are saying to improve the experience."
-      data-testid="feedback-form-section"
-    >
+    <div data-testid="feedback-form-section">
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-5"
@@ -239,7 +236,7 @@ function GuestFeedbackForm({ onSubmitted, autoLocationName }: GuestFeedbackFormP
           </button>
         </StickyActionBar>
       </form>
-    </FormSection>
+    </div>
   );
 }
 
@@ -311,7 +308,13 @@ export function FeedbackView({ initialFeedback, autoLocationName }: FeedbackView
   const router = useRouter();
 
   return (
-    <div className="flex flex-col gap-6 p-4" data-testid="feedback-page">
+    <div className="flex flex-col gap-6" data-testid="feedback-page">
+      <PageHeader
+        title="Guest Feedback"
+        description="Capture what guests are saying in passing"
+        density="compact"
+        data-testid="feedback-page-header"
+      />
       <GuestFeedbackForm onSubmitted={() => router.refresh()} autoLocationName={autoLocationName} />
 
       <FormSection title="Recent Submissions" divider data-testid="feedback-recent-section">

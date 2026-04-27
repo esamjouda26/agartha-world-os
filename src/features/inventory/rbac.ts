@@ -34,19 +34,13 @@ export const rbac: FeatureRbac = {
       pattern: "/management/inventory/reconciliation",
       domain: "inventory_ops",
       access: "c",
-      primaryTables: [
-        "inventory_reconciliations",
-        "inventory_reconciliation_items",
-      ],
+      primaryTables: ["inventory_reconciliations", "inventory_reconciliation_items"],
     },
     {
       pattern: "/management/inventory/reconciliation/:id",
       domain: "inventory_ops",
       access: "c",
-      primaryTables: [
-        "inventory_reconciliations",
-        "inventory_reconciliation_items",
-      ],
+      primaryTables: ["inventory_reconciliations", "inventory_reconciliation_items"],
     },
     {
       // Cross-domain: inventory_ops:r OR pos:r. The CI rls-parity check
@@ -88,15 +82,22 @@ export const rbac: FeatureRbac = {
       primaryTables: ["material_requisitions", "material_requisition_items"],
     },
     {
+      // Fulfillers update requisitions (accept → in_progress → completed)
+      // — gate matches the action signature (`inventory_ops:u`). Roles
+      // like fnb_crew that only carry `inventory_ops:c` for self-serve
+      // restock requests are correctly excluded from this route.
       pattern: "/crew/logistics/restock-queue",
       domain: "inventory_ops",
-      access: "c",
+      access: "u",
       primaryTables: ["material_requisitions", "material_requisition_items"],
     },
     {
+      // Auditors update reconciliation_items.physical_qty when submitting
+      // a count — gate on `u` to match the action and exclude
+      // request-only roles from the audit surface.
       pattern: "/crew/logistics/stock-count",
       domain: "inventory_ops",
-      access: "r",
+      access: "u",
       primaryTables: ["inventory_reconciliations", "inventory_reconciliation_items"],
     },
     {

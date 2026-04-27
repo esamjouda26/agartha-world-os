@@ -65,7 +65,23 @@ export async function lookupBookingAction(
 
   const { data, error } = await supabase.rpc("rpc_lookup_booking", args);
 
-  if (error) return fail("INTERNAL");
+  if (error) {
+    // rpc_lookup_booking (init_schema.sql:5587) raises specific exceptions
+    // we surface to the user as actionable codes — otherwise a typo turns
+    // into "Something went wrong on our end" which is misleading.
+    if (error.message.includes("BOOKING_NOT_FOUND")) {
+      return fail("NOT_FOUND", {
+        form:
+          parsed.data.kind === "qr"
+            ? "No booking matches that QR code."
+            : "No booking matches that reference.",
+      });
+    }
+    if (error.message.includes("PROVIDE_QR_OR_REF")) {
+      return fail("VALIDATION_FAILED", { value: "Provide a QR code or booking reference." });
+    }
+    return fail("INTERNAL");
+  }
   if (!data) return fail("NOT_FOUND");
 
   after(async () => {

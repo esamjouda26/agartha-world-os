@@ -3,16 +3,20 @@
 import { useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 
+import { parseAsStringLiteral, useQueryState } from "nuqs";
+
 import { Hash, User, Baby } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { MetadataList } from "@/components/ui/metadata-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { SectionCard } from "@/components/ui/section-card";
 import { CardSkeleton } from "@/components/ui/skeleton-kit";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { StatusTabBar } from "@/components/ui/status-tab-bar";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
 import { lookupBookingAction } from "@/features/booking/actions/lookup-booking";
 import { searchBookingsByEmailAction } from "@/features/booking/actions/search-bookings";
@@ -89,9 +93,53 @@ function classifyArrival(
   };
 }
 
+/**
+ * Explains why the check-in CTA is unavailable for the given booking.
+ * Returns `null` when the booking IS checkable (the CTA renders normally).
+ *
+ * Crew at the gate need to know *why* they can't admit a guest — silently
+ * hiding the button forces them to triage by status badge alone, which is
+ * slower and error-prone for trainees.
+ */
+function nonCheckableReason(booking: BookingLookupResult): {
+  message: string;
+  tone: StatusTone;
+} | null {
+  switch (booking.status) {
+    case "confirmed":
+    case "no_show":
+      return null;
+    case "checked_in":
+      return {
+        tone: "success",
+        message: booking.checked_in_at
+          ? `Already checked in at ${formatTime(booking.checked_in_at)}.`
+          : "Already checked in.",
+      };
+    case "completed":
+      return { tone: "neutral", message: "Visit already completed." };
+    case "pending_payment":
+      return {
+        tone: "warning",
+        message: "Payment not completed — direct guest to the booking desk.",
+      };
+    default:
+      return { tone: "neutral", message: "Booking is not eligible for check-in." };
+  }
+}
+
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return iso;
+  }
+}
+
 function BookingResultCard({ booking, onCheckedIn }: BookingResultCardProps) {
   const [isPending, startTransition] = useTransition();
-  const canCheckIn = booking.status === "confirmed" || booking.status === "no_show";
+  const blocker = nonCheckableReason(booking);
+  const canCheckIn = blocker === null;
 
   // Recompute on each render so the indicator stays accurate while the
   // crew member dwells on the result. arrival_window_minutes lives on the
@@ -180,7 +228,7 @@ function BookingResultCard({ booking, onCheckedIn }: BookingResultCardProps) {
         />
       </div>
 
-      {canCheckIn && (
+      {canCheckIn ? (
         <Button
           className="mt-3 min-h-[48px] w-full font-semibold"
           onClick={handleCheckin}
@@ -189,6 +237,15 @@ function BookingResultCard({ booking, onCheckedIn }: BookingResultCardProps) {
         >
           {isPending ? "Checking in…" : "Check In"}
         </Button>
+      ) : (
+        <div
+          role="status"
+          className="border-border-subtle bg-surface/40 mt-3 flex items-start gap-2 rounded-lg border p-3 text-sm"
+          data-testid={`booking-checkin-blocked-${booking.booking_id}`}
+        >
+          <StatusBadge status={blocker.tone} tone={blocker.tone} label={booking.status} />
+          <span className="text-foreground-muted leading-snug">{blocker.message}</span>
+        </div>
       )}
     </SectionCard>
   );
@@ -196,18 +253,67 @@ function BookingResultCard({ booking, onCheckedIn }: BookingResultCardProps) {
 
 // ── Main: EntryValidationView ─────────────────────────────────────────────────
 
+const TAB_VALUES = ["qr", "ref", "email"] as const;
+
 export function EntryValidationView() {
-  const [activeTab, setActiveTab] = useState<"qr" | "ref" | "email">("qr");
+  // URL-backed mode picker (StatusTabBar contract). Reading via the same
+  // paramKey here keeps the panel selection in sync with the bar's writes;
+  // both hooks subscribe to the same query param so deep links + back/
+  // forward both Just Work.
+  const [activeTab] = useQueryState(
+    "mode",
+    parseAsStringLiteral(TAB_VALUES)
+      .withDefault("qr")
+      .withOptions({ clearOnDefault: true, history: "replace" }),
+  );
+
   const [refInput, setRefInput] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [lookupResult, setLookupResult] = useState<BookingLookupResult | null>(null);
   const [searchResults, setSearchResults] = useState<ReadonlyArray<BookingSearchResult>>([]);
   const [selectedSearchId, setSelectedSearchId] = useState<string | null>(null);
+  // `lastSearchedEmail` is the trimmed email of the most-recent COMPLETED
+  // search. Two reasons to track it explicitly rather than infer from
+  // `searchResults.length`:
+  //   1. The "No bookings found" empty state must only appear AFTER a
+  //      search returns zero — never while the user is typing.
+  //   2. When the user re-searches with a different email, we need a
+  //      single source of truth that cleanly separates "I haven't
+  //      searched yet" (null) from "I searched and got nothing" (string).
+  const [lastSearchedEmail, setLastSearchedEmail] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function handleTabChange() {
+    // Mode change clears prior lookup state so the panel boots fresh.
+    // StatusTabBar owns the URL write itself.
+    setLookupResult(null);
+    setSearchResults([]);
+    setSelectedSearchId(null);
+    setLastSearchedEmail(null);
+  }
+
+  function handleEmailInputChange(next: string) {
+    setEmailInput(next);
+    // Editing the email invalidates the previous search context. Clear
+    // the empty-state sentinel and any selected detail card so the user
+    // never sees stale "No bookings found" or a stale BookingResultCard
+    // that doesn't match what's now in the input.
+    if (lastSearchedEmail !== null) setLastSearchedEmail(null);
+    if (lookupResult !== null) setLookupResult(null);
+    if (selectedSearchId !== null) setSelectedSearchId(null);
+  }
 
   function handleCheckedIn() {
     setLookupResult(null);
     setSelectedSearchId(null);
+    // If the user reached this booking via email search, the search
+    // results panel still shows the now-stale "confirmed" badge for the
+    // row they just checked in. Re-run the search so the row repaints
+    // with "checked_in" — keeps the list authoritative for the next
+    // guest the crew member processes.
+    if (emailInput.trim() && searchResults.length > 0) {
+      handleEmailSearch();
+    }
   }
 
   function handleQRScan(value: string) {
@@ -236,56 +342,88 @@ export function EntryValidationView() {
   }
 
   function handleEmailSearch() {
-    if (!emailInput.trim()) return;
+    const trimmed = emailInput.trim();
+    if (!trimmed) return;
+    // Clear the prior detail card and selection at search-start so a
+    // re-search with a different email never shows the previous
+    // BookingResultCard stacked under the new result list. The action
+    // itself is debounce-free; this UX clear is cheap.
+    setLookupResult(null);
+    setSelectedSearchId(null);
     startTransition(async () => {
-      const result = await searchBookingsByEmailAction(emailInput.trim());
+      const result = await searchBookingsByEmailAction(trimmed);
       if (result.success) {
         setSearchResults(result.data);
-        if (result.data.length === 0) setSearchResults([]);
+        // Record what we searched FOR, not what we got back. This is
+        // what gates the empty-state render — only after a completed
+        // search does "No bookings found" become a valid message.
+        setLastSearchedEmail(trimmed);
       } else {
         toastError(result);
       }
     });
   }
 
-  async function handleSelectSearchResult(bookingId: string) {
-    setSelectedSearchId(bookingId);
-    const result = await lookupBookingAction({ kind: "ref", value: bookingId });
-    if (result.success) {
-      setLookupResult(result.data);
-    }
+  // Hydrate the full booking detail card from a search-result row.
+  // The lookup action keys on `booking_ref` (the alphanumeric AG-… code),
+  // NOT the UUID — passing the wrong identifier silently failed before
+  // because rpc_lookup_booking does `WHERE upper(booking_ref) = upper($1)`.
+  function handleSelectSearchResult(row: BookingSearchResult) {
+    setSelectedSearchId(row.booking_id);
+    startTransition(async () => {
+      const result = await lookupBookingAction({ kind: "ref", value: row.booking_ref });
+      if (result.success) {
+        setLookupResult(result.data);
+      } else {
+        toastError(result);
+        setSelectedSearchId(null);
+      }
+    });
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          setActiveTab(v as "qr" | "ref" | "email");
-          setLookupResult(null);
-          setSearchResults([]);
-        }}
-      >
-        <TabsList className="w-full" data-testid="entry-validation-tabs">
-          <TabsTrigger value="qr" className="flex-1" data-testid="entry-tab-qr">
-            QR Scan
-          </TabsTrigger>
-          <TabsTrigger value="ref" className="flex-1" data-testid="entry-tab-ref">
-            Booking Ref
-          </TabsTrigger>
-          <TabsTrigger value="email" className="flex-1" data-testid="entry-tab-email">
-            Email
-          </TabsTrigger>
-        </TabsList>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Entry Validation"
+        description="Scan QR code or search by ref / email"
+        density="compact"
+        data-testid="entry-validation-page-header"
+      />
+      <StatusTabBar
+        tabs={[
+          { value: "qr", label: "QR Scan" },
+          { value: "ref", label: "Booking Ref" },
+          { value: "email", label: "Email" },
+        ]}
+        paramKey="mode"
+        defaultValue="qr"
+        ariaLabel="Lookup mode"
+        panelIdPrefix="entry-validation-panel"
+        data-testid="entry-validation-tabs"
+        onValueChange={handleTabChange}
+      />
 
-        {/* QR Tab */}
-        <TabsContent value="qr" className="mt-4">
+      {/* QR Panel */}
+      {activeTab === "qr" && (
+        <div
+          role="tabpanel"
+          id="entry-validation-panel-qr"
+          aria-labelledby="tab-mode-qr"
+          className="flex flex-col gap-3"
+        >
           <QRScanner onScan={handleQRScan} disabled={isPending} />
           {isPending && <CardSkeleton />}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Booking Ref Tab */}
-        <TabsContent value="ref" className="mt-4 flex flex-col gap-3">
+      {/* Booking Ref Panel */}
+      {activeTab === "ref" && (
+        <div
+          role="tabpanel"
+          id="entry-validation-panel-ref"
+          aria-labelledby="tab-mode-ref"
+          className="flex flex-col gap-3"
+        >
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Hash
@@ -313,14 +451,21 @@ export function EntryValidationView() {
               {isPending ? "…" : "Look Up"}
             </Button>
           </div>
-        </TabsContent>
+        </div>
+      )}
 
-        {/* Email Tab — uses SearchInput sink component */}
-        <TabsContent value="email" className="mt-4 flex flex-col gap-3">
+      {/* Email Panel — uses SearchInput sink component */}
+      {activeTab === "email" && (
+        <div
+          role="tabpanel"
+          id="entry-validation-panel-email"
+          aria-labelledby="tab-mode-email"
+          className="flex flex-col gap-3"
+        >
           <div className="flex gap-2">
             <SearchInput
               value={emailInput}
-              onChange={setEmailInput}
+              onChange={handleEmailInputChange}
               placeholder="guest@example.com"
               aria-label="Guest email address"
               data-testid="entry-email-input"
@@ -347,7 +492,7 @@ export function EntryValidationView() {
                   <button
                     type="button"
                     className="min-h-[44px] w-full p-3 text-left"
-                    onClick={() => handleSelectSearchResult(r.booking_id)}
+                    onClick={() => handleSelectSearchResult(r)}
                     data-testid={`entry-search-result-${r.booking_id}`}
                   >
                     <p className="font-mono text-sm font-bold">{r.booking_ref}</p>
@@ -370,11 +515,24 @@ export function EntryValidationView() {
               ))}
             </div>
           )}
-          {searchResults.length === 0 && emailInput && !isPending && (
-            <p className="text-foreground-muted text-sm">No bookings found for this email.</p>
-          )}
-        </TabsContent>
-      </Tabs>
+          {/* Empty state only renders when a search has COMPLETED and
+              returned zero rows for the email currently in the input.
+              Gating on `lastSearchedEmail` (rather than `emailInput`)
+              prevents the "No bookings found" message from flashing while
+              the user is still typing. */}
+          {!isPending &&
+            searchResults.length === 0 &&
+            lastSearchedEmail !== null &&
+            lastSearchedEmail === emailInput.trim() && (
+              <EmptyState
+                variant="filtered-out"
+                title="No bookings found"
+                description="No bookings match that email address. Double-check spelling or try a different lookup mode."
+                data-testid="entry-email-empty-state"
+              />
+            )}
+        </div>
+      )}
 
       {/* Result card */}
       {lookupResult && <BookingResultCard booking={lookupResult} onCheckedIn={handleCheckedIn} />}

@@ -83,6 +83,25 @@ export async function deliverRequisitionAction(
     if (rpcError.message.includes("forbidden_not_assignee")) return fail("FORBIDDEN");
     if (rpcError.message.includes("invalid_state")) return fail("CONFLICT");
     if (rpcError.message.includes("item_not_found")) return fail("NOT_FOUND");
+    if (rpcError.message.includes("LOCATION_CATEGORY_MISMATCH")) {
+      return fail("VALIDATION_FAILED", {
+        form: "One or more items belong to a category not allowed at the destination location.",
+      });
+    }
+    const log = loggerWith({
+      feature: "inventory",
+      event: "deliver_requisition_rpc_error",
+      user_id: user.id,
+    });
+    log.error(
+      {
+        code: rpcError.code,
+        message: rpcError.message,
+        details: rpcError.details,
+        hint: rpcError.hint,
+      },
+      "rpc_complete_delivery failed with unhandled error",
+    );
     return fail("INTERNAL");
   }
 

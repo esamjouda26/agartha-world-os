@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+
+import { useRouter } from "@/i18n/navigation";
+
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +42,7 @@ const noopResolve = (): void => {
  * user's own incidents. Crew cannot resolve.
  */
 export function IncidentsCrewView({ incidents, allowedGroups, zones }: IncidentsCrewViewProps) {
+  const router = useRouter();
   const [reportOpen, setReportOpen] = React.useState(false);
   const { open, resolved } = React.useMemo(() => {
     let o = 0;
@@ -104,7 +108,13 @@ export function IncidentsCrewView({ incidents, allowedGroups, zones }: Incidents
             <IncidentReportForm
               allowedGroups={allowedGroups}
               zones={zones}
-              onComplete={() => setReportOpen(false)}
+              onComplete={() => {
+                setReportOpen(false);
+                // Refetch RSC so the newly-created incident appears in the
+                // table immediately. Action calls revalidatePath; the
+                // client needs router.refresh() to pick up the new payload.
+                router.refresh();
+              }}
             />
           </div>
         </SheetContent>

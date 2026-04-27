@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { CrewPageHeader } from "@/components/shared/crew-page-header";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EntryValidationView } from "@/features/booking/components/entry-validation-view";
 
@@ -25,12 +24,5 @@ export default async function CrewEntryValidationPage({
   } = await supabase.auth.getUser();
   if (!user) redirect(`/${locale}/auth/login`);
 
-  return (
-    <div className="flex h-full flex-col" data-testid="entry-validation-page">
-      <CrewPageHeader title="Entry Validation" subtitle="Scan QR code or search by ref / email" />
-      <div className="flex-1 overflow-y-auto">
-        <EntryValidationView />
-      </div>
-    </div>
-  );
+  return <EntryValidationView />;
 }

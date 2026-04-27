@@ -24,6 +24,7 @@ export function ShellWithPalette({
   initialSidebarCollapsed,
   userMenu,
   notifications,
+  userInfo,
 }: ResponsivePortalShellProps) {
   const navCommands = React.useMemo(
     () =>
@@ -44,6 +45,7 @@ export function ShellWithPalette({
       {...(initialSidebarCollapsed !== undefined ? { initialSidebarCollapsed } : {})}
       {...(userMenu !== undefined ? { userMenu } : {})}
       {...(notifications !== undefined ? { notifications } : {})}
+      {...(userInfo !== undefined ? { userInfo } : {})}
     >
       {children}
       <CommandPalette navigation={navCommands} data-testid="portal-command-palette" />

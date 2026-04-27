@@ -18,6 +18,11 @@ import { cn } from "@/lib/utils";
  *
  * `bottomOffset` defaults to 72px to clear the crew portal's
  * `<BottomTabBar>`. Override for portals without a bottom tab bar.
+ *
+ * The `data-sticky-action-bar="true"` attribute is consumed by the global
+ * `:has()` rule in `globals.css` to bump `--toast-mobile-bottom` from
+ * 88 → 164px while this bar is mounted — keeps sonner toasts above both
+ * the BottomTabBar AND the sticky CTA. Fully declarative; no JS lifecycle.
  */
 
 export type StickyActionBarProps = Readonly<{
@@ -38,6 +43,7 @@ export function StickyActionBar({
   return (
     <div
       data-slot="sticky-action-bar"
+      data-sticky-action-bar="true"
       data-testid={testId}
       style={
         {

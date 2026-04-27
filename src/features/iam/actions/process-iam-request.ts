@@ -431,21 +431,22 @@ function generateBusinessEmail(legalName: string): string {
 // ── Direct Account Action (Suspend / Terminate / Reactivate) ────────────
 
 const directAccountSchema = z.object({
-  staffRecordId: z.string().uuid(),
+  staffRecordId: z.guid(),
   actionType: z.enum(["suspension", "termination", "reactivation"]),
   itRemark: z.string().max(1000).optional(),
 });
 
 /**
- * Direct account action — creates an iam_request of the given type,
- * immediately auto-approves it, and runs the side effects.
+ * Direct account action — IT admin suspends, terminates, or reactivates
+ * a staff account immediately via `admin_lock_account` RPC.
  *
- * This maintains the full audit trail while allowing the IT admin
- * to take immediate action from the detail view.
+ * Does NOT create an `iam_request` row — the `iam_requests` table is
+ * reserved for HR-initiated requests that go through the IT approval cycle.
+ * Audit trail is maintained via structured server-side logging.
  */
 export async function directAccountAction(
   input: unknown,
-): Promise<ServerActionResult<{ requestId: string }>> {
+): Promise<ServerActionResult<{ staffRecordId: string }>> {
   const log = loggerWith({ feature: "iam", event: "direct-account-action" });
 
   // 1. Validate
@@ -477,46 +478,30 @@ export async function directAccountAction(
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  // 4. Create a new iam_request for audit trail
-  const { data: newRequest, error: insertErr } = await supabase
-    .from("iam_requests")
-    .insert({
-      request_type: actionType,
-      staff_record_id: staffRecordId,
-      status: "approved",
-      it_remark: itRemark || null,
-      created_by: user.id,
-      approved_by: user.id,
-      approved_at: new Date().toISOString(),
-    })
+  // 4. Find the profile linked to this staff_record
+  const { data: targetProfile } = await supabase
+    .from("profiles")
     .select("id")
-    .single();
+    .eq("staff_record_id", staffRecordId)
+    .maybeSingle();
 
-  if (insertErr || !newRequest) {
-    log.error({ error: insertErr?.message }, "failed to create iam_request for direct action");
+  if (!targetProfile) {
+    log.warn({ staff_record_id: staffRecordId }, "no profile found for staff_record_id");
     return fail("INTERNAL");
   }
 
-  // 5. Execute side effects
+  // 5. Execute account action directly
   try {
-    // Find the profile linked to this staff_record
-    const { data: targetProfile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("staff_record_id", staffRecordId)
-      .maybeSingle();
-
-    if (!targetProfile) {
-      log.warn("direct action: no profile found for staff_record_id — skipping");
-    } else if (actionType === "suspension" || actionType === "termination") {
+    if (actionType === "suspension" || actionType === "termination") {
       // Lock the account
       const { error: lockErr } = await supabase.rpc("admin_lock_account", {
         p_target_user_id: targetProfile.id,
         p_lock: true,
-        p_reason: itRemark || `IAM ${actionType} (direct action, request ${newRequest.id})`,
+        p_reason: itRemark || `IT direct ${actionType}`,
       });
       if (lockErr) {
         log.error({ error: lockErr.message }, `${actionType}: admin_lock_account failed`);
+        return fail("INTERNAL");
       }
 
       // Update employment_status
@@ -541,6 +526,7 @@ export async function directAccountAction(
       });
       if (unlockErr) {
         log.error({ error: unlockErr.message }, "reactivation: admin_lock_account(false) failed");
+        return fail("INTERNAL");
       }
 
       // Update employment_status back to active
@@ -560,8 +546,9 @@ export async function directAccountAction(
   } catch (sideEffectErr) {
     log.error(
       { error: sideEffectErr instanceof Error ? sideEffectErr.message : String(sideEffectErr) },
-      "direct action side effect failed",
+      "direct action failed",
     );
+    return fail("INTERNAL");
   }
 
   // 6. Invalidate cache
@@ -574,10 +561,12 @@ export async function directAccountAction(
       feature: "iam",
       event: "direct-account-action",
       user_id: user.id,
-      request_id: newRequest.id,
     });
-    afterLog.info({ success: true, action_type: actionType }, "directAccountAction completed");
+    afterLog.info(
+      { staff_record_id: staffRecordId, action_type: actionType, it_remark: itRemark },
+      "directAccountAction completed",
+    );
   });
 
-  return ok({ requestId: newRequest.id });
+  return ok({ staffRecordId });
 }

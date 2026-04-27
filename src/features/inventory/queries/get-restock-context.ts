@@ -29,6 +29,7 @@ export const getRestockContext = cache(
   async (
     client: SupabaseClient<Database>,
     userId: string,
+    isRunner: boolean,
   ): Promise<RestockContext> => {
     // Resolve auto-location via staff_record org_unit_id
     const { data: staffRecord } = await client
@@ -52,25 +53,21 @@ export const getRestockContext = cache(
     // Load materials with category for movement_type_code resolution
     const { data: materialsRaw, error: matError } = await client
       .from("materials")
-      .select(
-        "id, name, sku, category_id, material_categories!inner(is_consumable)",
-      )
+      .select("id, name, sku, category_id, material_categories!inner(is_consumable)")
       .eq("is_active", true)
       .order("name");
     if (matError) throw matError;
 
-    const materials: ReadonlyArray<MaterialOption> = (materialsRaw ?? []).map(
-      (m) => {
-        const cat = m.material_categories as { is_consumable: boolean | null };
-        return {
-          id: m.id,
-          name: m.name,
-          sku: m.sku,
-          categoryId: m.category_id,
-          isConsumable: cat?.is_consumable ?? null,
-        };
-      },
-    );
+    const materials: ReadonlyArray<MaterialOption> = (materialsRaw ?? []).map((m) => {
+      const cat = m.material_categories as { is_consumable: boolean | null };
+      return {
+        id: m.id,
+        name: m.name,
+        sku: m.sku,
+        categoryId: m.category_id,
+        isConsumable: cat?.is_consumable ?? null,
+      };
+    });
 
     // Load active locations
     const { data: locationsRaw, error: locError } = await client
@@ -80,13 +77,11 @@ export const getRestockContext = cache(
       .order("name");
     if (locError) throw locError;
 
-    const locations: ReadonlyArray<LocationOption> = (locationsRaw ?? []).map(
-      (l) => ({
-        id: l.id,
-        name: l.name,
-        orgUnitId: l.org_unit_id,
-      }),
-    );
+    const locations: ReadonlyArray<LocationOption> = (locationsRaw ?? []).map((l) => ({
+      id: l.id,
+      name: l.name,
+      orgUnitId: l.org_unit_id,
+    }));
 
     // Own recent requisitions (LIMIT 10), joined with locations and items+materials
     const { data: reqRaw, error: reqError } = await client
@@ -108,9 +103,7 @@ export const getRestockContext = cache(
       .limit(RESTOCK_RECENT_LIMIT);
     if (reqError) throw reqError;
 
-    const ownRecentRequisitions: ReadonlyArray<RequisitionRow> = (
-      reqRaw ?? []
-    ).map((r) => {
+    const ownRecentRequisitions: ReadonlyArray<RequisitionRow> = (reqRaw ?? []).map((r) => {
       const fromLoc = r.from_location as { id: string; name: string } | null;
       const toLoc = r.to_location as { id: string; name: string } | null;
       const rawItems = r.material_requisition_items ?? [];
@@ -146,6 +139,7 @@ export const getRestockContext = cache(
       locations,
       ownRecentRequisitions,
       autoLocationId,
+      isRunner,
     };
   },
 );

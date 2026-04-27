@@ -14,25 +14,22 @@ import { HR_ROUTER_PATHS } from "@/features/hr/cache-tags";
 
 // ── Schemas ─────────────────────────────────────────────────────────────
 
-/** Lenient UUID — accepts any 8-4-4-4-12 hex string (seed UUIDs don't pass strict Zod .uuid()). */
-const uuidField = (msg?: string) =>
-  z
-    .string()
-    .regex(
-      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
-      msg ?? "Invalid UUID",
-    );
-
 const assignPolicySchema = z.object({
-  staffId: uuidField(),
-  leavePolicyId: uuidField("Select a leave policy"),
+  staffId: z.guid(),
+  leavePolicyId: z.guid("Select a leave policy"),
 });
 
 const createTransferRequestSchema = z.object({
-  staffRecordId: uuidField(),
-  currentRoleId: uuidField().nullable(),
-  targetRoleId: uuidField("Select a target role"),
+  staffRecordId: z.guid(),
+  currentRoleId: z.guid().nullable(),
+  targetRoleId: z.guid("Select a target role"),
   hrRemark: z.string().max(1000).optional(),
+});
+
+const createAccountActionRequestSchema = z.object({
+  staffRecordId: z.guid(),
+  actionType: z.enum(["suspension", "termination", "reactivation"]),
+  hrRemark: z.string().min(1, "A reason is required").max(1000),
 });
 
 // ── Rate limiter ────────────────────────────────────────────────────────
@@ -144,6 +141,82 @@ export async function createTransferRequest(
   after(async () => {
     const log = loggerWith({ feature: "hr", event: "create-transfer-request", user_id: user.id });
     log.info({ request_id: request.id }, "createTransferRequest completed");
+  });
+
+  return ok({ requestId: request.id });
+}
+
+// ── Create Account Action Request (Suspend / Terminate / Reactivate) ──
+
+const ACTION_LABELS: Record<string, string> = {
+  suspension: "suspension",
+  termination: "termination",
+  reactivation: "reactivation",
+};
+
+/**
+ * HR-initiated account action request — creates an IAM request of the
+ * given type that routes to IT for approval (WF-3).
+ *
+ * Same pipeline as `createTransferRequest`: Zod → RBAC (hr:c) →
+ * rate limit → INSERT iam_requests → revalidate → after log.
+ */
+export async function createAccountActionRequest(
+  input: unknown,
+): Promise<ServerActionResult<{ requestId: string }>> {
+  const parsed = createAccountActionRequestSchema.safeParse(input);
+  if (!parsed.success) {
+    const fields: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fields[issue.path.join(".") || "form"] = issue.message;
+    }
+    return fail("VALIDATION_FAILED", fields);
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return fail("UNAUTHENTICATED");
+  const appMeta = (user.app_metadata ?? {}) as { domains?: Record<string, string[]> };
+  const hrAccess = appMeta.domains?.hr ?? [];
+  if (!hrAccess.includes("c")) return fail("FORBIDDEN");
+
+  const lim = await limiter.limit(user.id);
+  if (!lim.success) return fail("RATE_LIMITED");
+
+  const d = parsed.data;
+  const { data: request, error } = await supabase
+    .from("iam_requests")
+    .insert({
+      request_type: d.actionType,
+      staff_record_id: d.staffRecordId,
+      hr_remark: d.hrRemark,
+      status: "pending_it",
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+
+  if (error || !request) return fail("INTERNAL");
+
+  for (const path of HR_ROUTER_PATHS) {
+    revalidatePath(path, "page");
+  }
+  // Also invalidate the IAM ledger so IT sees the new request
+  revalidatePath("/[locale]/admin/iam", "page");
+
+  after(async () => {
+    const log = loggerWith({
+      feature: "hr",
+      event: `create-${ACTION_LABELS[d.actionType] ?? d.actionType}-request`,
+      user_id: user.id,
+    });
+    log.info(
+      { request_id: request.id, action_type: d.actionType },
+      "createAccountActionRequest completed",
+    );
   });
 
   return ok({ requestId: request.id });

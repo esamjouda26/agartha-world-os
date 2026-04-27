@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { addWeeks, endOfISOWeek, format, getISOWeek, getISOWeekYear, startOfISOWeek } from "date-fns";
+import {
+  addWeeks,
+  endOfISOWeek,
+  format,
+  getISOWeek,
+  getISOWeekYear,
+  startOfISOWeek,
+} from "date-fns";
 
-import { CrewPageHeader } from "@/components/shared/crew-page-header";
 import { WeekScheduleView } from "@/features/hr/components/week-schedule-view";
 import { getMySchedule } from "@/features/hr/queries/get-my-schedule";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -57,15 +63,6 @@ export default async function CrewSchedulePage({
   const scheduleData = await getMySchedule(supabase, user.id, weekStart, weekEnd);
 
   return (
-    <div className="flex h-full flex-col" data-testid="schedule-page">
-      <CrewPageHeader title="My Schedule" subtitle="Your weekly shifts and leave" />
-      <div className="flex-1 overflow-y-auto">
-        <WeekScheduleView
-          initialData={scheduleData}
-          currentWeek={currentWeek}
-          weekLabel={weekLabel}
-        />
-      </div>
-    </div>
+    <WeekScheduleView initialData={scheduleData} currentWeek={currentWeek} weekLabel={weekLabel} />
   );
 }

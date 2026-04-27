@@ -4,12 +4,14 @@ import * as React from "react";
 import { useRouter } from "@/i18n/navigation";
 import { Check, Clock, Users, ShieldCheck } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { parseAsString, useQueryState } from "nuqs";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { KpiCard } from "@/components/ui/kpi-card";
 import { KpiCardRow } from "@/components/ui/kpi-card-row";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { StatusTabBar } from "@/components/ui/status-tab-bar";
 import {
   Select,
   SelectContent,
@@ -26,6 +28,8 @@ import { UrlDateRangePicker, useUrlDateRange } from "@/components/shared/url-dat
 import type { DateRangeValue } from "@/components/ui/date-range-picker";
 
 import type { IamLedgerData, IamRequestRow } from "@/features/iam/queries/get-iam-ledger";
+import type { StaffAccountsData } from "@/features/iam/queries/get-staff-accounts";
+import { StaffAccountsView } from "@/features/iam/components/staff-accounts-view";
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -55,16 +59,70 @@ const TYPE_TONE: Record<string, "info" | "accent" | "danger" | "warning" | "succ
     reactivation: "success",
   };
 
+// ── Top-level tabs ────────────────────────────────────────────────────
+
+const IAM_TABS = ["requests", "staff-accounts"] as const;
+type IamTab = (typeof IAM_TABS)[number];
+
 // ── Props ──────────────────────────────────────────────────────────────
 
 type IamLedgerViewProps = Readonly<{
   data: IamLedgerData;
+  staffAccounts: StaffAccountsData;
   canWrite: boolean;
 }>;
 
 // ── Component ──────────────────────────────────────────────────────────
 
-export function IamLedgerView({ data }: IamLedgerViewProps) {
+export function IamLedgerView({ data, staffAccounts }: IamLedgerViewProps) {
+  const [tab] = useQueryState(
+    "view",
+    parseAsString.withDefault("requests").withOptions({ clearOnDefault: true, history: "replace" }),
+  );
+  const currentTab: IamTab = (IAM_TABS as readonly string[]).includes(tab)
+    ? (tab as IamTab)
+    : "requests";
+
+  return (
+    <div className="flex flex-col gap-6" data-testid="iam-ledger">
+      <PageHeader
+        title="IAM Requests"
+        description="Review and process identity & access management requests."
+        data-testid="iam-ledger-header"
+      />
+
+      <StatusTabBar
+        tabs={[
+          { value: "requests", label: "Requests", count: data.kpis.pendingCount },
+          {
+            value: "staff-accounts",
+            label: "Staff Accounts",
+            count: staffAccounts.accounts.length,
+          },
+        ]}
+        paramKey="view"
+        defaultValue="requests"
+        ariaLabel="IAM sections"
+        panelIdPrefix="iam-tab"
+        data-testid="iam-tabs"
+      />
+
+      <div
+        role="tabpanel"
+        id={`iam-tab-${currentTab}`}
+        aria-labelledby={`tab-tab-${currentTab}`}
+        data-testid={`iam-panel-${currentTab}`}
+      >
+        {currentTab === "requests" ? <RequestsPanel data={data} /> : null}
+        {currentTab === "staff-accounts" ? <StaffAccountsView data={staffAccounts} /> : null}
+      </div>
+    </div>
+  );
+}
+
+// ── Requests Panel (original ledger content) ──────────────────────────
+
+function RequestsPanel({ data }: Readonly<{ data: IamLedgerData }>) {
   const router = useRouter();
   const statusFilter = useUrlString("status");
   const typeFilter = useUrlString("type");
@@ -211,131 +269,123 @@ export function IamLedgerView({ data }: IamLedgerViewProps) {
   );
 
   return (
-    <div className="flex flex-col gap-6" data-testid="iam-ledger">
-      <PageHeader
-        title="IAM Requests"
-        description="Review and process identity & access management requests."
-        data-testid="iam-ledger-header"
-      />
-
-      <FilterableDataTable<IamRequestRow>
-        kpis={
-          <KpiCardRow data-testid="iam-kpis">
-            <KpiCard
-              label="Pending"
-              value={data.kpis.pendingCount}
-              caption="awaiting IT"
-              icon={<Clock aria-hidden className="size-4" />}
-              {...(data.kpis.pendingCount > 0
-                ? {
-                    trend: {
-                      direction: "up" as const,
-                      label: `${data.kpis.pendingCount} in queue`,
-                      goodWhen: "down" as const,
-                    },
-                  }
-                : {})}
-              data-testid="iam-kpi-pending"
-            />
-            <KpiCard
-              label="Approved Today"
-              value={data.kpis.approvedTodayCount}
-              caption="processed"
-              icon={<Check aria-hidden className="size-4" />}
-              data-testid="iam-kpi-approved"
-            />
-            <KpiCard
-              label="Avg Wait"
-              value={data.kpis.avgWaitMs != null ? formatDurationMs(data.kpis.avgWaitMs) : "—"}
-              caption="pending requests"
-              icon={<Users aria-hidden className="size-4" />}
-              data-testid="iam-kpi-wait"
-            />
-          </KpiCardRow>
-        }
-        toolbar={
-          <FilterBar
-            data-testid="iam-filters"
-            hasActiveFilters={hasActiveFilters}
-            onClearAll={resetAll}
-            search={
-              <UrlSearchInput
-                param="q"
-                placeholder="Search by name or role…"
-                aria-label="Search"
-                debounceMs={300}
-                data-testid="iam-search"
-              />
-            }
-            controls={
-              <>
-                <UrlDateRangePicker
-                  defaultRange={computeDefaultRange}
-                  clearable={false}
-                  aria-label="Date range"
-                  data-testid="iam-filter-date"
-                  className="min-w-[16rem] sm:w-auto"
-                />
-                <Select
-                  value={statusFilter.value ?? ""}
-                  onValueChange={(next) => statusFilter.set(next === "" ? null : next)}
-                >
-                  <SelectTrigger
-                    className="h-10 min-w-[10rem] sm:w-auto"
-                    aria-label="Status"
-                    data-testid="iam-filter-status"
-                  >
-                    <SelectValue placeholder="Any status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {IAM_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {IAM_STATUS_LABELS[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={typeFilter.value ?? ""}
-                  onValueChange={(next) => typeFilter.set(next === "" ? null : next)}
-                >
-                  <SelectTrigger
-                    className="h-10 min-w-[10rem] sm:w-auto"
-                    aria-label="Request type"
-                    data-testid="iam-filter-type"
-                  >
-                    <SelectValue placeholder="Any type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(IAM_TYPE_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
-            }
-            chips={chips.length > 0 ? chips : null}
+    <FilterableDataTable<IamRequestRow>
+      kpis={
+        <KpiCardRow data-testid="iam-kpis">
+          <KpiCard
+            label="Pending"
+            value={data.kpis.pendingCount}
+            caption="awaiting IT"
+            icon={<Clock aria-hidden className="size-4" />}
+            {...(data.kpis.pendingCount > 0
+              ? {
+                  trend: {
+                    direction: "up" as const,
+                    label: `${data.kpis.pendingCount} in queue`,
+                    goodWhen: "down" as const,
+                  },
+                }
+              : {})}
+            data-testid="iam-kpi-pending"
           />
-        }
-        table={{
-          data: filteredRequests,
-          columns,
-          mobileFieldPriority: ["type", "staffName", "status", "submitted"],
-          getRowId: (row) => row.id,
-          onRowClick: (row) => router.push(`/admin/iam/${row.id}`),
-        }}
-        hasActiveFilters={hasActiveFilters}
-        emptyState={{
-          variant: "filtered-out" as const,
-          title: "No IAM requests match your filters",
-          description: "Widen the date range or clear a filter to see more requests.",
-          icon: <ShieldCheck className="size-8" />,
-        }}
-        data-testid="iam-table"
-      />
-    </div>
+          <KpiCard
+            label="Approved Today"
+            value={data.kpis.approvedTodayCount}
+            caption="processed"
+            icon={<Check aria-hidden className="size-4" />}
+            data-testid="iam-kpi-approved"
+          />
+          <KpiCard
+            label="Avg Wait"
+            value={data.kpis.avgWaitMs != null ? formatDurationMs(data.kpis.avgWaitMs) : "—"}
+            caption="pending requests"
+            icon={<Users aria-hidden className="size-4" />}
+            data-testid="iam-kpi-wait"
+          />
+        </KpiCardRow>
+      }
+      toolbar={
+        <FilterBar
+          data-testid="iam-filters"
+          hasActiveFilters={hasActiveFilters}
+          onClearAll={resetAll}
+          search={
+            <UrlSearchInput
+              param="q"
+              placeholder="Search by name or role…"
+              aria-label="Search"
+              debounceMs={300}
+              data-testid="iam-search"
+            />
+          }
+          controls={
+            <>
+              <UrlDateRangePicker
+                defaultRange={computeDefaultRange}
+                clearable={false}
+                aria-label="Date range"
+                data-testid="iam-filter-date"
+                className="min-w-[16rem] sm:w-auto"
+              />
+              <Select
+                value={statusFilter.value ?? ""}
+                onValueChange={(next) => statusFilter.set(next === "" ? null : next)}
+              >
+                <SelectTrigger
+                  className="h-10 min-w-[10rem] sm:w-auto"
+                  aria-label="Status"
+                  data-testid="iam-filter-status"
+                >
+                  <SelectValue placeholder="Any status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {IAM_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {IAM_STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={typeFilter.value ?? ""}
+                onValueChange={(next) => typeFilter.set(next === "" ? null : next)}
+              >
+                <SelectTrigger
+                  className="h-10 min-w-[10rem] sm:w-auto"
+                  aria-label="Request type"
+                  data-testid="iam-filter-type"
+                >
+                  <SelectValue placeholder="Any type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(IAM_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          }
+          chips={chips.length > 0 ? chips : null}
+        />
+      }
+      table={{
+        data: filteredRequests,
+        columns,
+        mobileFieldPriority: ["type", "staffName", "status", "submitted"],
+        getRowId: (row) => row.id,
+        onRowClick: (row) => router.push(`/admin/iam/${row.id}`),
+      }}
+      hasActiveFilters={hasActiveFilters}
+      emptyState={{
+        variant: "filtered-out" as const,
+        title: "No IAM requests match your filters",
+        description: "Widen the date range or clear a filter to see more requests.",
+        icon: <ShieldCheck className="size-8" />,
+      }}
+      data-testid="iam-table"
+    />
   );
 }
 

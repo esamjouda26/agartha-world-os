@@ -14,11 +14,18 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       richColors
       // Mobile crew portals dock a 72px BottomTabBar to the viewport bottom
-      // (sticky-action-bar.tsx default offset). Default sonner position is
-      // bottom-right which overlaps that bar. mobileOffset bumps the stack
-      // above it (72px nav + 16px breathing room) on the ≤600px breakpoint;
-      // desktop keeps the default bottom-right anchor.
-      mobileOffset={{ bottom: "88px", left: "16px", right: "16px" }}
+      // and routes with a primary mutation CTA also stack a 76px
+      // <StickyActionBar> above it. The bottom offset is owned by a single
+      // CSS variable (`--toast-mobile-bottom`) declared in globals.css and
+      // bumped by `:root:has([data-sticky-action-bar="true"])` whenever a
+      // sticky bar is mounted — fully declarative, automatically reactive.
+      // Defaults to 88px (clears BottomTabBar only); resolves to 164px when
+      // a sticky bar is present. Desktop keeps the default bottom-right anchor.
+      mobileOffset={{
+        bottom: "var(--toast-mobile-bottom, 88px)",
+        left: "16px",
+        right: "16px",
+      }}
       icons={{
         success: <CircleCheck className="size-4" />,
         info: <Info className="size-4" />,

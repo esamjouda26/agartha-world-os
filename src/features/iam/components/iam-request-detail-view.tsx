@@ -10,9 +10,6 @@ import {
   Mail,
   Building,
   Calendar,
-  ShieldAlert,
-  ShieldOff,
-  ShieldCheck,
   MessageSquare,
 } from "lucide-react";
 import { SectionCard } from "@/components/ui/section-card";
@@ -33,11 +30,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toastSuccess, toastError } from "@/components/ui/toast-helpers";
 
 import type { IamRequestDetail } from "@/features/iam/queries/get-iam-request-detail";
-import {
-  approveIamRequest,
-  rejectIamRequest,
-  directAccountAction,
-} from "@/features/iam/actions/process-iam-request";
+import { approveIamRequest, rejectIamRequest } from "@/features/iam/actions/process-iam-request";
 
 // ── Props ──────────────────────────────────────────────────────────────
 
@@ -50,7 +43,6 @@ type IamRequestDetailViewProps = Readonly<{
 
 export function IamRequestDetailView({ request, canWrite }: IamRequestDetailViewProps) {
   const isPendingIT = request.status === "pending_it";
-  const isApproved = request.status === "approved";
   const waitingSince = isPendingIT ? formatDuration(new Date(request.createdAt)) : null;
 
   return (
@@ -99,11 +91,6 @@ export function IamRequestDetailView({ request, canWrite }: IamRequestDetailView
           requestType={request.requestType}
           staffName={request.staffName}
         />
-      ) : null}
-
-      {/* ── Post-Approval Actions (suspend / terminate / reactivate) ── */}
-      {isApproved && canWrite ? (
-        <PostApprovalActions staffRecordId={request.staffRecordId} staffName={request.staffName} />
       ) : null}
 
       {/* ── Staff Details Card ───────────────────────────────────────── */}
@@ -423,171 +410,6 @@ function PendingActions({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
-  );
-}
-
-// ── Post-Approval Actions (Suspend / Terminate / Reactivate) ────────────
-
-function PostApprovalActions({
-  staffRecordId,
-  staffName,
-}: Readonly<{
-  staffRecordId: string;
-  staffName: string;
-}>) {
-  const [dialogType, setDialogType] = React.useState<"suspend" | "terminate" | "reactivate" | null>(
-    null,
-  );
-  const [itRemark, setItRemark] = React.useState("");
-  const [isPending, startTransition] = React.useTransition();
-
-  const closeDialog = () => {
-    setDialogType(null);
-    setItRemark("");
-  };
-
-  const actionTypeMap = {
-    suspend: "suspension",
-    terminate: "termination",
-    reactivate: "reactivation",
-  } as const;
-
-  const handleConfirm = () => {
-    if (!dialogType) return;
-    startTransition(async () => {
-      const result = await directAccountAction({
-        staffRecordId,
-        actionType: actionTypeMap[dialogType],
-        ...(itRemark.trim() ? { itRemark: itRemark.trim() } : {}),
-      });
-      if (result.success) {
-        toastSuccess(
-          dialogType === "suspend"
-            ? "Account suspended"
-            : dialogType === "terminate"
-              ? "Account terminated"
-              : "Account reactivated",
-        );
-        closeDialog();
-      } else {
-        toastError(result);
-      }
-    });
-  };
-
-  const dialogConfig = {
-    suspend: {
-      title: "Suspend Account",
-      description: `Suspend ${staffName}'s account. They will be locked out immediately and redirected to the access-revoked screen.`,
-      icon: <ShieldAlert aria-hidden className="size-4" />,
-      variant: "destructive" as const,
-      confirmLabel: "Suspend Account",
-    },
-    terminate: {
-      title: "Terminate Account",
-      description: `Permanently terminate ${staffName}'s account. This will revoke all access and lock the auth user.`,
-      icon: <ShieldOff aria-hidden className="size-4" />,
-      variant: "destructive" as const,
-      confirmLabel: "Terminate Account",
-    },
-    reactivate: {
-      title: "Reactivate Account",
-      description: `Reactivate ${staffName}'s account. This will unlock the auth user and restore their employment status to active.`,
-      icon: <ShieldCheck aria-hidden className="size-4" />,
-      variant: "default" as const,
-      confirmLabel: "Reactivate Account",
-    },
-  };
-
-  const config = dialogType ? dialogConfig[dialogType] : null;
-
-  return (
-    <>
-      <SectionCard
-        title="Account Actions"
-        description="Manage the staff member's account status."
-        data-testid="iam-detail-account-actions"
-      >
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setDialogType("suspend")}
-            data-testid="iam-detail-suspend"
-          >
-            <ShieldAlert aria-hidden className="size-4" />
-            Suspend
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setDialogType("terminate")}
-            className="text-destructive hover:text-destructive"
-            data-testid="iam-detail-terminate"
-          >
-            <ShieldOff aria-hidden className="size-4" />
-            Terminate
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setDialogType("reactivate")}
-            data-testid="iam-detail-reactivate"
-          >
-            <ShieldCheck aria-hidden className="size-4" />
-            Reactivate
-          </Button>
-        </div>
-      </SectionCard>
-
-      {config ? (
-        <Dialog
-          open={dialogType !== null}
-          onOpenChange={(open) => {
-            if (!open) closeDialog();
-          }}
-        >
-          <DialogContent data-testid="iam-detail-account-dialog">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {config.icon} {config.title}
-              </DialogTitle>
-              <DialogDescription>{config.description}</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="iam-account-remark">IT Note (optional)</Label>
-              <Textarea
-                id="iam-account-remark"
-                value={itRemark}
-                onChange={(e) => setItRemark(e.target.value)}
-                placeholder="Reason for this action…"
-                rows={3}
-                data-testid="iam-detail-account-remark"
-              />
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Cancel
-                </Button>
-              </DialogClose>
-              <Button
-                type="button"
-                variant={config.variant}
-                disabled={isPending}
-                onClick={handleConfirm}
-                data-testid="iam-detail-account-confirm"
-              >
-                {isPending ? "Processing…" : config.confirmLabel}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
     </>
   );
 }

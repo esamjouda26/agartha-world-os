@@ -9,6 +9,7 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -18,6 +19,7 @@ import type { ReceivablePoRow, PoItemView } from "@/features/procurement/types";
 type ReceivedQtys = Record<string, number>;
 
 function PoCard({ po }: Readonly<{ po: ReceivablePoRow }>) {
+  const router = useRouter();
   const [receivedQtys, setReceivedQtys] = useState<ReceivedQtys>(() =>
     Object.fromEntries(po.items.map((i) => [i.id, i.receivedQty ?? 0])),
   );
@@ -38,6 +40,10 @@ function PoCard({ po }: Readonly<{ po: ReceivablePoRow }>) {
       });
       if (result.success) {
         toastSuccess(`PO received successfully.`);
+        // Refetch RSC so the PO either disappears (status → completed) or
+        // re-renders with updated received_qty. Don't trust the Realtime
+        // UPDATE listener alone — the actor's UI must update deterministically.
+        router.refresh();
       } else {
         toastError(result);
       }
@@ -130,19 +136,33 @@ export function PoReceivingView({ pos }: Readonly<{ pos: ReadonlyArray<Receivabl
 
   if (pos.length === 0) {
     return (
-      <div className="p-4">
-        <EmptyStateCta
-          variant="first-use"
-          title="No pending deliveries"
-          description="Purchase orders awaiting receipt will appear here."
-          data-testid="po-receiving-empty"
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="PO Receiving"
+          description="Enter received quantities for incoming orders"
+          density="compact"
+          data-testid="po-receiving-page-header"
         />
+        <div className="p-4">
+          <EmptyStateCta
+            variant="first-use"
+            title="No pending deliveries"
+            description="Purchase orders awaiting receipt will appear here."
+            data-testid="po-receiving-empty"
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 p-4" data-testid="po-receiving-view">
+    <div className="flex flex-col gap-3" data-testid="po-receiving-view">
+      <PageHeader
+        title="PO Receiving"
+        description="Enter received quantities for incoming orders"
+        density="compact"
+        data-testid="po-receiving-page-header"
+      />
       {pos.map((po) => (
         <PoCard key={po.id} po={po} />
       ))}

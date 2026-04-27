@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getIamLedger } from "@/features/iam/queries/get-iam-ledger";
+import { getStaffAccounts } from "@/features/iam/queries/get-staff-accounts";
 import { IamLedgerView } from "@/features/iam/components/iam-ledger-view";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
  *
  * Fetches IAM requests with staff + role joins, computes KPIs and
  * status tab counts, then renders the IamLedgerView client leaf.
+ * Also fetches staff accounts for the inline account management tab.
  * Write access (`canWrite`) is derived from the user's `hr:u` permission.
  */
 export default async function AdminIamPage() {
@@ -26,15 +28,20 @@ export default async function AdminIamPage() {
   // Parallel: fetch data + check write permission
   const [
     data,
+    staffAccounts,
     {
       data: { user },
     },
-  ] = await Promise.all([getIamLedger(supabase), supabase.auth.getUser()]);
+  ] = await Promise.all([
+    getIamLedger(supabase),
+    getStaffAccounts(supabase),
+    supabase.auth.getUser(),
+  ]);
 
   const appMeta = (user?.app_metadata ?? {}) as {
     domains?: Record<string, string[]>;
   };
   const canWrite = (appMeta.domains?.hr ?? []).includes("u");
 
-  return <IamLedgerView data={data} canWrite={canWrite} />;
+  return <IamLedgerView data={data} staffAccounts={staffAccounts} canWrite={canWrite} />;
 }

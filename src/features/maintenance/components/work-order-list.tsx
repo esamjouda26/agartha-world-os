@@ -11,14 +11,9 @@ import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MetadataList } from "@/components/ui/metadata-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
@@ -86,14 +81,14 @@ function AuthorizeSheet({
             data-testid="authorize-mac-input"
             aria-describedby="vendor-mac-hint"
           />
-          <p id="vendor-mac-hint" className="text-xs text-foreground-muted">
+          <p id="vendor-mac-hint" className="text-foreground-muted text-xs">
             Format: AA:BB:CC:DD:EE:FF or AA-BB-CC-DD-EE-FF
           </p>
         </div>
 
         <SheetFooter className="mt-6 flex flex-col gap-2">
           <Button
-            className="w-full min-h-[52px] font-semibold"
+            className="min-h-[52px] w-full font-semibold"
             onClick={handleConfirm}
             disabled={isPending || !mac.trim()}
             data-testid="authorize-confirm"
@@ -102,7 +97,7 @@ function AuthorizeSheet({
           </Button>
           <Button
             variant="ghost"
-            className="w-full min-h-[44px]"
+            className="min-h-[44px] w-full"
             onClick={handleClose}
             data-testid="authorize-cancel"
           >
@@ -166,7 +161,7 @@ function RevokeSheet({
 
         <SheetFooter className="mt-6 flex flex-col gap-2">
           <Button
-            className="w-full min-h-[52px] font-semibold"
+            className="min-h-[52px] w-full font-semibold"
             onClick={handleConfirm}
             disabled={isPending || !remark.trim()}
             data-testid="revoke-confirm"
@@ -175,7 +170,7 @@ function RevokeSheet({
           </Button>
           <Button
             variant="ghost"
-            className="w-full min-h-[44px]"
+            className="min-h-[44px] w-full"
             onClick={handleClose}
             data-testid="revoke-cancel"
           >
@@ -198,27 +193,49 @@ export function WorkOrderList({ orders }: WorkOrderListProps) {
 
   if (orders.length === 0) {
     return (
-      <div className="p-4">
-        <EmptyStateCta
-          variant="first-use"
-          title="No work orders"
-          description="Work orders where you are the sponsor will appear here."
-          data-testid="work-orders-empty"
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="My Work Orders"
+          description="Authorize and complete maintenance jobs"
+          density="compact"
+          data-testid="work-orders-page-header"
         />
+        <div className="p-4">
+          <EmptyStateCta
+            variant="first-use"
+            title="No work orders"
+            description="Work orders where you are the sponsor will appear here."
+            data-testid="work-orders-empty"
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4" data-testid="work-order-list">
+    <div className="flex flex-col gap-4" data-testid="work-order-list">
+      <PageHeader
+        title="My Work Orders"
+        description="Authorize and complete maintenance jobs"
+        density="compact"
+        data-testid="work-orders-page-header"
+      />
       {/* Summary strip */}
       <MetadataList
         layout="inline"
         items={[
-          { label: "Scheduled", value: <strong className="font-semibold tabular-nums">{scheduled.length}</strong> },
-          { label: "Active", value: <strong className="font-semibold tabular-nums text-primary">{active.length}</strong> },
+          {
+            label: "Scheduled",
+            value: <strong className="font-semibold tabular-nums">{scheduled.length}</strong>,
+          },
+          {
+            label: "Active",
+            value: (
+              <strong className="text-primary font-semibold tabular-nums">{active.length}</strong>
+            ),
+          },
         ]}
-        className="rounded-xl border border-border bg-surface/40 px-4 py-3"
+        className="border-border bg-surface/40 rounded-xl border px-4 py-3"
         data-testid="work-order-summary"
       />
 
@@ -226,7 +243,7 @@ export function WorkOrderList({ orders }: WorkOrderListProps) {
         <SectionCard
           key={order.id}
           title={
-            <span className="flex items-center gap-2 min-w-0">
+            <span className="flex min-w-0 items-center gap-2">
               <Wrench size={14} className="text-foreground-muted shrink-0" />
               <span className="truncate">{order.vendorName}</span>
             </span>
@@ -263,7 +280,7 @@ export function WorkOrderList({ orders }: WorkOrderListProps) {
           {/* Actions — Sheets instead of Dialogs (CLAUDE.md §5: sheet for mobile forms) */}
           {order.topology === "onsite" && order.status === "scheduled" && (
             <Button
-              className="mt-3 w-full min-h-[48px] font-semibold"
+              className="mt-3 min-h-[48px] w-full font-semibold"
               onClick={() => setAuthorizeId(order.id)}
               data-testid={`work-order-authorize-${order.id}`}
             >
@@ -273,7 +290,7 @@ export function WorkOrderList({ orders }: WorkOrderListProps) {
           {order.status === "active" && (
             <Button
               variant="outline"
-              className="mt-3 w-full min-h-[48px] font-semibold border-destructive text-destructive hover:bg-destructive/5"
+              className="border-destructive text-destructive hover:bg-destructive/5 mt-3 min-h-[48px] w-full font-semibold"
               onClick={() => setRevokeId(order.id)}
               data-testid={`work-order-revoke-${order.id}`}
             >

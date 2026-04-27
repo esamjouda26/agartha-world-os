@@ -61,8 +61,7 @@ export async function acceptRequisitionAction(
   const appMeta = (user.app_metadata ?? {}) as {
     domains?: Record<string, string[]>;
   };
-  if (!appMeta.domains?.["inventory_ops"]?.includes("c"))
-    return fail("FORBIDDEN");
+  if (!appMeta.domains?.["inventory_ops"]?.includes("u")) return fail("FORBIDDEN");
 
   // Step 3: Rate limit
   const lim = await limiter.limit(user.id);
@@ -90,10 +89,7 @@ export async function acceptRequisitionAction(
       event: "accept_requisition",
       user_id: user.id,
     });
-    log.info(
-      { requisitionId: updated.id },
-      "acceptRequisitionAction completed",
-    );
+    log.info({ requisitionId: updated.id }, "acceptRequisitionAction completed");
   });
 
   return ok({ requisitionId: updated.id });

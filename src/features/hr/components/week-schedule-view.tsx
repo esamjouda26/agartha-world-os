@@ -16,6 +16,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MetadataList } from "@/components/ui/metadata-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { MyScheduleData, ScheduleDay } from "@/features/hr/queries/get-my-schedule";
@@ -82,7 +83,13 @@ export function WeekScheduleView({ initialData, currentWeek, weekLabel }: WeekSc
   }
 
   return (
-    <div data-testid="week-schedule-view" className="flex flex-col gap-4 p-4">
+    <div data-testid="week-schedule-view" className="flex flex-col gap-4">
+      <PageHeader
+        title="My Schedule"
+        description="Your weekly shifts and leave"
+        density="compact"
+        data-testid="schedule-page-header"
+      />
       {/* Header: location + week navigation */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {initialData?.locationName ? (

@@ -30,10 +30,10 @@ const limiter = createRateLimiter({
  * Creates a material requisition with line items.
  *
  * from_location_id resolution (operational_workflows.md:1087 —
- * "from_location_id = warehouse"): we look up the canonical "Warehouse"
- * location seeded at init_schema.sql:1202. Crew restock requests always
- * pull from that source — falling back to "first non-target location"
- * (the prior heuristic) was brittle whenever new locations were added.
+ * "from_location_id = warehouse"): we look up the canonical "Central Warehouse"
+ * location seeded at seed.sql:32. Crew restock requests always pull from
+ * that source — falling back to "first non-target location" (the prior
+ * heuristic) was brittle whenever new locations were added.
  *
  * movement_type_code per line:
  *   - '201' = consumable goods issue (is_consumable = true)
@@ -68,19 +68,36 @@ export async function submitRestockAction(
   const lim = await limiter.limit(user.id);
   if (!lim.success) return fail("RATE_LIMITED");
 
-  // Step 4: Resolve from_location_id — the canonical Warehouse location
-  // (seed.sql:1202). Crew can never restock-from-self.
-  const { data: warehouse, error: locError } = await supabase
-    .from("locations")
-    .select("id")
-    .eq("name", "Warehouse")
-    .eq("is_active", true)
-    .maybeSingle();
-  if (locError) return fail("INTERNAL");
-  if (!warehouse) return fail("NOT_FOUND", { form: "Warehouse location is not configured." });
-  if (warehouse.id === parsed.data.to_location_id) {
+  // Step 4: Resolve from_location_id
+  // Runner mode: client provides the source location explicitly.
+  // Non-runner: server resolves the canonical Warehouse location.
+  let fromLocationId: string;
+
+  if (parsed.data.from_location_id) {
+    // Runner-provided source. Validate the runner actually has update
+    // permission (inventory_ops:u) — this is the same gating used for
+    // the restock-queue fulfilment actions.
+    if (!appMeta.domains?.["inventory_ops"]?.includes("u")) {
+      return fail("FORBIDDEN");
+    }
+    fromLocationId = parsed.data.from_location_id;
+  } else {
+    // Non-runner: auto-resolve Warehouse
+    const { data: warehouse, error: locError } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("name", "Central Warehouse")
+      .eq("is_active", true)
+      .maybeSingle();
+    if (locError) return fail("INTERNAL");
+    if (!warehouse)
+      return fail("NOT_FOUND", { form: "Central Warehouse location is not configured." });
+    fromLocationId = warehouse.id;
+  }
+
+  if (fromLocationId === parsed.data.to_location_id) {
     return fail("VALIDATION_FAILED", {
-      to_location_id: "Cannot restock the warehouse from itself.",
+      to_location_id: "Source and destination cannot be the same location.",
     });
   }
 
@@ -111,7 +128,7 @@ export async function submitRestockAction(
   // type generator emits non-null types for SQL params without explicit
   // NOT NULL). Cast nullable args to match the strict signature.
   const { data: requisitionId, error: rpcError } = await supabase.rpc("rpc_create_requisition", {
-    p_from_location_id: warehouse.id,
+    p_from_location_id: fromLocationId,
     p_to_location_id: parsed.data.to_location_id,
     p_requester_remark: (parsed.data.requester_remark ?? null) as string,
     p_created_by: user.id,
@@ -126,6 +143,18 @@ export async function submitRestockAction(
     return fail("INTERNAL");
   }
 
+  // Step 7: Runner auto-assignment — when the runner creates a manual
+  // restock they are both the requester and the fulfiller. Immediately
+  // advance the requisition to in_progress + assigned_to = self so the
+  // runner only needs to complete delivery from the queue page.
+  if (parsed.data.is_runner) {
+    const { error: assignError } = await supabase
+      .from("material_requisitions")
+      .update({ status: "in_progress" as const, assigned_to: user.id })
+      .eq("id", requisitionId as string);
+    if (assignError) return fail("INTERNAL");
+  }
+
   // Step 8: Invalidate router cache
   for (const path of INVENTORY_ROUTER_PATHS) {
     revalidatePath(path, "page");
@@ -137,7 +166,7 @@ export async function submitRestockAction(
       event: "submit_restock",
       user_id: user.id,
     });
-    log.info({ requisitionId }, "submitRestockAction completed");
+    log.info({ requisitionId, isRunner: !!parsed.data.is_runner }, "submitRestockAction completed");
   });
 
   return ok({ requisitionId: requisitionId as string });

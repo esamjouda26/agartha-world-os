@@ -117,7 +117,11 @@ export const nav: FeatureNav = {
       iconName: "Truck",
       labelKey: "nav.crew.restockQueue",
       label: "Restock Queue",
-      requires: { domain: "inventory_ops", access: "c" },
+      // Fulfillers UPDATE existing requisitions (accept → in_progress →
+      // completed). The `c` tier is for the requesting crew (kitchens,
+      // gift shop) on /crew/restock. Gating this tile on `u` keeps it
+      // scoped to runner_crew / cleaning_crew per spec line 4536-4539.
+      requires: { domain: "inventory_ops", access: "u" },
     },
     {
       id: "crew-stock-count",
@@ -128,7 +132,11 @@ export const nav: FeatureNav = {
       iconName: "ClipboardList",
       labelKey: "nav.crew.stockCount",
       label: "Stock Count",
-      requires: { domain: "inventory_ops", access: "r" },
+      // Auditors UPDATE inventory_reconciliation_items.physical_qty when
+      // submitting a count. The route's read query is the same shape as
+      // the action's update — gating on `u` aligns nav visibility with
+      // who can actually complete the workflow.
+      requires: { domain: "inventory_ops", access: "u" },
     },
     {
       id: "crew-disposals",

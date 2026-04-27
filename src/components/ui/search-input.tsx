@@ -114,7 +114,13 @@ export function SearchInput({
         placeholder={placeholder}
         disabled={disabled}
         aria-label={ariaLabel ?? placeholder}
-        className="pr-9 pl-9"
+        // pr-9/pl-9 reserve space for the magnifier icon (left) and our
+        // custom clear button (right). The two `[&::*]` arbitrary variants
+        // suppress the user-agent clear glyphs that Chrome/Safari/Edge
+        // render natively for `type="search"` (`::-webkit-search-cancel-button`)
+        // and legacy IE/Edge (`::-ms-clear`) — without these, both the
+        // browser's × and our themed × stack on the right edge.
+        className="pr-9 pl-9 [&::-ms-clear]:hidden [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
       />
       {local.length > 0 ? (
         <button

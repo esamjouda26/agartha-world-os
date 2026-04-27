@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { CrewPageHeader } from "@/components/shared/crew-page-header";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getRestockQueue } from "@/features/inventory/queries/get-restock-queue";
 import { RestockQueueView } from "@/features/inventory/components/restock-queue-view";
@@ -28,12 +27,5 @@ export default async function CrewRestockQueuePage({
 
   const queue = await getRestockQueue(supabase, user.id);
 
-  return (
-    <div className="flex h-full flex-col" data-testid="restock-queue-page">
-      <CrewPageHeader title="Restock Queue" subtitle="Accept and fulfil material requisitions" />
-      <div className="flex-1 overflow-y-auto">
-        <RestockQueueView initialQueue={queue} />
-      </div>
-    </div>
-  );
+  return <RestockQueueView initialQueue={queue} />;
 }

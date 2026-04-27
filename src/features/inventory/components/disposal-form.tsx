@@ -8,7 +8,7 @@ import { Camera, Paperclip, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { FormSection } from "@/components/ui/form-section";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionCard } from "@/components/ui/section-card";
@@ -149,11 +149,13 @@ export function DisposalForm({ context }: DisposalFormProps) {
       : context.materials;
 
   return (
-    <FormSection
-      title="Record Disposal"
-      description="Log spoiled, expired, or damaged inventory for write-off."
-      data-testid="disposal-form-section"
-    >
+    <div className="flex flex-col gap-6" data-testid="disposal-form-section">
+      <PageHeader
+        title="Waste Declaration"
+        description="Record waste or disposal events"
+        density="compact"
+        data-testid="disposal-page-header"
+      />
       <FormProvider {...form}>
         <form
           onSubmit={form.handleSubmit(handleSubmit)}
@@ -497,6 +499,6 @@ export function DisposalForm({ context }: DisposalFormProps) {
           </StickyActionBar>
         </form>
       </FormProvider>
-    </FormSection>
+    </div>
   );
 }

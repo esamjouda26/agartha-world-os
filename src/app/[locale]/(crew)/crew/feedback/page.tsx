@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { CrewPageHeader } from "@/components/shared/crew-page-header";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getFeedbackLocationName } from "@/features/marketing/queries/get-feedback-location";
 import { getRecentFeedback } from "@/features/marketing/queries/get-recent-feedback";
@@ -28,12 +27,5 @@ export default async function CrewFeedbackPage({
     getFeedbackLocationName(supabase, user.id),
   ]);
 
-  return (
-    <div className="flex h-full flex-col" data-testid="feedback-page">
-      <CrewPageHeader title="Guest Feedback" subtitle="Capture what guests are saying in passing" />
-      <div className="flex-1 overflow-y-auto">
-        <FeedbackView initialFeedback={recentFeedback} autoLocationName={autoLocationName} />
-      </div>
-    </div>
-  );
+  return <FeedbackView initialFeedback={recentFeedback} autoLocationName={autoLocationName} />;
 }

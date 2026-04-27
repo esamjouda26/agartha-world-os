@@ -16,6 +16,7 @@ import { FormField, FormItem, FormControl, FormMessage } from "@/components/ui/f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MetadataList } from "@/components/ui/metadata-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { toastError, toastSuccess } from "@/components/ui/toast-helpers";
@@ -60,7 +61,7 @@ function RequisitionCard({
 
   function handleAccept() {
     startTransition(async () => {
-      const result = await acceptRequisitionAction(req.id);
+      const result = await acceptRequisitionAction({ requisition_id: req.id });
       if (result.success) {
         toastSuccess("Requisition accepted.");
         onAction();
@@ -223,7 +224,6 @@ function RequisitionCard({
 }
 
 export function RestockQueueView({ initialQueue }: RestockQueueViewProps) {
-  const [queue] = useState<RestockQueue>(initialQueue);
   const router = useRouter();
 
   // Realtime subscription on `material_requisitions` (INSERT, UPDATE) per
@@ -256,40 +256,56 @@ export function RestockQueueView({ initialQueue }: RestockQueueViewProps) {
     router.refresh();
   }
 
-  if (queue.pending.length === 0 && queue.inProgress.length === 0) {
+  if (initialQueue.pending.length === 0 && initialQueue.inProgress.length === 0) {
     return (
-      <EmptyStateCta
-        variant="first-use"
-        title="No requisitions"
-        description="Pending restock requests will appear here."
-        data-testid="restock-queue-empty"
-      />
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="Restock Queue"
+          description="Accept and fulfil material requisitions"
+          density="compact"
+          data-testid="restock-queue-page-header"
+        />
+        <div className="p-4">
+          <EmptyStateCta
+            variant="first-use"
+            title="No requisitions"
+            description="Pending restock requests will appear here."
+            data-testid="restock-queue-empty"
+          />
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4" data-testid="restock-queue-view">
-      {queue.inProgress.length > 0 && (
+    <div className="flex flex-col gap-6" data-testid="restock-queue-view">
+      <PageHeader
+        title="Restock Queue"
+        description="Accept and fulfil material requisitions"
+        density="compact"
+        data-testid="restock-queue-page-header"
+      />
+      {initialQueue.inProgress.length > 0 && (
         <FormSection
-          title={`In Progress (${queue.inProgress.length})`}
+          title={`In Progress (${initialQueue.inProgress.length})`}
           data-testid="queue-inprogress-section"
         >
           <div className="flex flex-col gap-3">
-            {queue.inProgress.map((req) => (
+            {initialQueue.inProgress.map((req) => (
               <RequisitionCard key={req.id} req={req} mode="in_progress" onAction={handleAction} />
             ))}
           </div>
         </FormSection>
       )}
 
-      {queue.pending.length > 0 && (
+      {initialQueue.pending.length > 0 && (
         <FormSection
-          title={`Pending (${queue.pending.length})`}
-          divider={queue.inProgress.length > 0}
+          title={`Pending (${initialQueue.pending.length})`}
+          divider={initialQueue.inProgress.length > 0}
           data-testid="queue-pending-section"
         >
           <div className="flex flex-col gap-3">
-            {queue.pending.map((req) => (
+            {initialQueue.pending.map((req) => (
               <RequisitionCard key={req.id} req={req} mode="pending" onAction={handleAction} />
             ))}
           </div>

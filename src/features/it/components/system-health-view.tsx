@@ -3,10 +3,20 @@
 import * as React from "react";
 import { useRouter } from "@/i18n/navigation";
 import { formatDistanceToNow, parseISO, isBefore, subHours } from "date-fns";
-import { WifiOff, AlertTriangle, HelpCircle, Thermometer, Wind, Users } from "lucide-react";
+import {
+  Wifi,
+  WifiOff,
+  AlertTriangle,
+  HelpCircle,
+  Thermometer,
+  Wind,
+  Users,
+  Activity,
+} from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { KpiCard } from "@/components/ui/kpi-card";
+import { KpiCardRow } from "@/components/ui/kpi-card-row";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -98,73 +108,9 @@ function buildHeartbeatColumns(): ColumnDef<HealthHeartbeatRow, unknown>[] {
   ];
 }
 
-// ── KPI icon helpers ───────────────────────────────────────────────────
-
-function HeartbeatKpiRow({ kpis }: Readonly<{ kpis: SystemHealthKpis }>) {
-  const onlinePct = kpis.totalDevices > 0 ? Math.round((kpis.online / kpis.totalDevices) * 100) : 0;
-  const gaugeTone = progressTone(onlinePct, { warn: 70, crit: 50 });
-
-  return (
-    <div className="flex flex-wrap items-center gap-6" data-testid="health-kpis">
-      {/* Fleet health gauge */}
-      <div className="flex items-center gap-4">
-        <GaugeRing
-          value={onlinePct}
-          size={80}
-          tone={gaugeTone}
-          label={`${onlinePct}%`}
-          caption="Online"
-          aria-label={`Fleet health: ${onlinePct}% online`}
-        />
-        <div className="flex flex-col gap-0.5">
-          <p className="text-foreground text-xl font-bold tabular-nums">
-            {kpis.online}
-            <span className="text-foreground-muted text-base font-normal">
-              {" "}
-              / {kpis.totalDevices}
-            </span>
-          </p>
-          <p className="text-foreground-muted text-sm">devices online</p>
-        </div>
-      </div>
-
-      {/* Status breakdown */}
-      <div className="flex flex-1 flex-wrap gap-3">
-        <KpiCard
-          label="Degraded"
-          value={kpis.degraded}
-          icon={<AlertTriangle className="size-4" />}
-          emphasis={kpis.degraded > 0 ? "accent" : "default"}
-          data-testid="health-kpi-degraded"
-        />
-        <KpiCard
-          label="Offline"
-          value={kpis.offline}
-          icon={<WifiOff className="size-4" />}
-          emphasis={kpis.offline > 0 ? "accent" : "default"}
-          data-testid="health-kpi-offline"
-        />
-        <KpiCard
-          label="Never Pinged"
-          value={kpis.neverPinged}
-          icon={<HelpCircle className="size-4" />}
-          data-testid="health-kpi-never"
-        />
-        <KpiCard
-          label="Telemetry"
-          value={`${kpis.zonesCovered} / ${kpis.totalZones}`}
-          caption="zones covered"
-          icon={<Thermometer className="size-4" />}
-          data-testid="health-kpi-telemetry"
-        />
-      </div>
-    </div>
-  );
-}
-
 // ── Zone telemetry card ────────────────────────────────────────────────
 
-function ZoneTelemetryRow({ row }: Readonly<{ row: ZoneTelemetryRow }>) {
+function ZoneTelemetryItem({ row }: Readonly<{ row: ZoneTelemetryRow }>) {
   const hasData =
     row.currentOccupancy != null ||
     row.temperature != null ||
@@ -215,6 +161,77 @@ function ZoneTelemetryRow({ row }: Readonly<{ row: ZoneTelemetryRow }>) {
   );
 }
 
+// ── KPI row — pure sink components ─────────────────────────────────────
+
+function HeartbeatKpis({ kpis }: Readonly<{ kpis: SystemHealthKpis }>) {
+  const onlinePct = kpis.totalDevices > 0 ? Math.round((kpis.online / kpis.totalDevices) * 100) : 0;
+  const gaugeTone = progressTone(onlinePct, { warn: 70, crit: 50 });
+
+  return (
+    <KpiCardRow data-testid="health-kpis">
+      <KpiCard
+        label="Fleet Health"
+        value={`${kpis.online} / ${kpis.totalDevices}`}
+        caption="devices online"
+        icon={<Wifi className="size-4" />}
+        sparkline={
+          <GaugeRing
+            value={onlinePct}
+            size={64}
+            tone={gaugeTone}
+            label={`${onlinePct}%`}
+            aria-label={`Fleet health: ${onlinePct}% online`}
+            data-testid="health-gauge"
+          />
+        }
+        emphasis={onlinePct < 70 ? "accent" : "default"}
+        data-testid="health-kpi-fleet"
+      />
+      <KpiCard
+        label="Degraded"
+        value={kpis.degraded}
+        caption={kpis.degraded > 0 ? "need attention" : "all healthy"}
+        icon={<AlertTriangle className="size-4" />}
+        emphasis={kpis.degraded > 0 ? "accent" : "default"}
+        {...(kpis.degraded > 0
+          ? {
+              trend: {
+                direction: "up" as const,
+                label: `${kpis.degraded} alert${kpis.degraded > 1 ? "s" : ""}`,
+                goodWhen: "down" as const,
+              },
+            }
+          : {})}
+        data-testid="health-kpi-degraded"
+      />
+      <KpiCard
+        label="Offline"
+        value={kpis.offline}
+        caption={kpis.offline > 0 ? "unreachable" : "none down"}
+        icon={<WifiOff className="size-4" />}
+        emphasis={kpis.offline > 0 ? "accent" : "default"}
+        {...(kpis.offline > 0
+          ? {
+              trend: {
+                direction: "up" as const,
+                label: `${kpis.offline} device${kpis.offline > 1 ? "s" : ""}`,
+                goodWhen: "down" as const,
+              },
+            }
+          : {})}
+        data-testid="health-kpi-offline"
+      />
+      <KpiCard
+        label="Telemetry"
+        value={`${kpis.zonesCovered} / ${kpis.totalZones}`}
+        caption="zones covered"
+        icon={<Thermometer className="size-4" />}
+        data-testid="health-kpi-telemetry"
+      />
+    </KpiCardRow>
+  );
+}
+
 // ── Main view ──────────────────────────────────────────────────────────
 
 type SystemHealthViewProps = Readonly<{ data: SystemHealthData }>;
@@ -231,16 +248,15 @@ export function SystemHealthView({ data }: SystemHealthViewProps) {
         description="Real-time device heartbeat status and zone sensor telemetry."
       />
 
-      {/* KPI row via FilterableDataTable kpis= slot */}
-      <HeartbeatKpiRow kpis={data.kpis} />
-
-      {/* Heartbeat grid — sortable device × heartbeat table */}
+      {/* Heartbeat grid — KPIs + sortable device × heartbeat table */}
       <FilterableDataTable
         data-testid="heartbeat-grid"
+        kpis={<HeartbeatKpis kpis={data.kpis} />}
         emptyState={{
           variant: "first-use" as const,
           title: "No devices registered",
           description: "Register devices in the Device Registry to start monitoring.",
+          icon: <Activity className="size-8" />,
         }}
         table={{
           data: data.heartbeats,
@@ -265,7 +281,7 @@ export function SystemHealthView({ data }: SystemHealthViewProps) {
         ) : (
           <ul role="list" className="flex flex-col">
             {data.zoneTelemetry.map((row) => (
-              <ZoneTelemetryRow key={row.zoneId} row={row} />
+              <ZoneTelemetryItem key={row.zoneId} row={row} />
             ))}
           </ul>
         )}

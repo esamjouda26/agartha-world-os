@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { FormSection } from "@/components/ui/form-section";
+import { PageHeader } from "@/components/ui/page-header";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import {
   Select,
@@ -31,7 +32,7 @@ import type {
   PaymentMethod,
 } from "@/features/pos/types";
 
-type PosTerminalProps = Readonly<{ posContext: PosContext }>;
+type PosTerminalProps = Readonly<{ posContext: PosContext | null }>;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -373,13 +374,31 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
   const subtotal = cartLines.reduce((sum, l) => sum + l.lineTotal, 0);
   const totalQty = cartLines.reduce((sum, l) => sum + l.quantity, 0);
 
-  const handleSelectItem = useCallback((item: CatalogItem) => {
-    if (item.modifierGroups.length > 0) {
-      setModifierItem(item);
-    } else {
-      addToCart(item, []);
-    }
-  }, []);
+  if (!posContext) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="POS Terminal"
+          description="Place orders for your location"
+          density="compact"
+          data-testid="pos-page-header"
+        />
+        <div className="p-4">
+          <EmptyStateCta
+            variant="first-use"
+            title="No POS point assigned"
+            description="Your work location has no POS terminal configured. Contact your manager."
+            data-testid="pos-no-point-state"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // After the null guard above, posContext is guaranteed non-null.
+  // Bind to a local const so closures in function declarations below
+  // see the narrowed (non-null) type without TS losing the refinement.
+  const ctx = posContext;
 
   function addToCart(item: CatalogItem, modifiers: ReadonlyArray<CartModifierSelection>) {
     const key = buildCartKey(item.materialId, modifiers);
@@ -411,6 +430,14 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
       ];
     });
   }
+
+  const handleSelectItem = useCallback((item: CatalogItem) => {
+    if (item.modifierGroups.length > 0) {
+      setModifierItem(item);
+    } else {
+      addToCart(item, []);
+    }
+  }, []);
 
   function incrementLine(key: string) {
     setCartLines((prev) =>
@@ -454,7 +481,7 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
     setIsSubmitting(true);
     try {
       const result = await submitOrderAction({
-        posPointId: posContext.posPointId,
+        posPointId: ctx.posPointId,
         items: cartLines.map((l) => ({
           material_id: l.materialId,
           quantity: l.quantity,
@@ -477,9 +504,15 @@ export function PosTerminal({ posContext }: PosTerminalProps) {
 
   return (
     <div className="relative flex h-full flex-col">
+      <PageHeader
+        title={ctx.posPointName}
+        description="Place orders for your location"
+        density="compact"
+        data-testid="pos-page-header"
+      />
       {/* Catalog — scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-28">
-        <Catalog categories={posContext.categories} onSelectItem={handleSelectItem} />
+        <Catalog categories={ctx.categories} onSelectItem={handleSelectItem} />
       </div>
 
       {/* Sticky cart FAB — bottom 100px band (crew mobile contract) */}

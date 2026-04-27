@@ -101,6 +101,9 @@ export type RestockContext = Readonly<{
   locations: ReadonlyArray<LocationOption>;
   ownRecentRequisitions: ReadonlyArray<RequisitionRow>;
   autoLocationId: string | null;
+  /** True when the logged-in user is a runner (inventory_ops:u). Runners
+   *  perform manual restocks; other crew request deliveries. */
+  isRunner: boolean;
 }>;
 
 /**

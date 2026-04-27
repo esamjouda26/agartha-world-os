@@ -2,9 +2,12 @@
 
 import "server-only";
 
+import { after } from "next/server";
+
 import { z } from "zod";
 
 import { fail, ok, type ServerActionResult } from "@/lib/errors";
+import { loggerWith } from "@/lib/logger";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -58,5 +61,14 @@ export async function searchBookingsByEmailAction(
 
   if (error) return fail("INTERNAL");
 
-  return ok((data ?? []) as unknown as ReadonlyArray<BookingSearchResult>);
+  const results = (data ?? []) as unknown as ReadonlyArray<BookingSearchResult>;
+
+  after(async () => {
+    loggerWith({ feature: "booking", event: "search_by_email", user_id: user.id }).info(
+      { match_count: results.length },
+      "searchBookingsByEmailAction completed",
+    );
+  });
+
+  return ok(results);
 }
