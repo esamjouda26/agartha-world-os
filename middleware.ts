@@ -1,12 +1,34 @@
 import { NextResponse, type NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 
+import {
+  GUEST_CSRF_COOKIE,
+  GUEST_CSRF_TTL_SECONDS,
+  mintGuestCsrfToken,
+} from "@/lib/auth/guest-csrf";
 import { routing } from "@/i18n/routing";
 import { hasDomainAccess, isSharedBypass, resolveRouteRequirement } from "@/lib/rbac/policy";
 import { brandLocaleStripped, type DomainAccess, type LocaleStrippedPath } from "@/lib/rbac/types";
+import { buildCsp, mintNonce } from "@/lib/security/csp";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
 
 const intlMiddleware = createIntlMiddleware(routing);
+
+const NONCE_HEADER = "x-nonce";
+const CSP_HEADER = "Content-Security-Policy";
+
+/**
+ * Decorate a NextResponse with the per-request CSP header. Called on
+ * every response path (next, redirect, supabase-decorated). We set BOTH
+ * the response CSP and forward the nonce on x-nonce so RSC layouts can
+ * read it via `headers()` if they need to attach it to explicit inline
+ * scripts.
+ */
+function applyCsp(response: NextResponse, nonce: string, csp: string): NextResponse {
+  response.headers.set(CSP_HEADER, csp);
+  response.headers.set(NONCE_HEADER, nonce);
+  return response;
+}
 
 type AccessLevel = "admin" | "manager" | "crew";
 
@@ -88,6 +110,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   // Short-circuit static assets and Next internals before any cost.
+  // Static assets don't need CSP (they don't render HTML); skipping
+  // here saves nonce generation + header writes per-asset.
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
@@ -98,39 +122,72 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
+  // CSP nonce — mint once per HTML-bearing request. Rest of the function
+  // forwards this on `x-nonce` (request-side) so Next can stamp it onto
+  // its own framework scripts, and writes it to `Content-Security-Policy`
+  // on every response branch via `applyCsp()`.
+  const nonce = mintNonce();
+  const csp = buildCsp({ nonce, isDev: process.env.NODE_ENV !== "production" });
+  // Forward the nonce to RSC layouts via a request-side header. Mutating
+  // `request.headers` in place is the supported Next-middleware pattern
+  // for telling the framework which nonce to stamp onto its own inline
+  // hydration/runtime scripts. Doing this BEFORE invoking intlMiddleware
+  // ensures the nonce travels with the request through every downstream
+  // code path that internally calls `NextResponse.next()`.
+  request.headers.set(NONCE_HEADER, nonce);
+  request.headers.set(CSP_HEADER, csp);
+  const forwardedRequestInit = { headers: request.headers } as const;
+
   // /kitchen-sink lives outside the [locale] segment (dev-only route
   // under `src/app/(dev)/kitchen-sink`). Skip i18n rewriting so the
   // path stays at /kitchen-sink. In production the earlier
   // `isKitchenSinkProdBlocked` check already 404s it; this branch only
   // fires when the escape hatch is on or in development.
   if (/^\/kitchen-sink(\/|$)/.test(pathname)) {
-    return NextResponse.next();
+    return applyCsp(NextResponse.next({ request: forwardedRequestInit }), nonce, csp);
   }
 
   // 1. Normalize locale via next-intl. If the URL is missing a locale prefix
   // this returns a redirect/rewrite; return it so the browser retries.
   const intlResponse = intlMiddleware(request);
   if (intlResponse.status >= 300 && intlResponse.status < 400) {
-    return intlResponse;
+    return applyCsp(intlResponse, nonce, csp);
   }
 
   const locale = currentLocale(pathname);
   const pathWithoutLocale = stripLocale(pathname);
 
-  // 2. Auth routes and guest/public routes pass through. No session checks.
+  // 2. Auth routes pass through. No session checks.
+  if (pathWithoutLocale.startsWith(AUTH_PATH) || pathWithoutLocale === "/") {
+    return applyCsp(intlResponse, nonce, csp);
+  }
+
+  // 2b. Guest portal: pass through, but mint the guest_csrf cookie on
+  // first visit so the double-submit token exists for any future
+  // fetch-based mutating call (route handlers; not Next Server Actions
+  // which use Next's built-in Origin enforcement). Cookie persists across
+  // navigations because TTL is 12 hours and path is "/".
   if (
-    pathWithoutLocale.startsWith(AUTH_PATH) ||
-    pathWithoutLocale === "/" ||
     pathWithoutLocale.startsWith("/book") ||
     pathWithoutLocale.startsWith("/my-booking") ||
     pathWithoutLocale.startsWith("/survey")
   ) {
-    return intlResponse;
+    if (!request.cookies.get(GUEST_CSRF_COOKIE)) {
+      const token = mintGuestCsrfToken();
+      intlResponse.cookies.set(GUEST_CSRF_COOKIE, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: GUEST_CSRF_TTL_SECONDS,
+      });
+    }
+    return applyCsp(intlResponse, nonce, csp);
   }
 
   // 3. Staff portal gates — only execute for /admin, /management, /crew.
   if (!STAFF_PORTAL_PATTERN.test(pathWithoutLocale)) {
-    return intlResponse;
+    return applyCsp(intlResponse, nonce, csp);
   }
 
   const { supabase, response } = await createSupabaseMiddlewareClient(request);
@@ -140,7 +197,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // Gate 1 — no session.
   if (!user) {
-    return redirectTo(request, locale, LOGIN_PATH, { next: pathname });
+    return applyCsp(redirectTo(request, locale, LOGIN_PATH, { next: pathname }), nonce, csp);
   }
 
   // Gate 2 + Gate 3 — password_set + employment_status.
@@ -154,19 +211,19 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   if (profileError || !profile) {
     // Fail closed: treat missing profile as unauthenticated.
-    return redirectTo(request, locale, LOGIN_PATH);
+    return applyCsp(redirectTo(request, locale, LOGIN_PATH), nonce, csp);
   }
 
   if (profile.password_set === false && pathWithoutLocale !== SET_PASSWORD_PATH) {
-    return redirectTo(request, locale, SET_PASSWORD_PATH);
+    return applyCsp(redirectTo(request, locale, SET_PASSWORD_PATH), nonce, csp);
   }
 
   switch (profile.employment_status) {
     case "pending":
-      return redirectTo(request, locale, NOT_STARTED_PATH);
+      return applyCsp(redirectTo(request, locale, NOT_STARTED_PATH), nonce, csp);
     case "suspended":
     case "terminated":
-      return redirectTo(request, locale, ACCESS_REVOKED_PATH);
+      return applyCsp(redirectTo(request, locale, ACCESS_REVOKED_PATH), nonce, csp);
     case "on_leave":
       response.headers.set("x-agartha-readonly", "true");
       break;
@@ -182,7 +239,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   };
   const accessLevel = appMetadata.access_level;
   if (!accessLevel) {
-    return redirectTo(request, locale, ACCESS_REVOKED_PATH);
+    return applyCsp(redirectTo(request, locale, ACCESS_REVOKED_PATH), nonce, csp);
   }
 
   const portalSegment = pathWithoutLocale.match(/^\/(admin|management|crew)/)?.[1];
@@ -193,7 +250,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       (accessLevel === "admin" || accessLevel === "manager" || accessLevel === "crew"));
 
   if (!portalAllowed) {
-    return redirectTo(request, locale, portalRootForAccessLevel(accessLevel));
+    return applyCsp(redirectTo(request, locale, portalRootForAccessLevel(accessLevel)), nonce, csp);
   }
 
   // Gate 5 — domain-presence check via route manifest.
@@ -213,7 +270,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       if (!primaryOk && !alternateOk) {
         // 403 redirect to portal landing with flash toast hint per §7.
         const landing = portalRootForAccessLevel(accessLevel);
-        return redirectTo(request, locale, landing, { denied: `${domain}:${access}` });
+        return applyCsp(
+          redirectTo(request, locale, landing, { denied: `${domain}:${access}` }),
+          nonce,
+          csp,
+        );
       }
       // Gate 6 (MFA) — intentionally skipped. See comment near top of file.
     }
@@ -226,7 +287,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       response.headers.set(key, value);
     }
   }
-  return response;
+  return applyCsp(response, nonce, csp);
 }
 
 export const config = {

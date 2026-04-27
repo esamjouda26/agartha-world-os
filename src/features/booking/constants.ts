@@ -43,3 +43,24 @@ export const GUEST_BOOKING_REF_COOKIE = "guest_booking_ref";
  * httpOnly, sameSite=strict, path-scoped, 4-hour TTL per spec line 3575.
  */
 export const GUEST_SESSION_COOKIE = "guest_session";
+
+/**
+ * Privacy policy version stamped on each consent_records row. Must be
+ * bumped whenever the disclosure text materially changes; existing
+ * grants then auto-expire (their `policy_version` mismatches the live
+ * version) and the guest re-consents per WF-7B "Consent re-solicitation".
+ *
+ * Format: ISO date of the policy revision (`YYYY-MM-DD`). Stored in DB
+ * as plain text per `consent_records.policy_version`.
+ */
+export const BIOMETRIC_POLICY_VERSION = "2026-04-27";
+
+/**
+ * `consent_records.retention_policy` value for biometric enrolment.
+ * Mirrors the spec literal — `cron-biometric-retention` reads this
+ * marker indirectly via slot end + 24h (init_schema.sql:6970+).
+ */
+export const BIOMETRIC_RETENTION_POLICY = "visit_end_plus_24h";
+
+/** Privacy contact surfaced on the consent disclosure + page footer. */
+export const PRIVACY_CONTACT_EMAIL = "privacy@agartha.example";

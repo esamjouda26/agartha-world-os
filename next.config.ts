@@ -13,26 +13,12 @@ const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "1",
 });
 
-const isDev = process.env.NODE_ENV !== "production";
-
-// CSP baseline. Nonce-based hardening of `script-src` is left for a later
-// phase that wires nonce propagation through middleware + layout. For now
-// we allow `'unsafe-inline'` so Next's framework scripts run; upgrading is
-// tracked for Phase 10 hardening alongside report-only rollout.
-const cspDirectives = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data: https:",
-  "font-src 'self' data: https:",
-  "connect-src 'self' https://*.supabase.co https://*.sentry.io https://*.posthog.com https://*.ingest.sentry.io https://*.upstash.io wss://*.supabase.co",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "object-src 'none'",
-  "upgrade-insecure-requests",
-].join("; ");
-
+// CSP is NOT set here — it's emitted per-request by `middleware.ts` so
+// each response carries a freshly-minted `'nonce-…'` token that Next's
+// framework scripts inherit. See `src/lib/security/csp.ts` for the
+// directive builder. The remaining security headers are static and
+// safe to set globally via this header() function.
+//
 // NOTE: Due to Next.js App Router's client-side SPA navigation, route-specific
 // Permissions-Policy headers do not re-evaluate when moving between routes.
 // Therefore, we must opt-in to `self` device permissions globally so features
@@ -41,7 +27,6 @@ const cspDirectives = [
 const PERMISSIONS_DEFAULT = "camera=(self), geolocation=(self), microphone=(), payment=()";
 
 const baseSecurityHeaders = [
-  { key: "Content-Security-Policy", value: cspDirectives },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",

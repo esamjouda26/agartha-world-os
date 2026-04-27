@@ -4,15 +4,29 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 /**
  * send-email — Unified transactional email Edge Function
  *
- * Handles two flows:
- *   1. booking_otp  — Sends 6-digit OTP to guest's booker_email
- *   2. staff_invite — Creates auth user, sends temp password to personal_email
+ * Flows:
+ *   1. booking_otp           — 6-digit OTP for /my-booking lookup
+ *   2. staff_invite          — Creates auth user, sends temp password
+ *   3. booking_confirmation  — Post-payment success
+ *   4. booking_modified      — Guest reschedule
+ *   5. booking_cascaded      — Forced reschedule (slot/experience change)
+ *   6. payment_failed        — Stripe `payment_intent.payment_failed`
+ *   7. report_ready          — Scheduled report CSV delivery
+ *
+ * Idempotency: every flow consults `email_dispatch_log` via a
+ * `(template_key, booking_id|recipient_email, parameters_hash)` unique
+ * index. INSERT-before-send: a duplicate INSERT short-circuits to
+ * `{ idempotent: true, sent: false }` without invoking Resend.
+ *
+ * The `parameters_hash` is SHA-256 hex of a flow-specific dedup tuple
+ * (e.g. for booking_otp: `${booking_ref}|${otp_code}|${expires_at}`).
+ * A fresh OTP triggers a fresh email; the same OTP twice does not.
  *
  * Requires environment variables:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY
  *
  * Optional:
- *   SENDER_EMAIL  (default: noreply@agartha.com)
+ *   SENDER_EMAIL  (default: AgarthaOS <onboarding@resend.dev>)
  *   APP_URL       (default: https://app.agartha.com)
  */
 
@@ -77,13 +91,22 @@ interface ReportReadyRequest {
   file_url: string;
 }
 
+interface PaymentFailedRequest {
+  type: "payment_failed";
+  booking_ref: string;
+  booker_name: string;
+  booker_email: string;
+  reason?: string;
+}
+
 type EmailRequest =
   | OtpRequest
   | StaffInviteRequest
   | BookingConfirmationRequest
   | BookingModifiedRequest
   | BookingCascadedRequest
-  | ReportReadyRequest;
+  | ReportReadyRequest
+  | PaymentFailedRequest;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -94,13 +117,112 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+async function sha256Hex(input: string): Promise<string> {
+  const buf = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+// deno-lint-ignore no-explicit-any
+type SupabaseAdmin = any;
+
+/**
+ * Reserve a ledger slot. Returns:
+ *   - { ok: true,  idempotent: false, ledger_id }  → caller should send Resend
+ *   - { ok: true,  idempotent: true }              → duplicate; do NOT send
+ *   - { ok: false, error }                         → DB-level failure
+ *
+ * The unique partial indexes on `email_dispatch_log` are what enforce
+ * dedup: a duplicate INSERT raises Postgres `23505` which we catch and
+ * surface as `idempotent: true`. Any other error bubbles.
+ */
+async function reserveLedgerSlot(
+  admin: SupabaseAdmin,
+  params: {
+    template_key: string;
+    booking_id: string | null;
+    recipient_email: string;
+    parameters_hash: string;
+  }
+): Promise<
+  | { ok: true; idempotent: false; ledger_id: string }
+  | { ok: true; idempotent: true }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await admin
+    .from("email_dispatch_log")
+    .insert(params)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    // 23505 = unique_violation (PostgreSQL). Any other code is a real DB
+    // problem worth surfacing.
+    if (error.code === "23505") {
+      return { ok: true, idempotent: true };
+    }
+    return { ok: false, error: error.message ?? "Failed to reserve ledger slot" };
+  }
+  if (!data?.id) {
+    return { ok: false, error: "Ledger insert returned no id" };
+  }
+  return { ok: true, idempotent: false, ledger_id: data.id };
+}
+
+async function markLedgerSent(
+  admin: SupabaseAdmin,
+  ledger_id: string,
+  resend_message_id: string | null
+): Promise<void> {
+  await admin
+    .from("email_dispatch_log")
+    .update({
+      sent_at: new Date().toISOString(),
+      resend_message_id,
+    })
+    .eq("id", ledger_id);
+}
+
+async function markLedgerError(
+  admin: SupabaseAdmin,
+  ledger_id: string,
+  error_text: string
+): Promise<void> {
+  await admin
+    .from("email_dispatch_log")
+    .update({ error: error_text })
+    .eq("id", ledger_id);
+}
+
+/**
+ * Resolve the optional `bookings.id` for a given `booking_ref`. Used when
+ * the caller passes a booking_ref (because that's what guest portals
+ * have); the ledger row needs the FK booking_id for cleaner ops queries.
+ *
+ * Returns `null` if the booking can't be found — the function still
+ * proceeds (the ledger uses the `recipient_email` partial index instead).
+ */
+async function resolveBookingId(
+  admin: SupabaseAdmin,
+  booking_ref: string
+): Promise<string | null> {
+  const { data } = await admin
+    .from("bookings")
+    .select("id")
+    .ilike("booking_ref", booking_ref)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 async function sendEmail(
   apiKey: string,
   to: string,
   subject: string,
   html: string,
   from: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: true; message_id: string | null } | { success: false; error: string }> {
   const res = await fetch(RESEND_API, {
     method: "POST",
     headers: {
@@ -115,7 +237,16 @@ async function sendEmail(
     console.error("[send-email] Resend error:", err);
     return { success: false, error: err };
   }
-  return { success: true };
+  // Resend response shape: { id: "..." }
+  let message_id: string | null = null;
+  try {
+    const body = (await res.json()) as { id?: string };
+    message_id = body.id ?? null;
+  } catch {
+    // Resend returned 2xx with non-JSON body — accept the success but
+    // skip message-id correlation.
+  }
+  return { success: true, message_id };
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -209,6 +340,28 @@ Deno.serve(async (req: Request) => {
       </div>
     `;
 
+    // Idempotency: same OTP code + same expires_at → same hash → dedup.
+    // A fresh OTP issuance produces a different expires_at, so resend
+    // flows correctly trigger a fresh email.
+    const paramHash = await sha256Hex(
+      `booking_otp|${booking_ref.toUpperCase()}|${challenge.otp_code}|${challenge.expires_at}`
+    );
+    const bookingId = await resolveBookingId(admin, booking_ref.toUpperCase());
+
+    const slot = await reserveLedgerSlot(admin, {
+      template_key: "booking_otp",
+      booking_id: bookingId,
+      recipient_email: booking.booker_email,
+      parameters_hash: paramHash,
+    });
+    if (!slot.ok) {
+      return jsonResponse({ error: "Failed to record dispatch", detail: slot.error }, 500);
+    }
+    if (slot.idempotent) {
+      console.log(`[send-email] OTP already dispatched for ${booking_ref.toUpperCase()} — short-circuit`);
+      return jsonResponse({ idempotent: true, sent: false, booking_ref: booking_ref.toUpperCase() });
+    }
+
     const result = await sendEmail(
       resendApiKey,
       booking.booker_email,
@@ -218,11 +371,13 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!result.success) {
+      await markLedgerError(admin, slot.ledger_id, result.error);
       return jsonResponse({ error: "Failed to send email", detail: result.error }, 502);
     }
 
+    await markLedgerSent(admin, slot.ledger_id, result.message_id);
     console.log(`[send-email] OTP sent for booking ${booking_ref.toUpperCase()}`);
-    return jsonResponse({ sent: true, booking_ref: booking_ref.toUpperCase() });
+    return jsonResponse({ sent: true, booking_ref: booking_ref.toUpperCase(), message_id: result.message_id });
   }
 
   // ── Flow 2: Staff Invite ─────────────────────────────────────────────────
@@ -342,6 +497,31 @@ Deno.serve(async (req: Request) => {
       </div>
     `;
 
+    // Idempotency: keyed on staff_record_id + work_email. Note that
+    // `auth.admin.createUser` above raises its own duplicate-email error
+    // if the auth user already exists, so by the time we reach the email
+    // send we're past the only mutating step that has independent dedup.
+    const paramHash = await sha256Hex(`staff_invite|${staff_record_id}|${work_email}`);
+
+    const slot = await reserveLedgerSlot(admin, {
+      template_key: "staff_invite",
+      booking_id: null,
+      recipient_email: staffRecord.personal_email,
+      parameters_hash: paramHash,
+    });
+    if (!slot.ok) {
+      return jsonResponse({ error: "Failed to record dispatch", detail: slot.error }, 500);
+    }
+    if (slot.idempotent) {
+      console.log(`[send-email] Staff invite already dispatched for ${work_email} — short-circuit`);
+      return jsonResponse({
+        idempotent: true,
+        sent: false,
+        user_id: userId,
+        personal_email: staffRecord.personal_email,
+      });
+    }
+
     const result = await sendEmail(
       resendApiKey,
       staffRecord.personal_email,
@@ -351,11 +531,14 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!result.success) {
+      await markLedgerError(admin, slot.ledger_id, result.error);
       return jsonResponse(
         { error: "User created but invite email failed", user_id: userId, detail: result.error },
         502
       );
     }
+
+    await markLedgerSent(admin, slot.ledger_id, result.message_id);
 
     // Mark invite as sent on iam_request
     if (iam_request_id) {
@@ -370,6 +553,7 @@ Deno.serve(async (req: Request) => {
       user_id: userId,
       invite_sent: true,
       personal_email: staffRecord.personal_email,
+      message_id: result.message_id,
     });
   }
 
@@ -417,6 +601,26 @@ Deno.serve(async (req: Request) => {
       </div>
     `;
 
+    // Idempotency: keyed on (booking_ref, qr_code_ref). Confirmation
+    // fires once per successful payment; re-runs after that are usually
+    // webhook retries and should short-circuit.
+    const paramHash = await sha256Hex(`booking_confirmation|${booking_ref}|${qr_code_ref}`);
+    const bookingId = await resolveBookingId(admin, booking_ref);
+
+    const slot = await reserveLedgerSlot(admin, {
+      template_key: "booking_confirmation",
+      booking_id: bookingId,
+      recipient_email: booker_email,
+      parameters_hash: paramHash,
+    });
+    if (!slot.ok) {
+      return jsonResponse({ error: "Failed to record dispatch", detail: slot.error }, 500);
+    }
+    if (slot.idempotent) {
+      console.log(`[send-email] Confirmation already dispatched for ${booking_ref} — short-circuit`);
+      return jsonResponse({ idempotent: true, sent: false, booking_ref, type: "booking_confirmation" });
+    }
+
     const result = await sendEmail(
       resendApiKey,
       booker_email,
@@ -426,11 +630,13 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!result.success) {
+      await markLedgerError(admin, slot.ledger_id, result.error);
       return jsonResponse({ error: "Failed to send confirmation email", detail: result.error }, 502);
     }
 
+    await markLedgerSent(admin, slot.ledger_id, result.message_id);
     console.log(`[send-email] Booking confirmation sent for ${booking_ref}`);
-    return jsonResponse({ sent: true, booking_ref, type: "booking_confirmation" });
+    return jsonResponse({ sent: true, booking_ref, type: "booking_confirmation", message_id: result.message_id });
   }
 
   // ── Flow 4: Booking Modified (Reschedule) ───────────────────────────────
@@ -458,6 +664,28 @@ Deno.serve(async (req: Request) => {
       </div>
     `;
 
+    // Idempotency: keyed on (booking_ref, new_slot_date, new_start_time).
+    // Each distinct reschedule destination produces a fresh email; the
+    // same destination twice (e.g., double-clicked CTA) does not.
+    const paramHash = await sha256Hex(
+      `booking_modified|${booking_ref}|${new_slot_date}|${new_start_time}`
+    );
+    const bookingId = await resolveBookingId(admin, booking_ref);
+
+    const slot = await reserveLedgerSlot(admin, {
+      template_key: "booking_modified",
+      booking_id: bookingId,
+      recipient_email: booker_email,
+      parameters_hash: paramHash,
+    });
+    if (!slot.ok) {
+      return jsonResponse({ error: "Failed to record dispatch", detail: slot.error }, 500);
+    }
+    if (slot.idempotent) {
+      console.log(`[send-email] Modified-email already dispatched for ${booking_ref} ${new_slot_date} ${new_start_time} — short-circuit`);
+      return jsonResponse({ idempotent: true, sent: false, booking_ref, type: "booking_modified" });
+    }
+
     const result = await sendEmail(
       resendApiKey,
       booker_email,
@@ -467,11 +695,13 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!result.success) {
+      await markLedgerError(admin, slot.ledger_id, result.error);
       return jsonResponse({ error: "Failed to send modified email", detail: result.error }, 502);
     }
 
+    await markLedgerSent(admin, slot.ledger_id, result.message_id);
     console.log(`[send-email] Booking modified email sent for ${booking_ref}`);
-    return jsonResponse({ sent: true, booking_ref, type: "booking_modified" });
+    return jsonResponse({ sent: true, booking_ref, type: "booking_modified", message_id: result.message_id });
   }
 
   // ── Flow 5: Booking Cascaded (Forced Reschedule) ────────────────────────
@@ -508,6 +738,28 @@ Deno.serve(async (req: Request) => {
       </div>
     `;
 
+    // Idempotency: keyed on (booking_ref, old → new). Hash includes both
+    // old and new tuples so a second cascade away from the same origin
+    // also dedups, but a fresh cascade from a new origin sends.
+    const paramHash = await sha256Hex(
+      `booking_cascaded|${booking_ref}|${old_slot_date}|${old_start_time}|${new_slot_date}|${new_start_time}`
+    );
+    const bookingId = await resolveBookingId(admin, booking_ref);
+
+    const slot = await reserveLedgerSlot(admin, {
+      template_key: "booking_cascaded",
+      booking_id: bookingId,
+      recipient_email: booker_email,
+      parameters_hash: paramHash,
+    });
+    if (!slot.ok) {
+      return jsonResponse({ error: "Failed to record dispatch", detail: slot.error }, 500);
+    }
+    if (slot.idempotent) {
+      console.log(`[send-email] Cascaded-email already dispatched for ${booking_ref} — short-circuit`);
+      return jsonResponse({ idempotent: true, sent: false, booking_ref, type: "booking_cascaded" });
+    }
+
     const result = await sendEmail(
       resendApiKey,
       booker_email,
@@ -517,11 +769,13 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!result.success) {
+      await markLedgerError(admin, slot.ledger_id, result.error);
       return jsonResponse({ error: "Failed to send cascaded email", detail: result.error }, 502);
     }
 
+    await markLedgerSent(admin, slot.ledger_id, result.message_id);
     console.log(`[send-email] Booking cascaded email sent for ${booking_ref}`);
-    return jsonResponse({ sent: true, booking_ref, type: "booking_cascaded" });
+    return jsonResponse({ sent: true, booking_ref, type: "booking_cascaded", message_id: result.message_id });
   }
 
   // ── Flow 6: Report Ready (Scheduled Report Delivery) ───────────────────
@@ -558,6 +812,25 @@ Deno.serve(async (req: Request) => {
       </div>
     `;
 
+    // Idempotency: keyed on (recipient_email, file_url). The file_url is
+    // generated freshly per scheduled run so re-dispatch of the same run
+    // dedups, but a fresh execution sends.
+    const paramHash = await sha256Hex(`report_ready|${recipient_email}|${file_url}`);
+
+    const slot = await reserveLedgerSlot(admin, {
+      template_key: "report_ready",
+      booking_id: null,
+      recipient_email,
+      parameters_hash: paramHash,
+    });
+    if (!slot.ok) {
+      return jsonResponse({ error: "Failed to record dispatch", detail: slot.error }, 500);
+    }
+    if (slot.idempotent) {
+      console.log(`[send-email] Report-ready already dispatched to ${recipient_email} — short-circuit`);
+      return jsonResponse({ idempotent: true, sent: false, recipient_email, type: "report_ready" });
+    }
+
     const result = await sendEmail(
       resendApiKey,
       recipient_email,
@@ -567,11 +840,93 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!result.success) {
+      await markLedgerError(admin, slot.ledger_id, result.error);
       return jsonResponse({ error: "Failed to send report email", detail: result.error }, 502);
     }
 
+    await markLedgerSent(admin, slot.ledger_id, result.message_id);
     console.log(`[send-email] Report ready email sent to ${recipient_email} for ${report_type}`);
-    return jsonResponse({ sent: true, recipient_email, type: "report_ready" });
+    return jsonResponse({ sent: true, recipient_email, type: "report_ready", message_id: result.message_id });
+  }
+
+  // ── Flow 7: Payment Failed (Stripe payment_intent.payment_failed) ──────
+
+  if (body.type === "payment_failed") {
+    const { booking_ref, booker_name, booker_email, reason } = body;
+
+    if (!booking_ref || !booker_email) {
+      return jsonResponse({ error: "booking_ref and booker_email are required" }, 400);
+    }
+
+    const reasonLine = reason
+      ? `<p style="color:#555;margin-bottom:16px;"><strong>What we know:</strong> ${reason}</p>`
+      : "";
+
+    // Hold window: bookings.created_at + 15 minutes per WF-7A.
+    // The retry CTA deep-links straight back to /book/payment, where the
+    // hold countdown surfaces the remaining minutes.
+    const html = `
+      <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;">
+        <h2 style="color:#d9534f;margin-bottom:8px;">Payment couldn't be completed</h2>
+        <p style="color:#555;margin-bottom:24px;">
+          Hi ${booker_name || "Guest"}, we weren't able to charge your card for booking
+          <strong>${booking_ref}</strong>.
+        </p>
+        ${reasonLine}
+        <p style="color:#555;margin-bottom:16px;">
+          Your seats are held for 15 minutes from when you started checking out. If you'd
+          like to try again with the same or a different card, tap the button below — it'll
+          take you straight back to the payment page.
+        </p>
+        <a href="${appUrl}/book/payment?ref=${booking_ref}" style="display:inline-block;background:#1a1a2e;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px;">
+          Retry payment
+        </a>
+        <p style="color:#888;font-size:13px;margin-top:24px;">
+          If you don't retry within the hold window, the slot is released for other guests
+          and you'll need to start a fresh booking.
+        </p>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+        <p style="color:#aaa;font-size:12px;">AgarthaOS — Experience Management Platform</p>
+      </div>
+    `;
+
+    // Idempotency: keyed on (booking_ref, reason). Stripe's webhook
+    // delivers a `payment_intent.payment_failed` per failed attempt; we
+    // want one email per distinct failure reason, not one per webhook
+    // retry of the same event.
+    const paramHash = await sha256Hex(`payment_failed|${booking_ref}|${reason ?? "default"}`);
+    const bookingId = await resolveBookingId(admin, booking_ref);
+
+    const slot = await reserveLedgerSlot(admin, {
+      template_key: "payment_failed",
+      booking_id: bookingId,
+      recipient_email: booker_email,
+      parameters_hash: paramHash,
+    });
+    if (!slot.ok) {
+      return jsonResponse({ error: "Failed to record dispatch", detail: slot.error }, 500);
+    }
+    if (slot.idempotent) {
+      console.log(`[send-email] payment_failed already dispatched for ${booking_ref} — short-circuit`);
+      return jsonResponse({ idempotent: true, sent: false, booking_ref, type: "payment_failed" });
+    }
+
+    const result = await sendEmail(
+      resendApiKey,
+      booker_email,
+      `Payment couldn't be completed: ${booking_ref}`,
+      html,
+      senderEmail
+    );
+
+    if (!result.success) {
+      await markLedgerError(admin, slot.ledger_id, result.error);
+      return jsonResponse({ error: "Failed to send payment_failed email", detail: result.error }, 502);
+    }
+
+    await markLedgerSent(admin, slot.ledger_id, result.message_id);
+    console.log(`[send-email] payment_failed sent for ${booking_ref}`);
+    return jsonResponse({ sent: true, booking_ref, type: "payment_failed", message_id: result.message_id });
   }
 
   return jsonResponse({ error: `Unknown type: ${(body as Record<string, unknown>).type}` }, 400);
