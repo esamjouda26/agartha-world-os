@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+
+import { redirect } from "@/i18n/navigation";
 import { ImageIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatHumanDateLong } from "@/lib/date";
 
 import { GuestSubpageHeader } from "@/components/shared/guest-subpage-header";
 
@@ -42,17 +44,21 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const BASE_PATH = "/my-booking/manage/memories";
 
 export default async function MyBookingMemoriesPage({
+  params,
   searchParams,
-}: Readonly<{ searchParams: SearchParams }>) {
-  const params = await searchParams;
-  const pageRaw = typeof params.page === "string" ? Number(params.page) : 1;
+}: Readonly<{ params: Promise<{ locale: string }>; searchParams: SearchParams }>) {
+  const { locale } = await params;
+  const search = await searchParams;
+  const pageRaw = typeof search.page === "string" ? Number(search.page) : 1;
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
 
   const context = await getMemories({ page });
   if (!context) {
-    redirect("/my-booking" as never);
+    redirect({ href: "/my-booking", locale });
+    return null;
   }
   const t = await getTranslations("guest.memories");
+  const tCommon = await getTranslations("guest.common");
 
   const description = describeHeader(context.booking, context.total, t);
 
@@ -63,6 +69,8 @@ export default async function MyBookingMemoriesPage({
         title={t("title")}
         description={description}
         backHref="/my-booking/manage"
+        backLabel={tCommon("backToMyBooking")}
+        breadcrumbPrefix={tCommon("breadcrumbBooking")}
         data-testid="memories-page-header"
       />
 
@@ -86,7 +94,7 @@ function describeHeader(
   t: MemoriesT,
 ): string {
   if (total === 0) return t("subtitleFallback");
-  const dateLabel = formatHumanDate(booking.slot_date);
+  const dateLabel = formatHumanDateLong(booking.slot_date);
   // Photos are retained 30 days from visit per the operations bucket
   // policy; surface that as a concrete date rather than the abstract
   // "until they expire" so the user knows when to act.
@@ -147,14 +155,4 @@ async function MemoriesEmpty({
       data-testid="memories-empty-no-photos"
     />
   );
-}
-
-function formatHumanDate(iso: string): string {
-  if (!iso) return "your visit day";
-  const d = new Date(iso + "T00:00:00");
-  return new Intl.DateTimeFormat("en-MY", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(d);
 }

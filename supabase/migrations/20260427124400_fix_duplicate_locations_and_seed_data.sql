@@ -15,7 +15,45 @@
 --
 -- Fix: Remap all FK references from init_schema locations to their seed.sql
 -- equivalents, then delete the stubs.
+--
+-- REPLAY-SAFETY (revised 2026-04-29): the original version assumed the
+-- canonical 5 locations had been INSERTed by seed.sql before the migration
+-- ran. That assumption holds in production (where seed ran first) but breaks
+-- on shadow DB / preview branch / CI replay (which apply migrations against
+-- an empty DB before seed.sql). The previous DO-block-guard fix made the
+-- migration skip safely on fresh provision — but that meant init_schema's
+-- stub locations were never cleaned up, leaving fresh DBs with 7+ locations
+-- vs cloud's 5.
+--
+-- This revision makes the migration SELF-CONTAINED: it INSERTs the canonical
+-- 5 locations (with cloud's actual UUIDs and the canonical names that the
+-- next migration `rename_locations_to_canonical` then renames to operator-
+-- preferred names) at the top, so the UPDATE/DELETE body below works whether
+-- seed.sql has run or not.
+--
+--   - On cloud (already-applied): all canonical UUIDs already exist →
+--     INSERT ... ON CONFLICT (id) DO NOTHING is a no-op. The DELETE is
+--     scoped to NON-canonical UUIDs so cloud's canonical rows are safe even
+--     under hypothetical re-run.
+--   - On fresh DB: canonical 5 inserted; init_schema's stub FK references
+--     get remapped to canonical UUIDs; init_schema's stub locations deleted.
+--     End state matches cloud's location UUIDs and (after the rename
+--     migration) names.
+--
+-- org_unit_id is left NULL by this migration. seed.sql sets it for cloud-
+-- parity; on fresh provision without seed, locations have NULL org links
+-- (FK is ON DELETE SET NULL anyway).
 -- =============================================================================
+
+-- ─── 0. Bootstrap canonical locations (cloud UUIDs, canonical names) ─────────
+
+INSERT INTO public.locations (id, name, is_active) VALUES
+    ('aa000000-0000-0000-0000-000000000002', 'Central Warehouse',  true),
+    ('aa000000-0000-0000-0000-000000000004', 'Gift Shop',           true),
+    ('aa000000-0000-0000-0000-000000000003', 'F&B Kitchen',         true),
+    ('aa000000-0000-0000-0000-000000000005', 'Experience Zone 1',   true),
+    ('aa000000-0000-0000-0000-000000000001', 'Main Building',       true)
+ON CONFLICT (id) DO NOTHING;
 
 -- ─── 1. material_requisitions ─────────────────────────────────────────────────
 
@@ -192,5 +230,17 @@ UPDATE public.zones
 -- All FK references have been remapped above. location_allowed_categories
 -- uses ON DELETE CASCADE, so any stray entries (there are none) auto-delete.
 
+-- DELETE init_schema's stub locations.
+-- Scoped by `id NOT IN (canonical 5)` so this is safe to re-run on cloud
+-- even after the rename migration converted canonical names back to
+-- 'Cafe', 'Agartha World', 'Entrance' — those rows have canonical UUIDs
+-- and are excluded from the WHERE clause.
 DELETE FROM public.locations
- WHERE name IN ('Warehouse', 'Cafe', 'Giftshop', 'Agartha World', 'Entrance');
+ WHERE name IN ('Warehouse', 'Cafe', 'Giftshop', 'Agartha World', 'Entrance')
+   AND id NOT IN (
+       'aa000000-0000-0000-0000-000000000001',
+       'aa000000-0000-0000-0000-000000000002',
+       'aa000000-0000-0000-0000-000000000003',
+       'aa000000-0000-0000-0000-000000000004',
+       'aa000000-0000-0000-0000-000000000005'
+   );

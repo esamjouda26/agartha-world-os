@@ -34,6 +34,7 @@ import { toastSuccess, toastError } from "@/components/ui/toast-helpers";
 import type { OrdersData, OrderRow } from "@/features/pos/types/management";
 import { cancelOrder } from "@/features/pos/actions/cancel-order";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { formatCents } from "@/lib/money";
 import { ACTIVE_ORDERS_QUERY_KEY } from "@/features/pos/queries/active-orders-query";
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -47,14 +48,6 @@ const SEARCH_PARAM = "q";
 const MOBILE_COLS = ["shortId", "posPointName", "totalAmount", "status"] as const;
 
 // ── Formatters ───────────────────────────────────────────────────────────
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency: "MYR",
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
-}
 
 function formatPrepTime(seconds: number): string {
   if (seconds <= 0) return "—";
@@ -154,8 +147,7 @@ export function OrderMonitorView({ initialData, canCancel }: OrderMonitorViewPro
 
   // KPI scope label: when no date range in URL → "today" (matches the
   // server-side default in get-orders.ts). With a range → "selected range".
-  const kpiScopeLabel =
-    dateFromFilter.value && dateToFilter.value ? "selected range" : "today";
+  const kpiScopeLabel = dateFromFilter.value && dateToFilter.value ? "selected range" : "today";
   const completedKpiLabel =
     dateFromFilter.value && dateToFilter.value ? "Completed" : "Completed today";
 
@@ -220,85 +212,89 @@ export function OrderMonitorView({ initialData, canCancel }: OrderMonitorViewPro
   }
 
   // ── Columns ───────────────────────────────────────────────────────────
-  const columns = React.useMemo<ColumnDef<OrderRow>[]>(() => [
-    {
-      id: "shortId",
-      header: "Order #",
-      cell: ({ row }) => (
-        <span className="text-foreground-muted font-mono text-xs">{row.original.shortId}</span>
-      ),
-    },
-    {
-      id: "posPointName",
-      header: "Terminal",
-      cell: ({ row }) => row.original.posPointName,
-    },
-    {
-      id: "totalAmount",
-      header: "Total",
-      cell: ({ row }) => formatCurrency(row.original.totalAmount),
-    },
-    {
-      id: "itemCount",
-      header: "Items",
-      cell: ({ row }) => row.original.itemCount,
-    },
-    ...(status === "preparing"
-      ? [
-          {
-            id: "elapsed",
-            header: "Elapsed",
-            cell: ({ row }: { row: Row<OrderRow> }) => (
-              <ElapsedCell createdAt={row.original.createdAt} />
-            ),
-          } satisfies ColumnDef<OrderRow>,
-        ]
-      : [
-          {
-            id: "paymentMethod",
-            header: "Payment",
-            cell: ({ row }: { row: Row<OrderRow> }) =>
-              row.original.paymentMethod ?? "—",
-          } satisfies ColumnDef<OrderRow>,
-          {
-            id: "createdAt",
-            header: "Time",
-            cell: ({ row }: { row: Row<OrderRow> }) =>
-              new Date(row.original.createdAt).toLocaleTimeString(),
-          } satisfies ColumnDef<OrderRow>,
-        ]),
-    {
-      id: "status",
-      header: "Status",
-      cell: ({ row }) => (
-        <StatusBadge
-          status={row.original.status}
-          enum="order_status"
-          data-testid={`order-status-${row.original.id}`}
-        />
-      ),
-    },
-    ...(canCancel && status === "preparing"
-      ? ([{
-          id: "actions",
-          header: () => <span className="sr-only">Actions</span>,
-          cell: ({ row }: { row: Row<OrderRow> }) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-status-danger-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                setCancelTarget(row.original);
-              }}
-              data-testid={`order-cancel-${row.original.id}`}
-            >
-              Cancel
-            </Button>
-          ),
-        }] satisfies ColumnDef<OrderRow>[])
-      : []),
-  ], [status, canCancel]);
+  const columns = React.useMemo<ColumnDef<OrderRow>[]>(
+    () => [
+      {
+        id: "shortId",
+        header: "Order #",
+        cell: ({ row }) => (
+          <span className="text-foreground-muted font-mono text-xs">{row.original.shortId}</span>
+        ),
+      },
+      {
+        id: "posPointName",
+        header: "Terminal",
+        cell: ({ row }) => row.original.posPointName,
+      },
+      {
+        id: "totalAmount",
+        header: "Total",
+        cell: ({ row }) => formatCents(row.original.totalAmount),
+      },
+      {
+        id: "itemCount",
+        header: "Items",
+        cell: ({ row }) => row.original.itemCount,
+      },
+      ...(status === "preparing"
+        ? [
+            {
+              id: "elapsed",
+              header: "Elapsed",
+              cell: ({ row }: { row: Row<OrderRow> }) => (
+                <ElapsedCell createdAt={row.original.createdAt} />
+              ),
+            } satisfies ColumnDef<OrderRow>,
+          ]
+        : [
+            {
+              id: "paymentMethod",
+              header: "Payment",
+              cell: ({ row }: { row: Row<OrderRow> }) => row.original.paymentMethod ?? "—",
+            } satisfies ColumnDef<OrderRow>,
+            {
+              id: "createdAt",
+              header: "Time",
+              cell: ({ row }: { row: Row<OrderRow> }) =>
+                new Date(row.original.createdAt).toLocaleTimeString(),
+            } satisfies ColumnDef<OrderRow>,
+          ]),
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <StatusBadge
+            status={row.original.status}
+            enum="order_status"
+            data-testid={`order-status-${row.original.id}`}
+          />
+        ),
+      },
+      ...(canCancel && status === "preparing"
+        ? ([
+            {
+              id: "actions",
+              header: () => <span className="sr-only">Actions</span>,
+              cell: ({ row }: { row: Row<OrderRow> }) => (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-status-danger-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCancelTarget(row.original);
+                  }}
+                  data-testid={`order-cancel-${row.original.id}`}
+                >
+                  Cancel
+                </Button>
+              ),
+            },
+          ] satisfies ColumnDef<OrderRow>[])
+        : []),
+    ],
+    [status, canCancel],
+  );
 
   async function handleCancelConfirm(reason?: string) {
     if (!cancelTarget || !reason) return;
@@ -340,7 +336,7 @@ export function OrderMonitorView({ initialData, canCancel }: OrderMonitorViewPro
         />
         <KpiCard
           label="Avg ticket"
-          value={formatCurrency(kpis.avgTicket)}
+          value={formatCents(kpis.avgTicket)}
           caption={kpiScopeLabel}
           data-testid="order-kpi-avg-ticket"
         />
@@ -389,9 +385,7 @@ export function OrderMonitorView({ initialData, canCancel }: OrderMonitorViewPro
               <>
                 <Select
                   value={posPointFilter.value ?? "all"}
-                  onValueChange={(next) =>
-                    posPointFilter.set(next === "all" ? null : next)
-                  }
+                  onValueChange={(next) => posPointFilter.set(next === "all" ? null : next)}
                 >
                   <SelectTrigger
                     className="h-10 min-w-[10rem] sm:w-auto"
@@ -435,10 +429,7 @@ export function OrderMonitorView({ initialData, canCancel }: OrderMonitorViewPro
         }}
         pagination={
           status !== "preparing" ? (
-            <CursorPagination
-              nextCursorToken={nextCursorToken}
-              data-testid="orders-pagination"
-            />
+            <CursorPagination nextCursorToken={nextCursorToken} data-testid="orders-pagination" />
           ) : undefined
         }
         hasActiveFilters={hasActiveFilters}
@@ -458,7 +449,7 @@ export function OrderMonitorView({ initialData, canCancel }: OrderMonitorViewPro
         title="Cancel order?"
         description={
           cancelTarget
-            ? `Cancel order ${cancelTarget.shortId} (${formatCurrency(cancelTarget.totalAmount)})?`
+            ? `Cancel order ${cancelTarget.shortId} (${formatCents(cancelTarget.totalAmount)})?`
             : undefined
         }
         intent="destructive"

@@ -135,6 +135,86 @@ export function monthStartIsoLocal(iso: string): string {
  * keep this module a zero-dep utility — the parser shape matches nuqs's
  * interface exactly (parse, serialize, eq).
  */
+// ---------------------------------------------------------------------------
+// Human-readable date / time formatters
+// ---------------------------------------------------------------------------
+// Used by booking wizard, payment, manage, reschedule — previously duplicated
+// across 5+ files. Pure Intl-based, no React imports.
+
+/**
+ * Format a `YYYY-MM-DD` string as a human-readable date.
+ * Example: `"2026-05-05"` → `"Mon, May 5, 2026"`.
+ * Returns `null` when `iso` is `null` or `undefined`.
+ */
+export function formatHumanDate(iso: string): string;
+export function formatHumanDate(iso: null | undefined): null;
+export function formatHumanDate(iso: string | null | undefined): string | null;
+export function formatHumanDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = parseIsoDateLocal(iso);
+  return new Intl.DateTimeFormat("en-MY", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(d);
+}
+
+/**
+ * Compact variant — no year, no comma cluster. Stays readable on a 360px
+ * viewport even alongside a time portion (reschedule CTA button).
+ * Example: `"2026-05-05"` → `"Mon, May 5"`.
+ */
+export function formatHumanDateShort(iso: string): string;
+export function formatHumanDateShort(iso: null | undefined): null;
+export function formatHumanDateShort(iso: string | null | undefined): string | null;
+export function formatHumanDateShort(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = parseIsoDateLocal(iso);
+  return new Intl.DateTimeFormat("en-MY", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(d);
+}
+
+/**
+ * Full-length variant — "Monday, May 5, 2026". Used on the manage/booking
+ * confirmation page where there's enough space for the long form.
+ */
+export function formatHumanDateLong(iso: string): string;
+export function formatHumanDateLong(iso: null | undefined): null;
+export function formatHumanDateLong(iso: string | null | undefined): string | null;
+export function formatHumanDateLong(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = parseIsoDateLocal(iso);
+  return new Intl.DateTimeFormat("en-MY", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(d);
+}
+
+/**
+ * Format a `HH:MM:SS` or `HH:MM` time string in 12-hour form.
+ * Example: `"13:05:00"` → `"1:05 pm"`.
+ * Returns `null` when `hhmmss` is `null` or `undefined`.
+ */
+export function formatHumanTime(hhmmss: string): string;
+export function formatHumanTime(hhmmss: null | undefined): null;
+export function formatHumanTime(hhmmss: string | null | undefined): string | null;
+export function formatHumanTime(hhmmss: string | null | undefined): string | null {
+  if (!hhmmss) return null;
+  const [hStr = "0", mStr = "0"] = hhmmss.split(":");
+  const h = Number(hStr);
+  const m = Number(mStr);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  const period = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
 export const parseAsIsoDateLocal = {
   parse(raw: string): Date | null {
     return isValidIsoDate(raw) ? parseIsoDateLocal(raw) : null;

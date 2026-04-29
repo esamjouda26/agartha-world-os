@@ -83,7 +83,10 @@
       "continue": "Continue",
       "tryAgain": "Try again",
       "required": "Required",
-      "optional": "Optional"
+      "optional": "Optional",
+      "backToHome": "Back to home",
+      "backToMyBooking": "Back to my booking",
+      "breadcrumbBooking": "Booking"
     },
     "errors": {
       "validationFailed": "Please review your answers and try again.",
@@ -124,11 +127,16 @@
         "guestCountTitle": "How many guests?",
         "tierTitle": "Pick a tier",
         "noTiersAvailableTitle": "No tiers available right now.",
-        "noTiersAvailableBody": "Check back soon — we're configuring the experience."
+        "noTiersAvailableBody": "Check back soon — we're configuring the experience.",
+        "ariaChooseTier": "Choose a tier",
+        "totalForGuests": "Total for {count, plural, one {# guest} other {# guests}}",
+        "durationMin": "{minutes} min",
+        "decreaseLabel": "Decrease {label}",
+        "increaseLabel": "Increase {label}"
       },
       "date": {
         "title": "Pick a date",
-        "subtitle": "We open booking up to 14 days ahead."
+        "subtitle": "Select your preferred visit date."
       },
       "time": {
         "title": "Pick a time",
@@ -139,7 +147,14 @@
         "loadErrorGeneric": "Couldn't load slots. Please try again.",
         "tryAgainCta": "Try again",
         "slotFull": "Full",
-        "noSlots": "No slots available on this date."
+        "noSlots": "No slots available on this date.",
+        "loadingSlots": "Loading slots…",
+        "spotsLeft": "{count} spots left",
+        "spotsLeftOne": "1 spot left",
+        "soldOut": "Sold out",
+        "lowBadge": "Low",
+        "ariaChooseSlot": "Choose a time slot",
+        "emptyDescription": "Pick a different date or adjust your guest count to see availability."
       },
       "details": {
         "title": "Your details",
@@ -151,7 +166,28 @@
         "promoApply": "Apply",
         "promoValid": "Promo applied — {amount} off",
         "promoInvalid": "That code isn't valid.",
-        "promoExpired": "That code has expired."
+        "promoExpired": "That code has expired.",
+        "namePlaceholder": "As it appears on your ID",
+        "emailPlaceholder": "you@example.com",
+        "phonePlaceholder": "+60 12 345 6789",
+        "acceptTermsLabel": "I accept the",
+        "termsLinkText": "Terms & Conditions",
+        "andConjunction": "and",
+        "privacyLinkText": "Privacy Policy"
+      },
+      "summary": {
+        "orderSummary": "Order summary",
+        "experience": "Experience",
+        "tier": "Tier",
+        "date": "Date",
+        "time": "Time",
+        "guests": "Guests",
+        "total": "Total",
+        "appliedPromo": "Applied promo:",
+        "adultSingular": "{count} adult",
+        "adultPlural": "{count} adults",
+        "childSingular": "{count} child",
+        "childPlural": "{count} children"
       },
       "review": {
         "title": "Review your booking",
@@ -208,7 +244,9 @@
       "pendingFallback": "Payments are temporarily unavailable. Please try again in a moment.",
       "pendingTitle": "Hang tight",
       "notFoundTitle": "We couldn't find that booking.",
-      "notFoundBody": "The link may have expired. If you've already paid, sign in via 'My booking' to view your QR code."
+      "notFoundBody": "The link may have expired. If you've already paid, sign in via 'My booking' to view your QR code.",
+      "redirectingTitle": "Redirecting to payment…",
+      "redirectingBody": "This usually takes a moment. Please don't close this tab."
     },
     "lookup": {
       "metaTitle": "My booking · AgarthaOS",
@@ -532,12 +570,46 @@
       }
     },
     "privacy": {
-      "title": "Privacy",
-      "intro": "How we handle your data at AgarthaOS."
+      "title": "Privacy Policy",
+      "intro": "How we handle your data at AgarthaOS.",
+      "metaTitle": "Privacy Policy · AgarthaOS",
+      "metaDescription": "How AgarthaOS collects, uses, and retains personal data.",
+      "alertTitle": "Full policy coming soon",
+      "alertBody": "The complete legal text is being finalised. The summary below covers what we collect and how long we keep it. For specific questions email <a>{email}</a>.",
+      "policyVersionLabel": "Policy version {version}",
+      "sectionWhatWeProcess": "What we process",
+      "bookerContactTitle": "Booker contact",
+      "bookerContactBody": "Name, email, and phone you give at booking — used to confirm the booking, send entry codes, and contact you about your visit. Retained for 7 years for tax / regulatory compliance.",
+      "faceTemplatesTitle": "Face templates (optional)",
+      "faceTemplatesBody": "When you opt in to Face Pay, we extract a mathematical template from a photo. The raw photo is discarded; only the template is stored. Retention: {retention} (24 hours after your visit ends, or immediately on withdrawal).",
+      "autoCapturedTitle": "Auto-captured photos (optional)",
+      "autoCapturedBody": "When Auto-capture is on, photos taken at capture points where an enrolled attendee is matched are saved to your booking. Retained for 30 days from your visit, then automatically deleted unless you've downloaded them.",
+      "surveyTitle": "Survey responses",
+      "surveyBody": "Optional. Linked to your booking when you provide your reference; otherwise anonymous. Retained for analytics in aggregate; identifying fields purged after 13 months.",
+      "sectionYourRights": "Your rights",
+      "rightAccess": "Access — request a copy of your personal data.",
+      "rightErasure": "Erasure — ask us to delete your data, subject to legal-retention exceptions.",
+      "rightRectification": "Rectification — correct inaccurate data.",
+      "rightWithdraw": "Withdraw biometric consent at any time on the <a>My booking</a> page. Withdrawal is immediate and does not affect your booking.",
+      "rightComplaint": "Lodge a complaint with the relevant supervisory authority (PDPC for Malaysia, your local DPA for EU/EEA).",
+      "rightsContactIntro": "To exercise any of these rights, email <a>{email}</a>. We acknowledge requests within 72 hours and respond within 30 days."
     },
     "terms": {
-      "title": "Terms",
-      "intro": "The terms governing your AgarthaOS booking."
+      "title": "Terms & Conditions",
+      "intro": "The terms governing your AgarthaOS booking.",
+      "metaTitle": "Terms & Conditions · AgarthaOS",
+      "metaDescription": "Terms governing AgarthaOS bookings and visits.",
+      "alertTitle": "Full terms coming soon",
+      "alertBody": "The complete terms are being finalised. The summary below covers the operative policies referenced when you book.",
+      "sectionBooking": "Booking",
+      "bookingHold": "Bookings are held for 15 minutes after creation; payment must be completed within that window or the slot is automatically released.",
+      "bookingReschedule": "Confirmed bookings can be rescheduled up to 2 hours before the entry time. Within 2 hours, please come to the gate and the team will help.",
+      "bookingNoShow": "No-shows are not refunded. If you can't make it, reschedule before the 2-hour cutoff.",
+      "bookingPromo": "Promo codes are validated at booking and re-validated on reschedule against the new slot's day and time.",
+      "sectionFacePay": "Face Pay & Auto-capture",
+      "facePayBody": "Both features are strictly opt-in per attendee, require explicit consent, and can be withdrawn at any time. Templates are deleted 24 hours after your visit ends, or immediately on withdrawal. See <a>Privacy Policy</a> for full retention details.",
+      "sectionContact": "Contact",
+      "contactBody": "Questions? Email <a>{email}</a>."
     }
   }
 }

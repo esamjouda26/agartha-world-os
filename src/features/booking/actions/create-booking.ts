@@ -4,7 +4,9 @@ import "server-only";
 
 import { after } from "next/server";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+
+import { redirect } from "@/i18n/navigation";
 
 import { fail, type ServerActionResult } from "@/lib/errors";
 import { loggerWith } from "@/lib/logger";
@@ -223,9 +225,7 @@ async function createBookingActionImpl(input: CreateBookingInput): Promise<Creat
   // Note: we don't return ok() because redirect() throws and this branch
   // never resumes. The return-type signature stays Promise<...> for the
   // type-checker; the function exits via throw.
-  // typedRoutes: /book/payment lands in Session 17 Route 2 — when that PR
-  // adds the page.tsx, Next will pick it up automatically. Until then we
-  // bypass the typed-route check with `as never`, the same escape hatch
-  // used in the auth login flow (login-form.tsx).
-  redirect(`/book/payment?ref=${encodeURIComponent(created.booking_ref)}` as never);
+  const locale = await getLocale();
+  redirect({ href: `/book/payment?ref=${encodeURIComponent(created.booking_ref)}`, locale });
+  return undefined as never; // redirect() throws — unreachable
 }

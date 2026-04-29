@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Calendar, Clock, ReceiptText, Tag, Users } from "lucide-react";
 
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,16 +14,33 @@ import { cn } from "@/lib/utils";
  *   - /my-booking/manage — confirmation card after pay
  *
  * Pure presentational sink (CLAUDE.md §3 — Universal Pattern C). No data
- * fetching here; all values are computed by the parent and passed in. Money
- * formatting uses Intl.NumberFormat at the locale the user has already
- * negotiated through next-intl, with MYR as the fixed facility currency
- * (booking_payments.currency defaults to 'MYR' — init_schema.sql:3320).
+ * fetching here; all values are computed by the parent and passed in.
+ *
+ * RSC-safe — this component remains a server component. All labels are
+ * passed in via the `labels` prop by the parent (which calls
+ * getTranslations on the server or useTranslations on the client).
  */
 
 export type BookingSummaryLineItem = Readonly<{
   label: string;
   amount: number; // signed numeric — negative for discounts
   hint?: string;
+}>;
+
+/** Translated labels — passed in from the parent to keep this an RSC. */
+export type BookingSummaryLabels = Readonly<{
+  orderSummary: string;
+  experience: string;
+  tier: string;
+  date: string;
+  time: string;
+  guests: string;
+  total: string;
+  appliedPromo: string;
+  adultSingular: string;
+  adultPlural: string;
+  childSingular: string;
+  childPlural: string;
 }>;
 
 export type BookingSummaryCardProps = Readonly<{
@@ -37,17 +55,11 @@ export type BookingSummaryCardProps = Readonly<{
   total: number;
   currency?: string;
   promoCode?: string | null;
+  /** Translated labels — required. Keeps component RSC-safe. */
+  labels: BookingSummaryLabels;
   className?: string;
   "data-testid"?: string;
 }>;
-
-function formatMoney(amount: number, currency: string): string {
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
 
 export function BookingSummaryCard({
   experienceName,
@@ -60,10 +72,15 @@ export function BookingSummaryCard({
   total,
   currency = "MYR",
   promoCode,
+  labels,
   className,
   "data-testid": testId,
 }: BookingSummaryCardProps) {
   const totalGuests = adultCount + childCount;
+
+  const adultLabel = adultCount === 1 ? labels.adultSingular : labels.adultPlural;
+  const childLabel = childCount === 1 ? labels.childSingular : labels.childPlural;
+
   return (
     <aside
       data-slot="booking-summary-card"
@@ -76,7 +93,7 @@ export function BookingSummaryCard({
       <header className="flex items-center justify-between gap-2">
         <h2 className="text-foreground flex items-center gap-2 text-sm font-semibold tracking-tight">
           <ReceiptText aria-hidden className="size-4" />
-          Order summary
+          {labels.orderSummary}
         </h2>
       </header>
 
@@ -88,7 +105,7 @@ export function BookingSummaryCard({
         >
           {experienceName ? (
             <div className="flex items-start justify-between gap-3">
-              <dt className="text-foreground-muted">Experience</dt>
+              <dt className="text-foreground-muted">{labels.experience}</dt>
               <dd className="text-foreground text-right font-medium">{experienceName}</dd>
             </div>
           ) : null}
@@ -96,7 +113,7 @@ export function BookingSummaryCard({
             <div className="flex items-start justify-between gap-3">
               <dt className="text-foreground-muted flex items-center gap-1.5">
                 <Tag aria-hidden className="size-3.5" />
-                Tier
+                {labels.tier}
               </dt>
               <dd className="text-foreground text-right font-medium">{tierName}</dd>
             </div>
@@ -105,7 +122,7 @@ export function BookingSummaryCard({
             <div className="flex items-start justify-between gap-3">
               <dt className="text-foreground-muted flex items-center gap-1.5">
                 <Calendar aria-hidden className="size-3.5" />
-                Date
+                {labels.date}
               </dt>
               <dd className="text-foreground text-right font-medium">{date}</dd>
             </div>
@@ -114,7 +131,7 @@ export function BookingSummaryCard({
             <div className="flex items-start justify-between gap-3">
               <dt className="text-foreground-muted flex items-center gap-1.5">
                 <Clock aria-hidden className="size-3.5" />
-                Time
+                {labels.time}
               </dt>
               <dd className="text-foreground text-right font-medium">{startTime}</dd>
             </div>
@@ -123,11 +140,11 @@ export function BookingSummaryCard({
             <div className="flex items-start justify-between gap-3">
               <dt className="text-foreground-muted flex items-center gap-1.5">
                 <Users aria-hidden className="size-3.5" />
-                Guests
+                {labels.guests}
               </dt>
               <dd className="text-foreground text-right font-medium">
-                {adultCount} {adultCount === 1 ? "adult" : "adults"}
-                {childCount > 0 ? `, ${childCount} ${childCount === 1 ? "child" : "children"}` : ""}
+                {adultLabel}
+                {childCount > 0 ? `, ${childLabel}` : ""}
               </dd>
             </div>
           ) : null}
@@ -169,7 +186,7 @@ export function BookingSummaryCard({
 
       <hr aria-hidden className="border-border-subtle" />
       <div className="flex items-baseline justify-between">
-        <span className="text-foreground text-sm font-semibold">Total</span>
+        <span className="text-foreground text-sm font-semibold">{labels.total}</span>
         <span
           className="text-foreground text-lg font-semibold tabular-nums"
           data-testid="booking-summary-total"
@@ -180,7 +197,7 @@ export function BookingSummaryCard({
       </div>
       {promoCode ? (
         <p className="text-foreground-muted text-xs">
-          Applied promo: <span className="text-foreground font-medium">{promoCode}</span>
+          {labels.appliedPromo} <span className="text-foreground font-medium">{promoCode}</span>
         </p>
       ) : null}
     </aside>

@@ -24,7 +24,10 @@ export type GuestSubpageHeaderProps = Readonly<{
   title: string;
   description: string;
   backHref: string;
-  backLabel?: string;
+  /** Translated "Back to my booking" — required, no default. */
+  backLabel: string;
+  /** Translated breadcrumb prefix, e.g. "Booking" — rendered before the ref. */
+  breadcrumbPrefix: string;
   className?: string;
   "data-testid"?: string;
 }>;
@@ -34,7 +37,8 @@ export function GuestSubpageHeader({
   title,
   description,
   backHref,
-  backLabel = "Back to my booking",
+  backLabel,
+  breadcrumbPrefix,
   className,
   "data-testid": testId,
 }: GuestSubpageHeaderProps) {
@@ -52,7 +56,7 @@ export function GuestSubpageHeader({
       </Button>
       <div>
         <p className="text-foreground-muted text-xs font-medium tracking-wide uppercase">
-          Booking · <span className="font-mono">{bookingRef}</span>
+          {breadcrumbPrefix} · <span className="font-mono">{bookingRef}</span>
         </p>
         <h1 className="text-foreground mt-1 text-2xl font-semibold tracking-tight md:text-3xl">
           {title}

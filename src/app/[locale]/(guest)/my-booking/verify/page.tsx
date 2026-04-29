@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+
+import { redirect } from "@/i18n/navigation";
 
 import { OtpVerifyForm } from "@/features/booking/components/otp-verify-form";
 import { GUEST_OTP_PENDING_COOKIE } from "@/features/booking/constants";
@@ -46,11 +47,15 @@ function parsePending(raw: string | undefined): PendingPayload | null {
   }
 }
 
-export default async function MyBookingVerifyPage() {
+export default async function MyBookingVerifyPage({
+  params,
+}: Readonly<{ params: Promise<{ locale: string }> }>) {
+  const { locale } = await params;
   const store = await cookies();
   const pending = parsePending(store.get(GUEST_OTP_PENDING_COOKIE)?.value);
   if (!pending) {
-    redirect("/my-booking" as never);
+    redirect({ href: "/my-booking", locale });
+    return null;
   }
   const t = await getTranslations("guest.verify");
 

@@ -83,7 +83,10 @@
       "continue": "Teruskan",
       "tryAgain": "Cuba lagi",
       "required": "Wajib",
-      "optional": "Pilihan"
+      "optional": "Pilihan",
+      "backToHome": "Kembali ke halaman utama",
+      "backToMyBooking": "Kembali ke tempahan saya",
+      "breadcrumbBooking": "Tempahan"
     },
     "errors": {
       "validationFailed": "Sila semak semula jawapan anda dan cuba lagi.",
@@ -124,11 +127,16 @@
         "guestCountTitle": "Berapa orang tetamu?",
         "tierTitle": "Pilih pakej",
         "noTiersAvailableTitle": "Tiada pakej tersedia sekarang.",
-        "noTiersAvailableBody": "Sila datang lagi tidak lama lagi — kami sedang menyediakan pengalaman."
+        "noTiersAvailableBody": "Sila datang lagi tidak lama lagi — kami sedang menyediakan pengalaman.",
+        "ariaChooseTier": "Pilih pakej",
+        "totalForGuests": "Jumlah untuk {count, plural, other {# orang tetamu}}",
+        "durationMin": "{minutes} min",
+        "decreaseLabel": "Kurangkan {label}",
+        "increaseLabel": "Tambahkan {label}"
       },
       "date": {
         "title": "Pilih tarikh",
-        "subtitle": "Kami membuka tempahan sehingga 14 hari lebih awal."
+        "subtitle": "Pilih tarikh lawatan pilihan anda."
       },
       "time": {
         "title": "Pilih masa",
@@ -139,7 +147,14 @@
         "loadErrorGeneric": "Tidak dapat memuatkan slot. Sila cuba lagi.",
         "tryAgainCta": "Cuba lagi",
         "slotFull": "Penuh",
-        "noSlots": "Tiada slot tersedia pada tarikh ini."
+        "noSlots": "Tiada slot tersedia pada tarikh ini.",
+        "loadingSlots": "Memuatkan slot…",
+        "spotsLeft": "{count} tempat berbaki",
+        "spotsLeftOne": "1 tempat berbaki",
+        "soldOut": "Habis dijual",
+        "lowBadge": "Rendah",
+        "ariaChooseSlot": "Pilih slot masa",
+        "emptyDescription": "Pilih tarikh lain atau laraskan bilangan tetamu anda untuk melihat ketersediaan."
       },
       "details": {
         "title": "Butiran anda",
@@ -151,7 +166,28 @@
         "promoApply": "Guna",
         "promoValid": "Promosi digunakan — diskaun {amount}",
         "promoInvalid": "Kod tersebut tidak sah.",
-        "promoExpired": "Kod tersebut telah tamat tempoh."
+        "promoExpired": "Kod tersebut telah tamat tempoh.",
+        "namePlaceholder": "Seperti pada dokumen pengenalan anda",
+        "emailPlaceholder": "anda@contoh.com",
+        "phonePlaceholder": "+60 12 345 6789",
+        "acceptTermsLabel": "Saya menerima",
+        "termsLinkText": "Terma & Syarat",
+        "andConjunction": "dan",
+        "privacyLinkText": "Dasar Privasi"
+      },
+      "summary": {
+        "orderSummary": "Ringkasan pesanan",
+        "experience": "Pengalaman",
+        "tier": "Pakej",
+        "date": "Tarikh",
+        "time": "Masa",
+        "guests": "Tetamu",
+        "total": "Jumlah",
+        "appliedPromo": "Promosi digunakan:",
+        "adultSingular": "{count} orang dewasa",
+        "adultPlural": "{count} orang dewasa",
+        "childSingular": "{count} orang kanak-kanak",
+        "childPlural": "{count} orang kanak-kanak"
       },
       "review": {
         "title": "Semak tempahan anda",
@@ -208,7 +244,9 @@
       "pendingFallback": "Pembayaran tidak tersedia buat sementara waktu. Sila cuba lagi sebentar lagi.",
       "pendingTitle": "Sila tunggu sebentar",
       "notFoundTitle": "Kami tidak dapat menjumpai tempahan tersebut.",
-      "notFoundBody": "Pautan ini mungkin telah tamat tempoh. Jika anda telah membayar, sila log masuk melalui 'Tempahan saya' untuk melihat kod QR anda."
+      "notFoundBody": "Pautan ini mungkin telah tamat tempoh. Jika anda telah membayar, sila log masuk melalui 'Tempahan saya' untuk melihat kod QR anda.",
+      "redirectingTitle": "Mengalihkan ke pembayaran…",
+      "redirectingBody": "Biasanya mengambil sedikit masa. Sila jangan tutup tab ini."
     },
     "lookup": {
       "metaTitle": "Tempahan saya · AgarthaOS",
@@ -532,12 +570,48 @@
       }
     },
     "privacy": {
-      "title": "Privasi",
-      "intro": "Cara kami mengendalikan data anda di AgarthaOS."
+      "title": "Dasar Privasi",
+      "intro": "Cara kami mengendalikan data anda di AgarthaOS.",
+      "legalDisclaimer": "Halaman ini belum diterjemahkan. Sila rujuk versi Bahasa Inggeris.",
+      "metaTitle": "Dasar Privasi · AgarthaOS",
+      "metaDescription": "How AgarthaOS collects, uses, and retains personal data.",
+      "alertTitle": "Full policy coming soon",
+      "alertBody": "The complete legal text is being finalised. The summary below covers what we collect and how long we keep it. For specific questions email <a>{email}</a>.",
+      "policyVersionLabel": "Policy version {version}",
+      "sectionWhatWeProcess": "What we process",
+      "bookerContactTitle": "Booker contact",
+      "bookerContactBody": "Name, email, and phone you give at booking — used to confirm the booking, send entry codes, and contact you about your visit. Retained for 7 years for tax / regulatory compliance.",
+      "faceTemplatesTitle": "Face templates (optional)",
+      "faceTemplatesBody": "When you opt in to Face Pay, we extract a mathematical template from a photo. The raw photo is discarded; only the template is stored. Retention: {retention} (24 hours after your visit ends, or immediately on withdrawal).",
+      "autoCapturedTitle": "Auto-captured photos (optional)",
+      "autoCapturedBody": "When Auto-capture is on, photos taken at capture points where an enrolled attendee is matched are saved to your booking. Retained for 30 days from your visit, then automatically deleted unless you've downloaded them.",
+      "surveyTitle": "Survey responses",
+      "surveyBody": "Optional. Linked to your booking when you provide your reference; otherwise anonymous. Retained for analytics in aggregate; identifying fields purged after 13 months.",
+      "sectionYourRights": "Your rights",
+      "rightAccess": "Access — request a copy of your personal data.",
+      "rightErasure": "Erasure — ask us to delete your data, subject to legal-retention exceptions.",
+      "rightRectification": "Rectification — correct inaccurate data.",
+      "rightWithdraw": "Withdraw biometric consent at any time on the <a>My booking</a> page. Withdrawal is immediate and does not affect your booking.",
+      "rightComplaint": "Lodge a complaint with the relevant supervisory authority (PDPC for Malaysia, your local DPA for EU/EEA).",
+      "rightsContactIntro": "To exercise any of these rights, email <a>{email}</a>. We acknowledge requests within 72 hours and respond within 30 days."
     },
     "terms": {
-      "title": "Terma",
-      "intro": "Terma yang mengawal tempahan AgarthaOS anda."
+      "title": "Terma & Syarat",
+      "intro": "Terma yang mengawal tempahan AgarthaOS anda.",
+      "legalDisclaimer": "Halaman ini belum diterjemahkan. Sila rujuk versi Bahasa Inggeris.",
+      "metaTitle": "Terma & Syarat · AgarthaOS",
+      "metaDescription": "Terms governing AgarthaOS bookings and visits.",
+      "alertTitle": "Full terms coming soon",
+      "alertBody": "The complete terms are being finalised. The summary below covers the operative policies referenced when you book.",
+      "sectionBooking": "Booking",
+      "bookingHold": "Bookings are held for 15 minutes after creation; payment must be completed within that window or the slot is automatically released.",
+      "bookingReschedule": "Confirmed bookings can be rescheduled up to 2 hours before the entry time. Within 2 hours, please come to the gate and the team will help.",
+      "bookingNoShow": "No-shows are not refunded. If you can't make it, reschedule before the 2-hour cutoff.",
+      "bookingPromo": "Promo codes are validated at booking and re-validated on reschedule against the new slot's day and time.",
+      "sectionFacePay": "Face Pay & Auto-capture",
+      "facePayBody": "Both features are strictly opt-in per attendee, require explicit consent, and can be withdrawn at any time. Templates are deleted 24 hours after your visit ends, or immediately on withdrawal. See <a>Privacy Policy</a> for full retention details.",
+      "sectionContact": "Contact",
+      "contactBody": "Questions? Email <a>{email}</a>."
     }
   }
 }

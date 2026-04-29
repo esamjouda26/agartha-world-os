@@ -23,13 +23,7 @@ import { EmptyStateCta } from "@/components/shared/empty-state-cta";
 import { SectionCard } from "@/components/ui/section-card";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { FilterChip } from "@/components/ui/filter-chip";
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +47,7 @@ import type {
 } from "@/features/pos/types/management";
 import { upsertCatalogItem } from "@/features/pos/actions/upsert-catalog-item";
 import { upsertDisplayCategory } from "@/features/pos/actions/upsert-display-category";
+import { formatCents } from "@/lib/money";
 import {
   upsertCatalogItemSchema,
   type UpsertCatalogItemInput,
@@ -76,16 +71,6 @@ const MOBILE_BOM_COLS = ["componentMaterialName", "quantity"] as const;
 type DetailTab = "menu" | "categories" | "recipes";
 const TAB_VALUES: readonly DetailTab[] = ["menu", "categories", "recipes"];
 
-// ── Formatters ───────────────────────────────────────────────────────────
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency: "MYR",
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
-}
-
 // ── Props ────────────────────────────────────────────────────────────────
 
 type PosPointDetailViewProps = Readonly<{
@@ -102,7 +87,12 @@ type CatalogFormProps = Readonly<{
   onSuccess: () => void;
 }>;
 
-function CatalogItemForm({ defaultValues, materials, displayCategories, onSuccess }: CatalogFormProps) {
+function CatalogItemForm({
+  defaultValues,
+  materials,
+  displayCategories,
+  onSuccess,
+}: CatalogFormProps) {
   const form = useForm<UpsertCatalogItemInput>({
     resolver: zodResolver(upsertCatalogItemSchema),
     defaultValues,
@@ -400,7 +390,14 @@ type MenuTabProps = Readonly<{
   onMutationSuccess: () => void;
 }>;
 
-function MenuTab({ posPointId, catalog, displayCategories, materials, canWrite, onMutationSuccess }: MenuTabProps) {
+function MenuTab({
+  posPointId,
+  catalog,
+  displayCategories,
+  materials,
+  canWrite,
+  onMutationSuccess,
+}: MenuTabProps) {
   const search = useUrlString(CATALOG_SEARCH_PARAM);
   const categoryFilter = useUrlString(CATALOG_CAT_PARAM);
   const [sheetOpen, setSheetOpen] = React.useState(false);
@@ -460,68 +457,73 @@ function MenuTab({ posPointId, catalog, displayCategories, materials, canWrite, 
     );
   }
 
-  const columns = React.useMemo<ColumnDef<CatalogRow>[]>(() => [
-    {
-      id: "displayName",
-      header: "Item name",
-      cell: ({ row }) => (
-        <span className="text-foreground font-medium">
-          {row.original.displayName ?? row.original.materialName}
-        </span>
-      ),
-    },
-    {
-      id: "sellingPrice",
-      header: "Price",
-      cell: ({ row }) => formatCurrency(row.original.sellingPrice),
-    },
-    {
-      id: "displayCategoryName",
-      header: "Category",
-      cell: ({ row }) => row.original.displayCategoryName ?? "—",
-    },
-    {
-      id: "soldLast7d",
-      header: "Sold (7d)",
-      cell: ({ row }) => row.original.soldLast7d,
-    },
-    {
-      id: "revenueLast7d",
-      header: "Revenue (7d)",
-      cell: ({ row }) => formatCurrency(row.original.revenueLast7d),
-    },
-    {
-      id: "isActive",
-      header: "Visible",
-      cell: ({ row }) => (
-        <StatusBadge
-          status={row.original.isActive ? "active" : "offline"}
-          label={row.original.isActive ? "Visible" : "Hidden"}
-          data-testid={`catalog-status-${row.original.materialId}`}
-        />
-      ),
-    },
-    ...(canWrite
-      ? ([{
-          id: "actions",
-          header: () => <span className="sr-only">Actions</span>,
-          cell: ({ row }: { row: { original: CatalogRow } }) => (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                openEdit(row.original);
-              }}
-              aria-label={`Edit ${row.original.displayName ?? row.original.materialName}`}
-              data-testid={`catalog-edit-${row.original.materialId}`}
-            >
-              <Edit className="size-4" aria-hidden />
-            </Button>
-          ),
-        }] satisfies ColumnDef<CatalogRow>[])
-      : []),
-  ], [canWrite]);
+  const columns = React.useMemo<ColumnDef<CatalogRow>[]>(
+    () => [
+      {
+        id: "displayName",
+        header: "Item name",
+        cell: ({ row }) => (
+          <span className="text-foreground font-medium">
+            {row.original.displayName ?? row.original.materialName}
+          </span>
+        ),
+      },
+      {
+        id: "sellingPrice",
+        header: "Price",
+        cell: ({ row }) => formatCents(row.original.sellingPrice),
+      },
+      {
+        id: "displayCategoryName",
+        header: "Category",
+        cell: ({ row }) => row.original.displayCategoryName ?? "—",
+      },
+      {
+        id: "soldLast7d",
+        header: "Sold (7d)",
+        cell: ({ row }) => row.original.soldLast7d,
+      },
+      {
+        id: "revenueLast7d",
+        header: "Revenue (7d)",
+        cell: ({ row }) => formatCents(row.original.revenueLast7d),
+      },
+      {
+        id: "isActive",
+        header: "Visible",
+        cell: ({ row }) => (
+          <StatusBadge
+            status={row.original.isActive ? "active" : "offline"}
+            label={row.original.isActive ? "Visible" : "Hidden"}
+            data-testid={`catalog-status-${row.original.materialId}`}
+          />
+        ),
+      },
+      ...(canWrite
+        ? ([
+            {
+              id: "actions",
+              header: () => <span className="sr-only">Actions</span>,
+              cell: ({ row }: { row: { original: CatalogRow } }) => (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEdit(row.original);
+                  }}
+                  aria-label={`Edit ${row.original.displayName ?? row.original.materialName}`}
+                  data-testid={`catalog-edit-${row.original.materialId}`}
+                >
+                  <Edit className="size-4" aria-hidden />
+                </Button>
+              ),
+            },
+          ] satisfies ColumnDef<CatalogRow>[])
+        : []),
+    ],
+    [canWrite],
+  );
 
   const catalogMaterialIds = new Set(catalog.map((r) => r.materialId));
   const availableMaterials = materials.filter((m) => !catalogMaterialIds.has(m.id));
@@ -640,7 +642,12 @@ type CategoriesTabProps = Readonly<{
   onMutationSuccess: () => void;
 }>;
 
-function CategoriesTab({ posPointId, displayCategories, canWrite, onMutationSuccess }: CategoriesTabProps) {
+function CategoriesTab({
+  posPointId,
+  displayCategories,
+  canWrite,
+  onMutationSuccess,
+}: CategoriesTabProps) {
   const search = useUrlString(CAT_SEARCH_PARAM);
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editTarget, setEditTarget] = React.useState<DisplayCategoryRow | null>(null);
@@ -671,30 +678,35 @@ function CategoriesTab({ posPointId, displayCategories, canWrite, onMutationSucc
 
   const hasActiveFilters = Boolean(search.value);
 
-  const columns = React.useMemo<ColumnDef<DisplayCategoryRow>[]>(() => [
-    { id: "name", accessorKey: "name", header: "Name" },
-    { id: "sortOrder", accessorKey: "sortOrder", header: "Sort order" },
-    ...(canWrite
-      ? ([{
-          id: "actions",
-          header: () => <span className="sr-only">Actions</span>,
-          cell: ({ row }: { row: { original: DisplayCategoryRow } }) => (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                openEdit(row.original);
-              }}
-              aria-label={`Edit ${row.original.name}`}
-              data-testid={`category-edit-${row.original.id}`}
-            >
-              <Edit className="size-4" aria-hidden />
-            </Button>
-          ),
-        }] satisfies ColumnDef<DisplayCategoryRow>[])
-      : []),
-  ], [canWrite]);
+  const columns = React.useMemo<ColumnDef<DisplayCategoryRow>[]>(
+    () => [
+      { id: "name", accessorKey: "name", header: "Name" },
+      { id: "sortOrder", accessorKey: "sortOrder", header: "Sort order" },
+      ...(canWrite
+        ? ([
+            {
+              id: "actions",
+              header: () => <span className="sr-only">Actions</span>,
+              cell: ({ row }: { row: { original: DisplayCategoryRow } }) => (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEdit(row.original);
+                  }}
+                  aria-label={`Edit ${row.original.name}`}
+                  data-testid={`category-edit-${row.original.id}`}
+                >
+                  <Edit className="size-4" aria-hidden />
+                </Button>
+              ),
+            },
+          ] satisfies ColumnDef<DisplayCategoryRow>[])
+        : []),
+    ],
+    [canWrite],
+  );
 
   const defaultFormValues: UpsertDisplayCategoryInput = editTarget
     ? { id: editTarget.id, posPointId, name: editTarget.name, sortOrder: editTarget.sortOrder }
@@ -775,12 +787,19 @@ function RecipesTab({ catalog, bomPreviews }: RecipesTabProps) {
     return map;
   }, [bomPreviews]);
 
-  const bomColumns = React.useMemo<ColumnDef<BomPreviewRow>[]>(() => [
-    { id: "componentMaterialName", header: "Component", accessorKey: "componentMaterialName" },
-    { id: "quantity", header: "Qty", cell: ({ row }) => row.original.quantity },
-    { id: "scrapPct", header: "Scrap %", cell: ({ row }) => `${row.original.scrapPct}%` },
-    { id: "isPhantom", header: "Phantom", cell: ({ row }) => (row.original.isPhantom ? "Yes" : "No") },
-  ], []);
+  const bomColumns = React.useMemo<ColumnDef<BomPreviewRow>[]>(
+    () => [
+      { id: "componentMaterialName", header: "Component", accessorKey: "componentMaterialName" },
+      { id: "quantity", header: "Qty", cell: ({ row }) => row.original.quantity },
+      { id: "scrapPct", header: "Scrap %", cell: ({ row }) => `${row.original.scrapPct}%` },
+      {
+        id: "isPhantom",
+        header: "Phantom",
+        cell: ({ row }) => (row.original.isPhantom ? "Yes" : "No"),
+      },
+    ],
+    [],
+  );
 
   if (catalog.length === 0) {
     return (
@@ -820,9 +839,7 @@ function RecipesTab({ catalog, bomPreviews }: RecipesTabProps) {
                 data-testid={`recipe-table-${item.materialId}`}
               />
             ) : (
-              <p className="text-foreground-muted text-sm">
-                No BOM required for this item type.
-              </p>
+              <p className="text-foreground-muted text-sm">No BOM required for this item type.</p>
             )}
           </SectionCard>
         );

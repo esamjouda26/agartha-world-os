@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+
+import { redirect } from "@/i18n/navigation";
 
 import { EmptyState } from "@/components/ui/empty-state";
 
 import {
   BookingSummaryCard,
+  type BookingSummaryLabels,
   type BookingSummaryLineItem,
 } from "@/components/shared/booking-summary-card";
+import { formatHumanDate, formatHumanTime } from "@/lib/date";
+import { formatMoney } from "@/lib/money";
 
 import { BookingPrintLayout } from "@/features/booking/components/booking-print-layout";
 import { HoldCountdown } from "@/features/booking/components/hold-countdown";
@@ -52,22 +56,31 @@ export async function generateMetadata(): Promise<Metadata> {
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function BookPaymentPage({
+  params,
   searchParams,
-}: Readonly<{ searchParams: SearchParams }>) {
-  const params = await searchParams;
-  const urlRefRaw = typeof params.ref === "string" ? params.ref : null;
+}: Readonly<{ params: Promise<{ locale: string }>; searchParams: SearchParams }>) {
+  const { locale } = await params;
+  const search = await searchParams;
+  const urlRefRaw = typeof search.ref === "string" ? search.ref : null;
   const urlRef = urlRefRaw ? urlRefRaw.toUpperCase() : null;
-  const sessionId = typeof params.session_id === "string" ? params.session_id : null;
-  const cancelled = params.cancelled === "1";
+  const sessionId = typeof search.session_id === "string" ? search.session_id : null;
+  const cancelled = search.cancelled === "1";
 
   const store = await cookies();
   const cookieRef = store.get(GUEST_BOOKING_REF_COOKIE)?.value?.toUpperCase() ?? null;
 
-  if (!cookieRef) redirect("/my-booking" as never);
-  if (urlRef && urlRef !== cookieRef) redirect("/my-booking" as never);
+  if (!cookieRef) {
+    redirect({ href: "/my-booking", locale });
+    return;
+  }
+  if (urlRef && urlRef !== cookieRef) {
+    redirect({ href: "/my-booking", locale });
+    return;
+  }
 
   const context = await getBookingPaymentContext(cookieRef);
   const t = await getTranslations("guest.payment");
+  const tSummary = await getTranslations("guest.book.summary");
   if (!context) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12 sm:px-6">
@@ -89,8 +102,23 @@ export default async function BookPaymentPage({
   const renderState: PaymentStatusDisplayState = cancelled && state === "idle" ? "failure" : state;
   const totalAmount = context.payment?.amount ?? context.booking.total_price;
   const currency = context.payment?.currency ?? "MYR";
-  const totalLabel = formatCurrency(totalAmount, currency);
-  const lineItems = buildLineItems(context);
+  const totalLabel = formatMoney(totalAmount, currency);
+  const lineItems = buildLineItems(context, tSummary);
+
+  const summaryLabels: BookingSummaryLabels = {
+    orderSummary: tSummary("orderSummary"),
+    experience: tSummary("experience"),
+    tier: tSummary("tier"),
+    date: tSummary("date"),
+    time: tSummary("time"),
+    guests: tSummary("guests"),
+    total: tSummary("total"),
+    appliedPromo: tSummary("appliedPromo"),
+    adultSingular: tSummary("adultSingular", { count: 1 }),
+    adultPlural: tSummary("adultPlural", { count: 2 }),
+    childSingular: tSummary("childSingular", { count: 1 }),
+    childPlural: tSummary("childPlural", { count: 2 }),
+  };
 
   return (
     <div
@@ -119,6 +147,7 @@ export default async function BookPaymentPage({
           total={totalAmount}
           currency={currency}
           data-testid="payment-summary-aside"
+          labels={summaryLabels}
         />
       </div>
 
@@ -163,8 +192,8 @@ export default async function BookPaymentPage({
           experienceName={context.experience.name}
           tierName={context.tier.name}
           durationMinutes={context.tier.duration_minutes}
-          dateLabel={formatHumanDate(context.slot.slot_date)}
-          timeLabel={formatHumanTime(context.slot.start_time)}
+          dateLabel={formatHumanDate(context.slot.slot_date) ?? ""}
+          timeLabel={formatHumanTime(context.slot.start_time) ?? ""}
           adultCount={context.booking.adult_count}
           childCount={context.booking.child_count}
           perks={[]}
@@ -190,23 +219,31 @@ function headlineFor(state: PaymentStatusDisplayState, t: (key: string) => strin
   }
 }
 
-function buildLineItems(ctx: BookingPaymentContext): readonly BookingSummaryLineItem[] {
+function buildLineItems(
+  ctx: BookingPaymentContext,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- next-intl Translator generic; only call-sig needed
+  tSummary: (key: any, values?: any) => string,
+): readonly BookingSummaryLineItem[] {
   const items: BookingSummaryLineItem[] = [];
   const adultsAmt = ctx.tier.adult_price * ctx.booking.adult_count;
   const childrenAmt = ctx.tier.child_price * ctx.booking.child_count;
   if (ctx.booking.adult_count > 0) {
+    const countLabel =
+      ctx.booking.adult_count === 1
+        ? tSummary("adultSingular", { count: ctx.booking.adult_count })
+        : tSummary("adultPlural", { count: ctx.booking.adult_count });
     items.push({
-      label: `${ctx.tier.name} × ${ctx.booking.adult_count} ${
-        ctx.booking.adult_count === 1 ? "adult" : "adults"
-      }`,
+      label: `${ctx.tier.name} × ${countLabel}`,
       amount: adultsAmt,
     });
   }
   if (ctx.booking.child_count > 0) {
+    const countLabel =
+      ctx.booking.child_count === 1
+        ? tSummary("childSingular", { count: ctx.booking.child_count })
+        : tSummary("childPlural", { count: ctx.booking.child_count });
     items.push({
-      label: `${ctx.tier.name} × ${ctx.booking.child_count} ${
-        ctx.booking.child_count === 1 ? "child" : "children"
-      }`,
+      label: `${ctx.tier.name} × ${countLabel}`,
       amount: childrenAmt,
     });
   }
@@ -216,9 +253,8 @@ function buildLineItems(ctx: BookingPaymentContext): readonly BookingSummaryLine
   const discount = gross - ctx.booking.total_price;
   if (discount > 0) {
     items.push({
-      label: "Promo discount",
+      label: tSummary("appliedPromo"),
       amount: -discount,
-      hint: "Applied at booking",
     });
   }
   return items;
@@ -229,31 +265,4 @@ function derivePaymentState(ctx: BookingPaymentContext): PaymentStatusDisplaySta
   if (ctx.booking.status === "confirmed" || ctx.payment?.status === "success") return "success";
   if (ctx.payment?.status === "failed") return "failure";
   return "idle";
-}
-
-function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
-
-function formatHumanDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return new Intl.DateTimeFormat("en-MY", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(d);
-}
-
-function formatHumanTime(hhmmss: string): string {
-  const [hStr = "00", mStr = "00"] = hhmmss.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const period = h >= 12 ? "pm" : "am";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
 }

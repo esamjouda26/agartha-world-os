@@ -31,10 +31,18 @@ export const getShiftsData = cache(
     const [shiftTypesRes, templatesRes, templateShiftsRes, assignmentsRes, holidaysRes, staffRes] =
       await Promise.all([
         // 1. Shift types
-        client.from("shift_types").select("*").order("name", { ascending: true }),
+        client
+          .from("shift_types")
+          .select(
+            "id, code, name, start_time, end_time, break_duration_minutes, grace_late_arrival_minutes, grace_early_departure_minutes, max_late_clock_in_minutes, max_early_clock_in_minutes, max_late_clock_out_minutes, color, is_active",
+          )
+          .order("name", { ascending: true }),
 
         // 2. Roster templates
-        client.from("roster_templates").select("*").order("name", { ascending: true }),
+        client
+          .from("roster_templates")
+          .select("id, name, cycle_length_days, anchor_date, is_active, created_at")
+          .order("name", { ascending: true }),
 
         // 3. Template shifts with shift type name
         client

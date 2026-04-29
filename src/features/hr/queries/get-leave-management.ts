@@ -41,7 +41,9 @@ export const getLeaveManagementData = cache(
     // ── 1. Build paginated requests query ──────────────────────────────
     let requestsBuilder = client
       .from("leave_requests")
-      .select("*")
+      .select(
+        "id, staff_record_id, leave_type_id, start_date, end_date, requested_days, reason, status, rejection_reason, reviewed_by, reviewed_at, created_at",
+      )
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(pageSize + 1);
@@ -64,7 +66,9 @@ export const getLeaveManagementData = cache(
     // ── 2. Build paginated ledger query ─────────────────────────────────
     let ledgerBuilder = client
       .from("leave_ledger")
-      .select("*")
+      .select(
+        "id, staff_record_id, leave_type_id, fiscal_year, transaction_date, transaction_type, days, notes, created_at",
+      )
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(pageSize + 1);
@@ -89,11 +93,17 @@ export const getLeaveManagementData = cache(
       pendingCountRes,
     ] = await Promise.all([
       requestsBuilder,
-      client.from("v_leave_balances").select("*"),
+      client
+        .from("v_leave_balances")
+        .select(
+          "staff_record_id, leave_type_id, leave_type_name, leave_type_code, is_paid, fiscal_year, accrued_days, carry_forward_days, used_days, adjustment_days, forfeiture_days, balance",
+        ),
       ledgerBuilder,
-      client.from("leave_types").select("*").order("name"),
-      client.from("leave_policies").select("*").order("name"),
-      client.from("leave_policy_entitlements").select("*"),
+      client.from("leave_types").select("id, code, name, is_paid, is_active").order("name"),
+      client.from("leave_policies").select("id, name, description, is_active").order("name"),
+      client
+        .from("leave_policy_entitlements")
+        .select("policy_id, leave_type_id, days_per_year, frequency"),
       // Always count pending regardless of current filter
       client
         .from("leave_requests")

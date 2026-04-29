@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -30,33 +31,36 @@ export const dynamic = "force-static";
 export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("guest.privacy");
   return {
-    title: "Privacy Policy · AgarthaOS",
-    description: "How AgarthaOS collects, uses, and retains personal data.",
+    title: t("metaTitle"),
+    description: t("metaDescription"),
     robots: { index: true, follow: true },
   };
 }
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const t = await getTranslations("guest.privacy");
+  const tCommon = await getTranslations("guest.common");
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
       <header className="flex flex-col gap-3">
         <Button asChild variant="ghost" size="sm" className="self-start">
           <Link href={"/" as never}>
             <ArrowLeft aria-hidden className="size-4" />
-            Back to home
+            {tCommon("backToHome")}
           </Link>
         </Button>
         <h1 className="text-foreground text-2xl font-semibold tracking-tight md:text-3xl">
-          Privacy Policy
+          {t("title")}
         </h1>
         <p className="text-foreground-muted text-sm leading-relaxed">
-          Policy version <span className="font-mono">{BIOMETRIC_POLICY_VERSION}</span>
+          {t("policyVersionLabel", { version: BIOMETRIC_POLICY_VERSION })}
         </p>
       </header>
 
       <Alert variant="info">
-        <AlertTitle>Full policy coming soon</AlertTitle>
+        <AlertTitle>{t("alertTitle")}</AlertTitle>
         <AlertDescription>
           The complete legal text is being finalised. The summary below covers what we collect and
           how long we keep it. For specific questions email{" "}
@@ -71,7 +75,9 @@ export default function PrivacyPage() {
       </Alert>
 
       <section className="border-border-subtle bg-card flex flex-col gap-4 rounded-xl border p-5 sm:p-6">
-        <h2 className="text-foreground text-base font-semibold tracking-tight">What we process</h2>
+        <h2 className="text-foreground text-base font-semibold tracking-tight">
+          {t("sectionWhatWeProcess")}
+        </h2>
         <dl className="text-foreground-muted flex flex-col gap-3 text-sm leading-relaxed">
           <div>
             <dt className="text-foreground font-medium">Booker contact</dt>
@@ -109,7 +115,9 @@ export default function PrivacyPage() {
       </section>
 
       <section className="border-border-subtle bg-card flex flex-col gap-4 rounded-xl border p-5 sm:p-6">
-        <h2 className="text-foreground text-base font-semibold tracking-tight">Your rights</h2>
+        <h2 className="text-foreground text-base font-semibold tracking-tight">
+          {t("sectionYourRights")}
+        </h2>
         <ul className="text-foreground-muted list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>Access — request a copy of your personal data.</li>
           <li>Erasure — ask us to delete your data, subject to legal-retention exceptions.</li>

@@ -3,11 +3,11 @@
 import * as React from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 import {
   bookerDetailsSchema,
@@ -43,10 +43,11 @@ export function BookerDetailsForm({
   className,
   "data-testid": testId,
 }: BookerDetailsFormProps) {
+  const t = useTranslations("guest.book.details");
   const form = useForm<BookerDetailsInput>({
     resolver: zodResolver(bookerDetailsSchema),
     defaultValues,
-    mode: "onBlur",
+    mode: "onChange",
   });
 
   // Bridge schema validity back to the wizard so the "Continue" CTA can
@@ -94,12 +95,12 @@ export function BookerDetailsForm({
             name="booker_name"
             render={({ field }) => (
               <FormItem className="sm:col-span-2">
-                <FormLabel>Full name</FormLabel>
+                <FormLabel>{t("nameLabel")}</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     autoComplete="name"
-                    placeholder="As it appears on your ID"
+                    placeholder={t("namePlaceholder")}
                     data-testid="booker-name-input"
                   />
                 </FormControl>
@@ -112,14 +113,14 @@ export function BookerDetailsForm({
             name="booker_email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>{t("emailLabel")}</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     type="email"
                     autoComplete="email"
                     inputMode="email"
-                    placeholder="you@example.com"
+                    placeholder={t("emailPlaceholder")}
                     data-testid="booker-email-input"
                   />
                 </FormControl>
@@ -132,14 +133,14 @@ export function BookerDetailsForm({
             name="booker_phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Phone</FormLabel>
+                <FormLabel>{t("phoneLabel")}</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     type="tel"
                     autoComplete="tel"
                     inputMode="tel"
-                    placeholder="+60 12 345 6789"
+                    placeholder={t("phonePlaceholder")}
                     data-testid="booker-phone-input"
                   />
                 </FormControl>
@@ -153,43 +154,44 @@ export function BookerDetailsForm({
           control={form.control}
           name="accept_terms"
           render={({ field }) => (
-            <FormItem className="mt-5 flex flex-row items-start gap-3 space-y-0">
-              <FormControl>
-                <Checkbox
-                  id="booker-accept-terms"
-                  checked={field.value}
-                  onCheckedChange={(checked) => field.onChange(checked === true)}
-                  data-testid="booker-accept-terms"
-                  className="mt-0.5"
-                />
-              </FormControl>
-              <div className="flex flex-col gap-1">
-                <Label
-                  htmlFor="booker-accept-terms"
-                  className="text-foreground text-sm leading-snug font-normal"
-                >
-                  I accept the{" "}
+            <FormItem className="mt-5">
+              <label
+                htmlFor="booker-accept-terms"
+                className="border-border-subtle bg-surface/50 flex cursor-pointer gap-2.5 rounded-lg border p-3"
+              >
+                <FormControl>
+                  <Checkbox
+                    id="booker-accept-terms"
+                    checked={field.value}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    data-testid="booker-accept-terms"
+                    className="mt-0.5 shrink-0"
+                  />
+                </FormControl>
+                <span className="text-foreground-muted text-[13px] leading-snug">
+                  {t("acceptTermsLabel")}{" "}
                   <a
                     href="/terms"
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-brand-primary underline-offset-2 hover:underline"
+                    className="text-brand-primary font-medium underline-offset-2 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    Terms &amp; Conditions
+                    {t("termsLinkText")}
                   </a>{" "}
-                  and{" "}
+                  {t("andConjunction")}{" "}
                   <a
                     href="/privacy"
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-brand-primary underline-offset-2 hover:underline"
+                    className="text-brand-primary font-medium underline-offset-2 hover:underline"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    Privacy Policy
+                    {t("privacyLinkText")}
                   </a>
-                  .
-                </Label>
-                <FormMessage />
-              </div>
+                </span>
+              </label>
+              <FormMessage />
             </FormItem>
           )}
         />

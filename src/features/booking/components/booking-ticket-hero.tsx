@@ -5,6 +5,13 @@ import { Calendar, ChevronDown, Clock, Sparkles, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  AnimatePresence,
+  motion,
+  motionOrStill,
+  slideUp,
+  usePrefersReducedMotion,
+} from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
 
@@ -57,6 +64,7 @@ export function BookingTicketHero({
   "data-testid": testId,
 }: BookingTicketHeroProps) {
   const t = useTranslations("guest.manage.ticketHero");
+  const reduced = usePrefersReducedMotion();
   const [perksOpen, setPerksOpen] = React.useState(false);
   const guestSummary = `${t("guestSummaryAdults", { count: adultCount })}${
     childCount > 0 ? ` · ${t("guestSummaryChildren", { count: childCount })}` : ""
@@ -86,7 +94,7 @@ export function BookingTicketHero({
       {/* QR panel — white surface for camera readability; soft bottom
           border melts into the card body so the page doesn't feel like
           two stitched cards. */}
-      <div className="border-border-subtle border-b bg-white p-6 sm:p-8">
+      <div className="border-border-subtle dark:border-border-subtle/50 border-b bg-white p-6 sm:p-8 dark:shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.05)]">
         <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
           <BookingQrCode
             value={qrCodeRef}
@@ -100,7 +108,7 @@ export function BookingTicketHero({
           >
             {bookingRef}
           </p>
-          <p className="text-center text-[11px] leading-snug text-black/60">{t("qrFooter")}</p>
+          <p className="text-center text-[11px] leading-snug text-neutral-500">{t("qrFooter")}</p>
         </div>
       </div>
 
@@ -172,22 +180,25 @@ export function BookingTicketHero({
                 )}
               />
             </button>
-            {perksOpen ? (
-              <ul
-                id="ticket-perks"
-                className="text-foreground-muted mt-2 flex flex-col gap-1.5 px-2 pb-2 text-xs"
-              >
-                {perks.map((perk) => (
-                  <li key={perk} className="flex items-start gap-2">
-                    <span
-                      aria-hidden
-                      className="text-brand-primary bg-brand-primary mt-1 inline-block size-1.5 shrink-0 rounded-full"
-                    />
-                    <span className="leading-snug">{perk}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            <AnimatePresence initial={false}>
+              {perksOpen ? (
+                <motion.ul
+                  id="ticket-perks"
+                  {...motionOrStill(slideUp({ duration: "small" }), reduced)}
+                  className="text-foreground-muted mt-2 flex flex-col gap-1.5 overflow-hidden px-2 pb-2 text-xs"
+                >
+                  {perks.map((perk) => (
+                    <li key={perk} className="flex items-start gap-2">
+                      <span
+                        aria-hidden
+                        className="text-brand-primary bg-brand-primary mt-1 inline-block size-1.5 shrink-0 rounded-full"
+                      />
+                      <span className="leading-snug">{perk}</span>
+                    </li>
+                  ))}
+                </motion.ul>
+              ) : null}
+            </AnimatePresence>
           </div>
         ) : null}
       </div>

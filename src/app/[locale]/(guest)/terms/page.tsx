@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,30 +19,33 @@ export const dynamic = "force-static";
 export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("guest.terms");
   return {
-    title: "Terms & Conditions · AgarthaOS",
-    description: "Terms governing AgarthaOS bookings and visits.",
+    title: t("metaTitle"),
+    description: t("metaDescription"),
     robots: { index: true, follow: true },
   };
 }
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const t = await getTranslations("guest.terms");
+  const tCommon = await getTranslations("guest.common");
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10 sm:px-6 sm:py-14">
       <header className="flex flex-col gap-3">
         <Button asChild variant="ghost" size="sm" className="self-start">
           <Link href={"/" as never}>
             <ArrowLeft aria-hidden className="size-4" />
-            Back to home
+            {tCommon("backToHome")}
           </Link>
         </Button>
         <h1 className="text-foreground text-2xl font-semibold tracking-tight md:text-3xl">
-          Terms &amp; Conditions
+          {t("title")}
         </h1>
       </header>
 
       <Alert variant="info">
-        <AlertTitle>Full terms coming soon</AlertTitle>
+        <AlertTitle>{t("alertTitle")}</AlertTitle>
         <AlertDescription>
           The complete terms are being finalised. The summary below covers the operative policies
           referenced when you book.
@@ -49,7 +53,9 @@ export default function TermsPage() {
       </Alert>
 
       <section className="border-border-subtle bg-card flex flex-col gap-4 rounded-xl border p-5 sm:p-6">
-        <h2 className="text-foreground text-base font-semibold tracking-tight">Booking</h2>
+        <h2 className="text-foreground text-base font-semibold tracking-tight">
+          {t("sectionBooking")}
+        </h2>
         <ul className="text-foreground-muted list-disc space-y-2 pl-5 text-sm leading-relaxed">
           <li>
             Bookings are held for 15 minutes after creation; payment must be completed within that
@@ -71,7 +77,7 @@ export default function TermsPage() {
 
       <section className="border-border-subtle bg-card flex flex-col gap-4 rounded-xl border p-5 sm:p-6">
         <h2 className="text-foreground text-base font-semibold tracking-tight">
-          Face Pay & Auto-capture
+          {t("sectionFacePay")}
         </h2>
         <p className="text-foreground-muted text-sm leading-relaxed">
           Both features are strictly opt-in per attendee, require explicit consent, and can be
@@ -88,7 +94,9 @@ export default function TermsPage() {
       </section>
 
       <section className="border-border-subtle bg-card flex flex-col gap-4 rounded-xl border p-5 sm:p-6">
-        <h2 className="text-foreground text-base font-semibold tracking-tight">Contact</h2>
+        <h2 className="text-foreground text-base font-semibold tracking-tight">
+          {t("sectionContact")}
+        </h2>
         <p className="text-foreground-muted text-sm leading-relaxed">
           Questions? Email{" "}
           <a

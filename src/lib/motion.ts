@@ -99,6 +99,28 @@ export function slideUp(options: SlideUpOptions = {}): MotionProps {
   };
 }
 
+type SlideHorizontalOptions = Readonly<{ duration?: MotionDuration; direction: 1 | -1 }>;
+
+/**
+ * Slide horizontally + fade. Used for wizard-style forward/back navigation.
+ *   `direction:  1` → enters from the right  (forward / "next")
+ *   `direction: -1` → enters from the left   (back / "previous")
+ * Distance is 24px — a subtle directional hint, not a full panel slide.
+ */
+export function slideHorizontal(options: SlideHorizontalOptions): MotionProps {
+  const duration = options.duration ?? "layout";
+  const distance = 24 * options.direction;
+  return {
+    initial: { opacity: 0, x: distance },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -distance },
+    transition: {
+      duration: DURATION_SECONDS[duration],
+      ease: EASING_EMPHASIZED,
+    },
+  };
+}
+
 /**
  * Stagger children entrance — parent applies `variants={staggerParent}`;
  * each child applies `variants={staggerChild}`. Both are returned together so

@@ -1,4 +1,4 @@
-# 0007 — Attendance Exception: Clarification-as-Request Workflow
+# 0009 — Attendance Exception: Clarification-as-Request Workflow
 
 **Status:** Accepted — 2026-04-22
 **Decision owner:** Pre-Phase-5 operational refinement

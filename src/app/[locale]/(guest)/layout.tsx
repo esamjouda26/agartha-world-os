@@ -15,8 +15,9 @@ import { getTranslations } from "next-intl/server";
  * provider here.
  */
 export default async function GuestLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const t = await getTranslations("app");
-  const brand = t("name");
+  const tApp = await getTranslations("app");
+  const tShell = await getTranslations("guest.shell");
+  const brand = tApp("name");
 
   return (
     <div className="bg-background text-foreground flex min-h-dvh flex-col">
@@ -51,7 +52,7 @@ export default async function GuestLayout({ children }: Readonly<{ children: Rea
               className="text-foreground-muted hover:text-foreground focus-visible:outline-ring rounded-md px-3 py-1.5 outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
               data-testid="guest-shell-my-booking-link"
             >
-              My booking
+              {tShell("myBooking")}
             </Link>
           </nav>
         </div>
@@ -71,13 +72,13 @@ export default async function GuestLayout({ children }: Readonly<{ children: Rea
             href={"/privacy" as never}
             className="hover:text-foreground underline-offset-2 hover:underline"
           >
-            Privacy
+            {tShell("footerPrivacy")}
           </Link>
           <Link
             href={"/terms" as never}
             className="hover:text-foreground underline-offset-2 hover:underline"
           >
-            Terms
+            {tShell("footerTerms")}
           </Link>
         </p>
       </footer>

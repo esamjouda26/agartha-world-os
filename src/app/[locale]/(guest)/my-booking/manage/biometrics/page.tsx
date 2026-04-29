@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+
+import { redirect } from "@/i18n/navigation";
 
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -41,12 +42,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function MyBookingBiometricsPage() {
+export default async function MyBookingBiometricsPage({
+  params,
+}: Readonly<{ params: Promise<{ locale: string }> }>) {
+  const { locale } = await params;
   const context = await getBiometricsContext();
   if (!context) {
-    redirect("/my-booking" as never);
+    redirect({ href: "/my-booking", locale });
+    return null;
   }
   const t = await getTranslations("guest.biometrics");
+  const tCommon = await getTranslations("guest.common");
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -55,6 +61,8 @@ export default async function MyBookingBiometricsPage() {
         title={t("title")}
         description={t("subtitle")}
         backHref="/my-booking/manage"
+        backLabel={tCommon("backToMyBooking")}
+        breadcrumbPrefix={tCommon("breadcrumbBooking")}
         data-testid="biometrics-page-header"
       />
 

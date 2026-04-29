@@ -7,6 +7,7 @@ import { CalendarDays, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { formatHumanDate, formatHumanDateShort, formatHumanTime } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -304,36 +305,4 @@ export function RescheduleSheet({
       </SheetContent>
     </Sheet>
   );
-}
-
-function formatHumanDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return new Intl.DateTimeFormat("en-MY", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(d);
-}
-
-/**
- * Compact date for the in-button meta line — no year, no comma cluster.
- * Stays readable on a 360px viewport even alongside the time portion.
- */
-function formatHumanDateShort(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return new Intl.DateTimeFormat("en-MY", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(d);
-}
-
-function formatHumanTime(hhmmss: string): string {
-  const [hStr = "00", mStr = "00"] = hhmmss.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const period = h >= 12 ? "pm" : "am";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
 }

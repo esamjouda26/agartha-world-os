@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+
+import { redirect } from "@/i18n/navigation";
 import { CalendarClock, Camera, ChevronRight, ImageIcon, MessageSquareHeart } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { formatHumanDateLong, formatHumanTime } from "@/lib/date";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
@@ -53,14 +55,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const RESCHEDULE_CUTOFF_HOURS = 2;
 
-export default async function MyBookingManagePage() {
+export default async function MyBookingManagePage({
+  params,
+}: Readonly<{ params: Promise<{ locale: string }> }>) {
+  const { locale } = await params;
   const booking = await getManagedBooking();
   if (!booking) {
-    redirect("/my-booking" as never);
+    redirect({ href: "/my-booking", locale });
+    return null;
   }
   const t = await getTranslations("guest.manage");
 
-  const dateLabel = formatHumanDate(booking.slot_date);
+  const dateLabel = formatHumanDateLong(booking.slot_date);
   const timeLabel = formatHumanTime(booking.start_time);
   const hours = hoursUntilSlot(booking.slot_date, booking.start_time);
 
@@ -307,23 +313,4 @@ function ManageRow({
       {body}
     </div>
   );
-}
-
-function formatHumanDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return new Intl.DateTimeFormat("en-MY", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(d);
-}
-
-function formatHumanTime(hhmmss: string): string {
-  const [hStr = "00", mStr = "00"] = hhmmss.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const period = h >= 12 ? "pm" : "am";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
 }

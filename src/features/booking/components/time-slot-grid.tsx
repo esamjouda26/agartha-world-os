@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import { Clock, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatHumanTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { AvailableSlot } from "@/features/booking/types/wizard";
 
@@ -30,18 +32,6 @@ export type TimeSlotGridProps = Readonly<{
   "data-testid"?: string;
 }>;
 
-function formatTime(hhmmss: string): string {
-  // Display the slot start in 12-hour form. The DB stores HH:MM:SS in the
-  // facility timezone (operational_workflows.md treats time_slots.start_time
-  // as facility-local), so we don't apply any TZ conversion here.
-  const [hStr = "00", mStr = "00"] = hhmmss.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const period = h >= 12 ? "pm" : "am";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
-}
-
 const LOW_REMAINING_THRESHOLD = 5;
 
 export function TimeSlotGrid({
@@ -53,6 +43,8 @@ export function TimeSlotGrid({
   className,
   "data-testid": testId,
 }: TimeSlotGridProps) {
+  const t = useTranslations("guest.book.time");
+
   if (loading) {
     return (
       <div
@@ -65,7 +57,7 @@ export function TimeSlotGrid({
         )}
       >
         <Loader2 aria-hidden className="text-foreground-muted size-5 animate-spin" />
-        <span className="text-foreground-muted ml-2 text-sm">Loading slots…</span>
+        <span className="text-foreground-muted ml-2 text-sm">{t("loadingSlots")}</span>
       </div>
     );
   }
@@ -74,8 +66,8 @@ export function TimeSlotGrid({
     return (
       <EmptyState
         variant="filtered-out"
-        title="No slots available for this date."
-        description="Pick a different date or adjust your guest count to see availability."
+        title={t("noSlots")}
+        description={t("emptyDescription")}
         data-testid={testId ? `${testId}-empty` : "time-slot-grid-empty"}
       />
     );
@@ -130,10 +122,10 @@ export function TimeSlotGrid({
   return (
     <ul
       role="radiogroup"
-      aria-label="Choose a time slot"
+      aria-label={t("ariaChooseSlot")}
       data-testid={testId ?? "time-slot-grid"}
       onKeyDown={handleKey}
-      className={cn("grid gap-2 sm:grid-cols-3 lg:grid-cols-4", className)}
+      className={cn("grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4", className)}
     >
       {slots.map((slot) => {
         const fits = slot.is_available && slot.slot_remaining >= guestCount;
@@ -172,21 +164,23 @@ export function TimeSlotGrid({
             >
               <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
                 <Clock aria-hidden className="size-3.5" />
-                {formatTime(slot.start_time)}
+                {formatHumanTime(slot.start_time)}
               </span>
               {fits ? (
                 <span className="text-foreground-muted text-xs">
-                  {slot.slot_remaining} {slot.slot_remaining === 1 ? "spot" : "spots"} left
+                  {slot.slot_remaining === 1
+                    ? t("spotsLeftOne")
+                    : t("spotsLeft", { count: slot.slot_remaining })}
                 </span>
               ) : (
-                <span className="text-foreground-subtle text-xs">Sold out</span>
+                <span className="text-foreground-subtle text-xs">{t("soldOut")}</span>
               )}
               {showLowBadge ? (
                 <Badge
                   variant="outline"
                   className="border-status-warning-border text-status-warning-foreground absolute top-2 right-2 px-1.5 py-0 text-[10px]"
                 >
-                  Low
+                  {t("lowBadge")}
                 </Badge>
               ) : null}
             </button>

@@ -45,7 +45,7 @@ export const listScheduleOverview = cache(
 
     // ── Count queries (parallel with main) ────────────────────────────
     // Total rows matching all filters (no cursor, no limit).
-    let countQ = client.from("shift_schedules").select("*", { count: "exact", head: true });
+    let countQ = client.from("shift_schedules").select("id", { count: "exact", head: true });
     if (staffIdFilter) countQ = countQ.in("staff_record_id", staffIdFilter);
     if (filters.shiftTypeId) countQ = countQ.eq("shift_type_id", filters.shiftTypeId);
     if (filters.override === "true") countQ = countQ.eq("is_override", true);
@@ -55,7 +55,7 @@ export const listScheduleOverview = cache(
     // Override count: same filters + is_override = true (no cursor).
     let overrideCountQ = client
       .from("shift_schedules")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("is_override", true);
     if (staffIdFilter) overrideCountQ = overrideCountQ.in("staff_record_id", staffIdFilter);
     if (filters.shiftTypeId)

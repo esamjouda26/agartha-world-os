@@ -17,12 +17,6 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
 
   // Optional in development. Required before the corresponding feature ships:
-  //   PAYMENT_WEBHOOK_SECRET     → DEPRECATED placeholder for the legacy
-  //                                shared-secret confirm-booking-payment
-  //                                Edge Function. Superseded by
-  //                                STRIPE_WEBHOOK_SECRET below; retained
-  //                                only so existing .env files don't break
-  //                                Zod parsing.
   //   STRIPE_SECRET_KEY          → server-only `sk_live_...` / `sk_test_...`
   //                                used by `startPaymentAction` to mint
   //                                Checkout Sessions. Production deploys
@@ -54,7 +48,6 @@ const envSchema = z.object({
   //                                mode is logged in dispatchEmail).
   //   RESEND_FROM_EMAIL          → "AgarthaOS <bookings@…>" — must match a
   //                                verified Resend sender domain.
-  PAYMENT_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   STRIPE_SECRET_KEY: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   STRIPE_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
   NEXT_PUBLIC_BASE_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),

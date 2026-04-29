@@ -1693,7 +1693,7 @@ TABLES TOUCHED:
 
 ### `/management/hr/attendance/queue`
 
-**AMENDED BY [ADR-0007](docs/adr/0007-exception-clarification-workflow.md):** scope narrowed to staff-initiated submissions only.
+**AMENDED BY [ADR-0009](docs/adr/0009-exception-clarification-workflow.md):** scope narrowed to staff-initiated submissions only.
 
 WHO: `hr` domain with `r` access
 PURPOSE: HR action-required inbox — approve or reject clarifications staff have explicitly submitted for review.

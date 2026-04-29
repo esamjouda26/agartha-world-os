@@ -7,19 +7,27 @@ import { parseAsInteger, parseAsString, parseAsStringEnum, useQueryState } from 
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { BookingCalendar } from "@/features/booking/components/booking-calendar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StickyActionBar } from "@/components/ui/sticky-action-bar";
 import { toastError } from "@/components/ui/toast-helpers";
 import {
   AnimatePresence,
-  fadeIn,
   motion,
   motionOrStill,
+  slideHorizontal,
   usePrefersReducedMotion,
 } from "@/lib/motion";
 import {
+  formatHumanDate,
+  formatHumanTime,
+  formatIsoDateLocal,
+  parseIsoDateLocal,
+} from "@/lib/date";
+import { formatMoney } from "@/lib/money";
+import {
   BookingSummaryCard,
+  type BookingSummaryLabels,
   type BookingSummaryLineItem,
 } from "@/components/shared/booking-summary-card";
 
@@ -74,7 +82,7 @@ const stringParser = parseAsString.withDefault("");
 const adultsParser = parseAsInteger.withDefault(1);
 const childrenParser = parseAsInteger.withDefault(0);
 
-const HISTORY_OPTS = { clearOnDefault: true, history: "push" as const };
+const HISTORY_OPTS = { clearOnDefault: true, history: "replace" as const, shallow: true };
 
 const DEFAULT_BOOKER: BookerDetailsInput = {
   booker_name: "",
@@ -85,68 +93,73 @@ const DEFAULT_BOOKER: BookerDetailsInput = {
 
 const CURRENCY = "MYR";
 
-function formatHumanDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const d = new Date(iso + "T00:00:00");
-  return new Intl.DateTimeFormat("en-MY", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(d);
-}
-
-function formatHumanTime(hhmmss: string | null): string | null {
-  if (!hhmmss) return null;
-  const [hStr = "00", mStr = "00"] = hhmmss.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr);
-  const period = h >= 12 ? "pm" : "am";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
-}
-
-function formatMoney(amount: number): string {
-  // 2 fraction digits everywhere — matches BookingSummaryCard, the
-  // payment receipt, and the underlying booking_payments.amount precision.
-  // Mixing 0/2 frac-digits caused "RM 100" in the sticky CTA next to
-  // "RM 100.00" in the summary card on the same screen.
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency: CURRENCY,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-function isoDateLocal(d: Date): string {
-  const yyyy = d.getFullYear().toString().padStart(4, "0");
-  const mm = (d.getMonth() + 1).toString().padStart(2, "0");
-  const dd = d.getDate().toString().padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function parseIsoDateLocal(iso: string | null): Date | null {
-  if (!iso) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-}
-
 export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
   const t = useTranslations("guest.book");
+  const tSummary = useTranslations("guest.book.summary");
   const reduced = usePrefersReducedMotion();
   const [isPending, startTransition] = useTransition();
 
   // URL state.
-  const [step, setStep] = useQueryState("step", stepParser.withOptions(HISTORY_OPTS));
+  // `step` uses history "push" so the browser Back button navigates between
+  // wizard steps — a meaningful navigation event. All other params use
+  // "replace" + shallow so selection/adjustment clicks (tier pick, stepper
+  // taps, date pick) don't flood the history stack or trigger server
+  // roundtrips that cause flicker.
+  const STEP_OPTS = { clearOnDefault: true, history: "push" as const, shallow: true };
+  const [step, setStep] = useQueryState("step", stepParser.withOptions(STEP_OPTS));
   const [tierId, setTierId] = useQueryState("tierId", stringParser.withOptions(HISTORY_OPTS));
   const [date, setDate] = useQueryState("date", stringParser.withOptions(HISTORY_OPTS));
   const [slotId, setSlotId] = useQueryState("slotId", stringParser.withOptions(HISTORY_OPTS));
-  const [adults, setAdults] = useQueryState("adults", adultsParser.withOptions(HISTORY_OPTS));
-  const [children, setChildren] = useQueryState(
+  const [adultsUrl, setAdultsUrl] = useQueryState("adults", adultsParser.withOptions(HISTORY_OPTS));
+  const [childrenUrl, setChildrenUrl] = useQueryState(
     "children",
     childrenParser.withOptions(HISTORY_OPTS),
+  );
+
+  // Optimistic display values — prevents flicker during the async nuqs URL
+  // transition. `useOptimistic` applies the new value immediately on the
+  // synchronous render while the URL update settles in a React transition.
+  const [adults, setAdultsOptimistic] = React.useOptimistic(adultsUrl);
+  const [children, setChildrenOptimistic] = React.useOptimistic(childrenUrl);
+  // useOptimistic state updates MUST happen inside a transition (React 19
+  // strict requirement). Wrap both the optimistic flip and the URL state
+  // update — the URL transition is what useOptimistic is hiding the
+  // latency of, so they belong in the same transition envelope.
+  const setAdults = React.useCallback(
+    (n: number) => {
+      React.startTransition(() => {
+        setAdultsOptimistic(n);
+        void setAdultsUrl(n);
+      });
+    },
+    [setAdultsOptimistic, setAdultsUrl],
+  );
+  const setChildren = React.useCallback(
+    (n: number) => {
+      React.startTransition(() => {
+        setChildrenOptimistic(n);
+        void setChildrenUrl(n);
+      });
+    },
+    [setChildrenOptimistic, setChildrenUrl],
+  );
+
+  const summaryLabels: BookingSummaryLabels = React.useMemo(
+    () => ({
+      orderSummary: tSummary("orderSummary"),
+      experience: tSummary("experience"),
+      tier: tSummary("tier"),
+      date: tSummary("date"),
+      time: tSummary("time"),
+      guests: tSummary("guests"),
+      total: tSummary("total"),
+      appliedPromo: tSummary("appliedPromo"),
+      adultSingular: tSummary("adultSingular", { count: 1 }),
+      adultPlural: tSummary("adultPlural", { count: adults }),
+      childSingular: tSummary("childSingular", { count: 1 }),
+      childPlural: tSummary("childPlural", { count: children }),
+    }),
+    [tSummary, adults, children],
   );
 
   // Local (non-URL) state.
@@ -157,6 +170,11 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
   const [slotsLoading, setSlotsLoading] = React.useState(false);
   const [slotsError, setSlotsError] = React.useState<string | null>(null);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  // navDirection: 1 = forward (next/jump-ahead), -1 = backward (back/jump-back).
+  // Read by slideHorizontal() at render time; updated by goTo() before the
+  // step state flip so AnimatePresence sees the correct direction on the
+  // exit-then-enter transition.
+  const [navDirection, setNavDirection] = React.useState<1 | -1>(1);
   const validateBookerRef = React.useRef<(() => Promise<boolean>) | null>(null);
 
   // Derive selected tier + slot from URL state.
@@ -273,6 +291,8 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
   const stepIndex = WIZARD_STEPS.indexOf(step);
 
   function goTo(target: WizardStep): void {
+    const targetIndex = WIZARD_STEPS.indexOf(target);
+    setNavDirection(targetIndex < stepIndex ? -1 : 1);
     void setStep(target);
   }
 
@@ -385,7 +405,10 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={step}
-            {...motionOrStill(fadeIn({ duration: "small" }), reduced)}
+            {...motionOrStill(
+              slideHorizontal({ duration: "layout", direction: navDirection }),
+              reduced,
+            )}
             className="flex flex-col gap-5"
           >
             {step === "plan" && (
@@ -406,6 +429,8 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
                       onChange={(n) => void setAdults(n)}
                       min={1}
                       max={maxAdults}
+                      decreaseLabel={t("plan.decreaseLabel", { label: t("plan.adults") })}
+                      increaseLabel={t("plan.increaseLabel", { label: t("plan.adults") })}
                       data-testid="adults-stepper"
                     />
                     <GuestCountStepper
@@ -415,6 +440,8 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
                       onChange={(n) => void setChildren(n)}
                       min={0}
                       max={maxChildren}
+                      decreaseLabel={t("plan.decreaseLabel", { label: t("plan.children") })}
+                      increaseLabel={t("plan.increaseLabel", { label: t("plan.children") })}
                       data-testid="children-stepper"
                     />
                   </div>
@@ -455,20 +482,19 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
                   </p>
                   <p className="text-foreground-muted mt-1 text-xs">{t("date.subtitle")}</p>
                 </div>
-                {/* Inline calendar instead of a popover trigger — the date
-                    pick IS the step, so the calendar should be visible
-                    immediately without an extra tap. */}
-                <Calendar
-                  mode="single"
-                  selected={parseIsoDateLocal(date) ?? undefined}
+                {/* Inline calendar — the date pick IS the step, so the
+                    calendar is visible immediately without an extra tap.
+                    BookingCalendar fills the container width with large,
+                    touch-friendly day cells. */}
+                <BookingCalendar
+                  selected={date ? parseIsoDateLocal(date) : undefined}
                   onSelect={(d) => {
-                    void setDate(d ? isoDateLocal(d) : null);
+                    void setDate(d ? formatIsoDateLocal(d) : null);
                     void setSlotId(null);
                   }}
-                  disabled={(d: Date) => d < today || d > maxDate}
-                  initialFocus
+                  minDate={today}
+                  maxDate={maxDate}
                   data-testid="slot-calendar"
-                  className="self-center"
                 />
               </section>
             )}
@@ -609,6 +635,7 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
                   lineItems={lineItems}
                   total={total}
                   promoCode={promo?.valid ? promo.promo_code : null}
+                  labels={summaryLabels}
                   data-testid="booking-summary-review"
                   className="lg:hidden"
                 />
@@ -649,7 +676,7 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
               {isPending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
               {isPending
                 ? t("review.ctaConfirming")
-                : t("review.ctaConfirm", { total: formatMoney(total) })}
+                : t("review.ctaConfirm", { total: formatMoney(total, CURRENCY) })}
             </Button>
           ) : (
             <Button
@@ -680,6 +707,7 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
           lineItems={lineItems}
           total={total}
           promoCode={promo?.valid ? promo.promo_code : null}
+          labels={summaryLabels}
           data-testid="booking-summary-aside"
         />
       </div>
@@ -724,7 +752,7 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
                 {isPending ? <Loader2 aria-hidden className="size-4 animate-spin" /> : null}
                 {isPending
                   ? t("review.ctaConfirming")
-                  : t("review.ctaConfirmMobile", { total: formatMoney(total) })}
+                  : t("review.ctaConfirmMobile", { total: formatMoney(total, CURRENCY) })}
               </Button>
             ) : (
               <Button

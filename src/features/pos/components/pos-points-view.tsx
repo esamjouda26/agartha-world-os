@@ -22,13 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +36,7 @@ import { toastSuccess, toastError } from "@/components/ui/toast-helpers";
 
 import type { PosPointsData, PosPointRow } from "@/features/pos/types/management";
 import { upsertPosPoint } from "@/features/pos/actions/upsert-pos-point";
+import { formatCents } from "@/lib/money";
 import { upsertPosPointSchema, type UpsertPosPointInput } from "@/features/pos/schemas/pos-point";
 import type { FieldPath } from "react-hook-form";
 
@@ -61,14 +56,6 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 };
 
 // ── Formatters ──────────────────────────────────────────────────────────
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency: "MYR",
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
-}
 
 function formatTime(iso: string | null): string {
   if (!iso) return "—";
@@ -124,11 +111,7 @@ function PosPointForm({ defaultValues, locations, onSuccess }: PosPointFormProps
             <FormItem>
               <FormLabel>Internal name</FormLabel>
               <FormControl>
-                <Input
-                  {...field}
-                  placeholder="e.g. main-bar"
-                  data-testid="pos-point-form-name"
-                />
+                <Input {...field} placeholder="e.g. main-bar" data-testid="pos-point-form-name" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -266,9 +249,7 @@ export function PosPointsView({ data, canWrite }: PosPointsViewProps) {
     return result;
   }, [data.rows, search.value, statusFilter.value, locationFilter.value]);
 
-  const hasActiveFilters = Boolean(
-    search.value || statusFilter.value || locationFilter.value,
-  );
+  const hasActiveFilters = Boolean(search.value || statusFilter.value || locationFilter.value);
 
   const resetAll = () => {
     search.set(null);
@@ -342,7 +323,7 @@ export function PosPointsView({ data, canWrite }: PosPointsViewProps) {
         id: "revenueToday",
         accessorKey: "revenueToday",
         header: "Revenue today",
-        cell: ({ row }) => formatCurrency(row.original.revenueToday),
+        cell: ({ row }) => formatCents(row.original.revenueToday),
       },
       {
         id: "isActive",
@@ -430,7 +411,7 @@ export function PosPointsView({ data, canWrite }: PosPointsViewProps) {
             />
             <KpiCard
               label="Today's revenue"
-              value={formatCurrency(data.kpis.revenueToday)}
+              value={formatCents(data.kpis.revenueToday)}
               icon={<DollarSign aria-hidden className="size-4" />}
               data-testid="pos-kpi-revenue"
             />
@@ -519,9 +500,7 @@ export function PosPointsView({ data, canWrite }: PosPointsViewProps) {
         onOpenChange={handleSheetOpenChange}
         title={editTarget ? "Edit POS point" : "New POS point"}
         description={
-          editTarget
-            ? `Editing "${editTarget.displayName}"`
-            : "Create a new register or terminal."
+          editTarget ? `Editing "${editTarget.displayName}"` : "Create a new register or terminal."
         }
         hideFooter
         data-testid="pos-point-sheet"

@@ -27,13 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -50,6 +44,7 @@ import {
   type UpsertPriceListItemInput,
 } from "@/features/pos/schemas/price-list-item";
 import { parseIsoDateLocal } from "@/lib/date";
+import { formatCents } from "@/lib/money";
 
 // ── Constants ────────────────────────────────────────────────────────────
 
@@ -70,7 +65,10 @@ function resolveStatus(row: PriceListRow): PriceListStatus {
   return "active";
 }
 
-const STATUS_TONE: Record<PriceListStatus, { token: string; label: string; tone: "success" | "info" | "neutral" | "warning" }> = {
+const STATUS_TONE: Record<
+  PriceListStatus,
+  { token: string; label: string; tone: "success" | "info" | "neutral" | "warning" }
+> = {
   currently_active: { token: "active", label: "Currently Active", tone: "success" },
   active: { token: "active", label: "Active", tone: "info" },
   expired: { token: "expired", label: "Expired", tone: "neutral" },
@@ -79,13 +77,16 @@ const STATUS_TONE: Record<PriceListStatus, { token: string; label: string; tone:
 
 // ── Formatters ──────────────────────────────────────────────────────────
 
+/**
+ * Local wrapper around `formatCents` that adds an invalid-currency safety
+ * net. Price-list rows surface a user-supplied `currency` column; if a
+ * legacy/typo value sneaks through, falling back to plain text avoids a
+ * runtime exception in the table cell. All other call sites use
+ * `formatCents` directly because their currency values are constants.
+ */
 function formatCurrency(cents: number, currency: string): string {
   try {
-    return new Intl.NumberFormat("en-MY", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 2,
-    }).format(cents / 100);
+    return formatCents(cents, currency);
   } catch {
     return `${currency} ${(cents / 100).toFixed(2)}`;
   }
@@ -304,7 +305,7 @@ export function PriceListDetailView({ data, canWrite }: PriceListDetailViewProps
     const label =
       ppFilter.value === "all-terminals"
         ? "All terminals (global rows)"
-        : posPoints.find((p) => p.id === ppFilter.value)?.displayName ?? ppFilter.value;
+        : (posPoints.find((p) => p.id === ppFilter.value)?.displayName ?? ppFilter.value);
     chips.push(
       <FilterChip
         key="pp"

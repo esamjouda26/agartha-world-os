@@ -4,7 +4,9 @@ import "server-only";
 
 import { after } from "next/server";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
+
+import { redirect } from "@/i18n/navigation";
 
 import { verifyGuestSameOrigin } from "@/lib/auth/guest-csrf";
 import { dispatchEmail } from "@/lib/email/dispatch";
@@ -155,5 +157,7 @@ async function getBookingIdentityActionImpl(
     },
   );
 
-  redirect("/my-booking/verify" as never);
+  const locale = await getLocale();
+  redirect({ href: "/my-booking/verify", locale });
+  return undefined as never; // redirect() throws — unreachable
 }

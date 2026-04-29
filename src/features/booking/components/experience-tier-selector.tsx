@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import { Check, Clock, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { TierWithPerks } from "@/features/booking/types/wizard";
 
@@ -31,15 +33,6 @@ export type ExperienceTierSelectorProps = Readonly<{
   "data-testid"?: string;
 }>;
 
-function formatMoney(amount: number, currency: string, fractionDigits = 0): string {
-  return new Intl.NumberFormat("en-MY", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
 export function ExperienceTierSelector({
   tiers,
   selectedId,
@@ -50,10 +43,12 @@ export function ExperienceTierSelector({
   className,
   "data-testid": testId,
 }: ExperienceTierSelectorProps) {
+  const t = useTranslations("guest.book.plan");
+
   return (
     <div
       role="radiogroup"
-      aria-label="Choose a tier"
+      aria-label={t("ariaChooseTier")}
       data-testid={testId ?? "experience-tier-selector"}
       className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-3", className)}
     >
@@ -94,22 +89,23 @@ export function ExperienceTierSelector({
               </h3>
               <p className="text-foreground-muted flex items-center gap-1.5 text-xs">
                 <Clock aria-hidden className="size-3.5" />
-                {tier.duration_minutes} min
+                {t("durationMin", { minutes: tier.duration_minutes })}
               </p>
             </header>
 
             <div className="border-border-subtle flex items-baseline justify-between gap-2 border-t pt-3">
               <span className="text-foreground-muted text-xs">
-                Total for {adultCount + childCount} guest
-                {adultCount + childCount === 1 ? "" : "s"}
+                {t("totalForGuests", { count: adultCount + childCount })}
               </span>
               <span className="text-foreground text-lg font-semibold tabular-nums">
                 {formatMoney(total, currency, 0)}
               </span>
             </div>
             <p className="text-foreground-subtle -mt-2 text-[11px] leading-snug">
-              {formatMoney(tier.adult_price, currency)}/adult
-              {tier.child_price > 0 ? ` · ${formatMoney(tier.child_price, currency)}/child` : null}
+              {formatMoney(tier.adult_price, currency)}/{t("perAdult")}
+              {tier.child_price > 0
+                ? ` · ${formatMoney(tier.child_price, currency)}/${t("perChild")}`
+                : null}
             </p>
 
             {tier.perks.length > 0 ? (

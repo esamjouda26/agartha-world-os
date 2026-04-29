@@ -26,6 +26,10 @@ export type GuestCountStepperProps = Readonly<{
   onChange: (next: number) => void;
   min: number;
   max: number;
+  /** Translated aria-label for the minus button. Required — no default. */
+  decreaseLabel: string;
+  /** Translated aria-label for the plus button. Required — no default. */
+  increaseLabel: string;
   className?: string;
   "data-testid"?: string;
 }>;
@@ -37,6 +41,8 @@ export function GuestCountStepper({
   onChange,
   min,
   max,
+  decreaseLabel,
+  increaseLabel,
   className,
   "data-testid": testId,
 }: GuestCountStepperProps) {
@@ -79,7 +85,7 @@ export function GuestCountStepper({
           size="icon"
           onClick={decrement}
           disabled={atMin}
-          aria-label={`Decrease ${label.toLowerCase()}`}
+          aria-label={decreaseLabel}
           data-testid={testId ? `${testId}-decrement` : undefined}
           className="size-11"
         >
@@ -99,7 +105,7 @@ export function GuestCountStepper({
           size="icon"
           onClick={increment}
           disabled={atMax}
-          aria-label={`Increase ${label.toLowerCase()}`}
+          aria-label={increaseLabel}
           data-testid={testId ? `${testId}-increment` : undefined}
           className="size-11"
         >
