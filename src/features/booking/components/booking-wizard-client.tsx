@@ -116,32 +116,29 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
     childrenParser.withOptions(HISTORY_OPTS),
   );
 
-  // Optimistic display values — prevents flicker during the async nuqs URL
-  // transition. `useOptimistic` applies the new value immediately on the
-  // synchronous render while the URL update settles in a React transition.
-  const [adults, setAdultsOptimistic] = React.useOptimistic(adultsUrl);
-  const [children, setChildrenOptimistic] = React.useOptimistic(childrenUrl);
-  // useOptimistic state updates MUST happen inside a transition (React 19
-  // strict requirement). Wrap both the optimistic flip and the URL state
-  // update — the URL transition is what useOptimistic is hiding the
-  // latency of, so they belong in the same transition envelope.
+  // Display-layer guest counts — local state seeded from the URL, updated
+  // synchronously on stepper clicks for flicker-free UI. The URL remains
+  // the source of truth; the useEffect below keeps local state in sync
+  // when the URL changes externally (browser back/forward, deep-link).
+  const [adults, setAdultsLocal] = React.useState(adultsUrl);
+  const [children, setChildrenLocal] = React.useState(childrenUrl);
+
+  React.useEffect(() => setAdultsLocal(adultsUrl), [adultsUrl]);
+  React.useEffect(() => setChildrenLocal(childrenUrl), [childrenUrl]);
+
   const setAdults = React.useCallback(
     (n: number) => {
-      React.startTransition(() => {
-        setAdultsOptimistic(n);
-        void setAdultsUrl(n);
-      });
+      setAdultsLocal(n); // immediate UI update
+      void setAdultsUrl(n); // async URL sync
     },
-    [setAdultsOptimistic, setAdultsUrl],
+    [setAdultsUrl],
   );
   const setChildren = React.useCallback(
     (n: number) => {
-      React.startTransition(() => {
-        setChildrenOptimistic(n);
-        void setChildrenUrl(n);
-      });
+      setChildrenLocal(n); // immediate UI update
+      void setChildrenUrl(n); // async URL sync
     },
-    [setChildrenOptimistic, setChildrenUrl],
+    [setChildrenUrl],
   );
 
   const summaryLabels: BookingSummaryLabels = React.useMemo(
