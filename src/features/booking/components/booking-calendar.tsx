@@ -28,6 +28,11 @@ export type BookingCalendarProps = Readonly<{
   minDate: Date;
   /** Days after this date are disabled. */
   maxDate: Date;
+  /**
+   * When provided, only dates in this set (ISO YYYY-MM-DD) are selectable.
+   * Dates outside the set are disabled even if within min/max range.
+   */
+  availableDates?: ReadonlySet<string>;
   className?: string;
   "data-testid"?: string;
 }>;
@@ -37,6 +42,7 @@ export function BookingCalendar({
   onSelect,
   minDate,
   maxDate,
+  availableDates,
   className,
   "data-testid": testId,
 }: BookingCalendarProps) {
@@ -57,11 +63,18 @@ export function BookingCalendar({
         mode="single"
         selected={selected}
         onSelect={onSelect}
-        disabled={(d: Date) => d < minDate || d > maxDate}
+        disabled={(d: Date) => {
+          if (d < minDate || d > maxDate) return true;
+          // When available dates are loaded, restrict to only those dates.
+          if (availableDates && availableDates.size > 0) {
+            const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+            return !availableDates.has(iso);
+          }
+          return false;
+        }}
         startMonth={startMonth}
         endMonth={endMonth}
         initialFocus
-        showOutsideDays
         className={cn(
           // Override the generic calendar's w-fit + fixed cell size.
           // Full-width, large touch targets, centered in container.
@@ -127,6 +140,12 @@ function BookingDayButton({
   const isToday = modifiers.today;
   const isOutside = modifiers.outside;
   const isDisabled = modifiers.disabled;
+
+  // Outside-month days: render an empty placeholder to preserve the
+  // grid layout without showing adjacent month numbers.
+  if (isOutside) {
+    return <span className="aspect-square w-full" aria-hidden />;
+  }
 
   return (
     <button

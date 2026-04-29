@@ -32,6 +32,7 @@ import {
 } from "@/components/shared/booking-summary-card";
 
 import { createBookingAction } from "@/features/booking/actions/create-booking";
+import { getAvailableDatesAction } from "@/features/booking/actions/get-available-dates";
 import { getAvailableSlotsAction } from "@/features/booking/actions/get-available-slots";
 import { BookerDetailsForm } from "@/features/booking/components/booker-details-form";
 import { ExperienceTierSelector } from "@/features/booking/components/experience-tier-selector";
@@ -364,11 +365,32 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
     t.setHours(0, 0, 0, 0);
     return t;
   }, []);
+
+  // Fetch dates that have generated slots from the scheduler.
+  const [availableDates, setAvailableDates] = React.useState<ReadonlySet<string>>(new Set());
+  React.useEffect(() => {
+    let cancelled = false;
+    void getAvailableDatesAction(catalog.experience.id).then((res) => {
+      if (cancelled) return;
+      if (res.success) setAvailableDates(new Set(res.data));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalog.experience.id]);
+
+  // Calendar bounds derived from available dates — no hardcoded window.
   const maxDate = React.useMemo(() => {
-    const max = new Date(today);
-    max.setDate(max.getDate() + 14);
-    return max;
-  }, [today]);
+    const dates = [...availableDates];
+    if (dates.length === 0) {
+      // Fallback while loading — show at least today
+      const fallback = new Date(today);
+      fallback.setDate(fallback.getDate() + 14);
+      return fallback;
+    }
+    const last = dates[dates.length - 1]!;
+    return parseIsoDateLocal(last);
+  }, [availableDates, today]);
 
   const continueDisabled = !canAdvance(step) || isPending;
   const onReview = step === "review";
@@ -491,6 +513,7 @@ export function BookingWizardClient({ catalog }: BookingWizardClientProps) {
                   }}
                   minDate={today}
                   maxDate={maxDate}
+                  availableDates={availableDates}
                   data-testid="slot-calendar"
                 />
               </section>

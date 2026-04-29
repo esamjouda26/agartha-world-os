@@ -44,6 +44,7 @@ export function TimeSlotGrid({
   "data-testid": testId,
 }: TimeSlotGridProps) {
   const t = useTranslations("guest.book.time");
+  const buttonRefs = React.useRef<Map<string, HTMLButtonElement | null>>(new Map());
 
   if (loading) {
     return (
@@ -80,7 +81,6 @@ export function TimeSlotGrid({
   // First selectable index by slot_id — used as the tab-stop anchor when
   // nothing is selected yet.
   const firstSelectableSlotId = selectableSlots[0]?.slot_id ?? null;
-  const buttonRefs = React.useRef<Map<string, HTMLButtonElement | null>>(new Map());
 
   const moveFocus = (delta: number): void => {
     if (selectableSlots.length === 0) return;
